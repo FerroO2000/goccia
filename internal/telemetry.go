@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const providerName = "acmetel"
+const providerName = "goccia"
 
 type Telemetry struct {
 	stageKind string

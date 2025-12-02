@@ -29,8 +29,10 @@ func (h *canToQuestDBHandler) Handle(_ context.Context, canMsg *processor.CANMes
 
 		row.AddSymbol(egress.NewQuestDBSymbol("name", sig.Name))
 
+		// Allocate columns for can id and raw value, but don't add them yet
+		// because in the case of enum signals, we need to add the enum_value column
+		// first since it is a symbol column
 		columns := make([]egress.QuestDBColumn, 0, 3)
-
 		columns = append(columns, egress.NewQuestDBIntColumn("can_id", int64(sig.CANID)))
 		columns = append(columns, egress.NewQuestDBIntColumn("raw_value", int64(sig.RawValue)))
 
@@ -45,6 +47,7 @@ func (h *canToQuestDBHandler) Handle(_ context.Context, canMsg *processor.CANMes
 			columns = append(columns, egress.NewQuestDBFloatColumn("float_value", sig.ValueFloat))
 
 		case processor.CANSignalValueTypeEnum:
+			// Add the enum_value column before the can_id and raw_value columns
 			row.AddSymbol(egress.NewQuestDBSymbol("enum_value", sig.ValueEnum))
 		}
 
