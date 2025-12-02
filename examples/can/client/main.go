@@ -31,17 +31,17 @@ func main() {
 	tickerCfg.Interval = time.Millisecond * 10
 	tickerStage := ingress.NewTickerStage(tickerToCustom, tickerCfg)
 
-	customCfg := processor.DefaultCustomConfig(acmetel.StageRunningModeSingle)
+	customCfg := processor.DefaultCustomConfig(goccia.StageRunningModeSingle)
 	customCfg.Name = "ticker_to_cannelloni"
 	customStage := processor.NewCustomStage(newTickerToCannelloniHandler(), tickerToCustom, customToCannelloni, customCfg)
 
-	cannelloniCfg := processor.DefaultCannelloniConfig(acmetel.StageRunningModeSingle)
+	cannelloniCfg := processor.DefaultCannelloniConfig(goccia.StageRunningModeSingle)
 	cannelloniStage := processor.NewCannelloniEncoderStage(customToCannelloni, cannelloniToUDP, cannelloniCfg)
 
-	udpCfg := egress.DefaultUDPConfig(acmetel.StageRunningModeSingle)
+	udpCfg := egress.DefaultUDPConfig(goccia.StageRunningModeSingle)
 	udpStage := egress.NewUDPStage(cannelloniToUDP, udpCfg)
 
-	pipeline := acmetel.NewPipeline()
+	pipeline := goccia.NewPipeline()
 
 	pipeline.AddStage(tickerStage)
 	pipeline.AddStage(customStage)

@@ -7,13 +7,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/link"
 	"github.com/FerroO2000/goccia"
 	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/egress"
 	"github.com/FerroO2000/goccia/ingress"
 	"github.com/FerroO2000/goccia/processor"
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 )
 
 const connectorSize = 2048
@@ -57,13 +57,13 @@ func main() {
 
 	ebpfStage := ingress.NewEBPFStage(ebpfToHandler, ebpfConfig)
 
-	pingHandlerConfig := processor.DefaultCustomConfig(acmetel.StageRunningModeSingle)
+	pingHandlerConfig := processor.DefaultCustomConfig(goccia.StageRunningModeSingle)
 	pingHandlerConfig.Name = "ping_handler"
 	pingHandlerStage := processor.NewCustomStage(newPingHandler(), ebpfToHandler, handlerToSink, pingHandlerConfig)
 
 	sinkStage := egress.NewSinkStage(handlerToSink)
 
-	pipeline := acmetel.NewPipeline()
+	pipeline := goccia.NewPipeline()
 
 	pipeline.AddStage(ebpfStage)
 	pipeline.AddStage(pingHandlerStage)

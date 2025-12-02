@@ -26,14 +26,14 @@ func main() {
 	fileIngressCfg.WatchedDirs = []string{"./data/in"}
 	fileIngressStage := ingress.NewFileStage(fileIngressToCustom, fileIngressCfg)
 
-	customCfg := processor.DefaultCustomConfig(acmetel.StageRunningModeSingle)
+	customCfg := processor.DefaultCustomConfig(goccia.StageRunningModeSingle)
 	customCfg.Name = "file_to_file"
 	customStage := processor.NewCustomStage(newFileHandler(), fileIngressToCustom, customToFileEgress, customCfg)
 
 	fileEgressCfg := egress.DefaultFileConfig("./data/out/out.txt")
 	fileEgressStage := egress.NewFileStage(customToFileEgress, fileEgressCfg)
 
-	pipeline := acmetel.NewPipeline()
+	pipeline := goccia.NewPipeline()
 
 	pipeline.AddStage(fileIngressStage)
 	pipeline.AddStage(customStage)

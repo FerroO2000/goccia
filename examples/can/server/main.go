@@ -7,13 +7,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/squadracorsepolito/acmelib"
 	"github.com/FerroO2000/goccia"
 	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/egress"
 	"github.com/FerroO2000/goccia/examples/telemetry"
 	"github.com/FerroO2000/goccia/ingress"
 	"github.com/FerroO2000/goccia/processor"
+	"github.com/squadracorsepolito/acmelib"
 )
 
 const connectorSize = 2048
@@ -33,26 +33,26 @@ func main() {
 	udpCfg := ingress.DefaultUDPConfig()
 	udpStage := ingress.NewUDPStage(udpToCannelloni, udpCfg)
 
-	cannelloniCfg := processor.DefaultCannelloniConfig(acmetel.StageRunningModePool)
+	cannelloniCfg := processor.DefaultCannelloniConfig(goccia.StageRunningModePool)
 	cannelloniStage := processor.NewCannelloniDecoderStage(udpToCannelloni, cannelloniToROB, cannelloniCfg)
 
 	robCfg := processor.DefaultROBConfig()
 	robStage := processor.NewROBStage(cannelloniToROB, robToCAN, robCfg)
 
-	canCfg := processor.DefaultCANConfig(acmetel.StageRunningModePool)
+	canCfg := processor.DefaultCANConfig(goccia.StageRunningModePool)
 	canCfg.Messages = getMessages()
 	canStage := processor.NewCANStage(robToCAN, canToCustom, canCfg)
 
-	customCfg := processor.DefaultCustomConfig(acmetel.StageRunningModePool)
+	customCfg := processor.DefaultCustomConfig(goccia.StageRunningModePool)
 	customCfg.Name = "can_to_questdb"
 	customCfg.Stage.Pool.MinWorkers = customCfg.Stage.Pool.InitialWorkers
 	customStage := processor.NewCustomStage(newCANToQuestDBHandler(), canToCustom, customToQuestDB, customCfg)
 
-	questDBCfg := egress.DefaultQuestDBConfig(acmetel.StageRunningModePool)
+	questDBCfg := egress.DefaultQuestDBConfig(goccia.StageRunningModePool)
 	questDBCfg.Stage.Pool.MinWorkers = questDBCfg.Stage.Pool.InitialWorkers
 	questDBStage := egress.NewQuestDBStage(customToQuestDB, questDBCfg)
 
-	pipeline := acmetel.NewPipeline()
+	pipeline := goccia.NewPipeline()
 
 	pipeline.AddStage(udpStage)
 	pipeline.AddStage(cannelloniStage)
