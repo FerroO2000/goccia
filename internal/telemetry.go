@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"log"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -56,8 +57,8 @@ func (t *Telemetry) LogError(msg string, err error, args ...any) {
 
 func (t *Telemetry) setSpanDefaultAttributes(span trace.Span) {
 	span.SetAttributes(
-		attribute.String("acmetel.stage_kind", t.stageKind),
-		attribute.String("acmetel.stage_name", t.stageName),
+		attribute.String("goccia.stage_kind", t.stageKind),
+		attribute.String("goccia.stage_name", t.stageName),
 	)
 }
 
@@ -69,8 +70,8 @@ func (t *Telemetry) NewTrace(ctx context.Context, spanName string, opts ...trace
 
 func (t *Telemetry) getMetricDefaultAttributes() metric.MeasurementOption {
 	return metric.WithAttributes(
-		attribute.String("acmetel.stage_kind", t.stageKind),
-		attribute.String("acmetel.stage_name", t.stageName),
+		attribute.String("goccia.stage_kind", t.stageKind),
+		attribute.String("goccia.stage_name", t.stageName),
 	)
 }
 
@@ -107,6 +108,7 @@ func (t *Telemetry) NewUpDownCounter(name string, getter func() int64, opts ...m
 	}
 
 	_, err = t.meter.RegisterCallback(func(_ context.Context, o metric.Observer) error {
+		log.Print(name)
 		o.ObserveInt64(counter, getter(), t.getMetricDefaultAttributes())
 		return nil
 	}, counter)
