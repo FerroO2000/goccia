@@ -38,7 +38,7 @@ func main() {
 	ebpfToHandler := connector.NewRingBuffer[*ingress.EBPFMessage[PingEvent]](connectorSize)
 	handlerToSink := connector.NewRingBuffer[*ingress.EBPFMessage[PingEvent]](connectorSize)
 
-	ebpfConfig := ingress.DefaultEBPFConfig(
+	ebpfConfig := ingress.NewEBPFConfig(
 		loadBpf,
 		func(objs *bpfObjects) (link.Link, error) {
 			iface, err := net.InterfaceByName(ifname)
@@ -57,7 +57,7 @@ func main() {
 
 	ebpfStage := ingress.NewEBPFStage(ebpfToHandler, ebpfConfig)
 
-	pingHandlerConfig := processor.DefaultCustomConfig(goccia.StageRunningModeSingle)
+	pingHandlerConfig := processor.NewCustomConfig(goccia.StageRunningModeSingle)
 	pingHandlerConfig.Name = "ping_handler"
 	pingHandlerStage := processor.NewCustomStage(newPingHandler(), ebpfToHandler, handlerToSink, pingHandlerConfig)
 

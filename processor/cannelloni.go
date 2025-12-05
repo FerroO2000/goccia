@@ -5,9 +5,9 @@ import (
 	"encoding/binary"
 	"errors"
 
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/pool"
-	stageCommon "github.com/FerroO2000/goccia/internal/stage"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -18,14 +18,14 @@ import (
 // CannelloniConfig structs contains the configuration for
 // a cannelloni (encoder/decoder) stage.
 type CannelloniConfig struct {
-	Stage *stageCommon.Config
+	*config.Base
 }
 
-// DefaultCannelloniConfig returns the default configuration for
+// NewCannelloniConfig returns the default configuration for
 // a cannelloni (encoder/decoder) stage.
-func DefaultCannelloniConfig(runningMode stageCommon.RunningMode) *CannelloniConfig {
+func NewCannelloniConfig(runningMode config.StageRunningMode) *CannelloniConfig {
 	return &CannelloniConfig{
-		Stage: stageCommon.DefaultConfig(runningMode),
+		Base: config.NewBase(runningMode),
 	}
 }
 
@@ -378,19 +378,15 @@ func (cew *cannelloniEncoderWorker) Close(_ context.Context) error {
 // CannelloniDecoderStage is a processor stage that decodes
 // cannelloni messages into CAN messages.
 type CannelloniDecoderStage[T msgSer] struct {
-	stage[any, T, *CannelloniMessage]
-
-	cfg *CannelloniConfig
+	stage[any, T, *CannelloniMessage, *CannelloniConfig]
 }
 
 // NewCannelloniDecoderStage returns a new cannelloni decoder processor stage.
 func NewCannelloniDecoderStage[T msgSer](inputConnector msgConn[T], outputConnector msgConn[*CannelloniMessage], cfg *CannelloniConfig) *CannelloniDecoderStage[T] {
 	return &CannelloniDecoderStage[T]{
 		stage: newStage(
-			"cannelloni", inputConnector, outputConnector, newCannelloniDecoderWorkerInstMaker[T](), cfg.Stage,
+			"cannelloni", inputConnector, outputConnector, newCannelloniDecoderWorkerInstMaker[T](), cfg,
 		),
-
-		cfg: cfg,
 	}
 }
 
@@ -402,9 +398,7 @@ func (cds *CannelloniDecoderStage[T]) Init(ctx context.Context) error {
 // CannelloniEncoderStage is a processor stage that encodes
 // CAN messages into cannelloni messages.
 type CannelloniEncoderStage struct {
-	stage[any, *CannelloniMessage, *CannelloniEncodedMessage]
-
-	cfg *CannelloniConfig
+	stage[any, *CannelloniMessage, *CannelloniEncodedMessage, *CannelloniConfig]
 }
 
 // NewCannelloniEncoderStage returns a new cannelloni encoder processor stage.
@@ -414,10 +408,8 @@ func NewCannelloniEncoderStage(
 
 	return &CannelloniEncoderStage{
 		stage: newStage(
-			"cannelloni", inputConnector, outputConnector, newCannelloniEncoderWorkerInstMaker(), cfg.Stage,
+			"cannelloni", inputConnector, outputConnector, newCannelloniEncoderWorkerInstMaker(), cfg,
 		),
-
-		cfg: cfg,
 	}
 }
 

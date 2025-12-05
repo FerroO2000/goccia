@@ -22,15 +22,15 @@ func main() {
 	fileIngressToCustom := connector.NewRingBuffer[*ingress.FileMessage](connectorSize)
 	customToFileEgress := connector.NewRingBuffer[*ingress.FileMessage](connectorSize)
 
-	fileIngressCfg := ingress.DefaultFileConfig()
+	fileIngressCfg := ingress.NewFileConfig()
 	fileIngressCfg.WatchedDirs = []string{"./data/in"}
 	fileIngressStage := ingress.NewFileStage(fileIngressToCustom, fileIngressCfg)
 
-	customCfg := processor.DefaultCustomConfig(goccia.StageRunningModeSingle)
+	customCfg := processor.NewCustomConfig(goccia.StageRunningModeSingle)
 	customCfg.Name = "file_to_file"
 	customStage := processor.NewCustomStage(newFileHandler(), fileIngressToCustom, customToFileEgress, customCfg)
 
-	fileEgressCfg := egress.DefaultFileConfig("./data/out/out.txt")
+	fileEgressCfg := egress.NewFileConfig("./data/out/out.txt")
 	fileEgressStage := egress.NewFileStage(customToFileEgress, fileEgressCfg)
 
 	pipeline := goccia.NewPipeline()

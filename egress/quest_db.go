@@ -9,10 +9,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	qdb "github.com/questdb/go-questdb-client/v3"
 	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
-	stageCommon "github.com/FerroO2000/goccia/internal/stage"
+	qdb "github.com/questdb/go-questdb-client/v3"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -20,22 +20,33 @@ import (
 //  CONFIG  //
 //////////////
 
+// Default values for the QuestDB egress stage configuration.
+const (
+	DefaultQuestDBConfigAddress = "localhost:9000"
+)
+
 // QuestDBConfig structs contains the configuration for the QuestDB egress stage.
 type QuestDBConfig struct {
-	Stage *stageCommon.Config
+	*config.Base
 
 	// Address of the QuestDB server.
-	//
-	// Default: "localhost:9000"
 	Address string
 }
 
-// DefaultQuestDBConfig returns the default configuration for the QuestDB egress stage.
-func DefaultQuestDBConfig(runningMode stageCommon.RunningMode) *QuestDBConfig {
+// NewQuestDBConfig returns the default configuration for the QuestDB egress stage.
+func NewQuestDBConfig(runningMode config.StageRunningMode) *QuestDBConfig {
 	return &QuestDBConfig{
-		Stage:   stageCommon.DefaultConfig(runningMode),
-		Address: "localhost:9000",
+		Base: config.NewBase(runningMode),
+
+		Address: DefaultQuestDBConfigAddress,
 	}
+}
+
+// Validate checks the configuration.
+func (c *QuestDBConfig) Validate(ac *config.AnomalyCollector) {
+	c.Base.Validate(ac)
+
+	config.CheckNotEmpty(ac, "Address", &c.Address, DefaultQuestDBConfigAddress)
 }
 
 ///////////////
@@ -363,9 +374,7 @@ func (qw *questDBWorker) Close(ctx context.Context) error {
 
 // QuestDBStage is an egress stage that writes messages to QuestDB.
 type QuestDBStage struct {
-	stage[*questDBWorkerArgs, *QuestDBMessage]
-
-	cfg *QuestDBConfig
+	stage[*questDBWorkerArgs, *QuestDBMessage, *QuestDBConfig]
 
 	senderPool *qdb.LineSenderPool
 }
@@ -373,9 +382,7 @@ type QuestDBStage struct {
 // NewQuestDBStage returns a new QuestDB egress stage.
 func NewQuestDBStage(inputConnector msgConn[*QuestDBMessage], cfg *QuestDBConfig) *QuestDBStage {
 	return &QuestDBStage{
-		stage: newStage("questdb", inputConnector, newQuestDBWorkerInstMaker(), cfg.Stage),
-
-		cfg: cfg,
+		stage: newStage("questdb", inputConnector, newQuestDBWorkerInstMaker(), cfg),
 	}
 }
 
@@ -383,7 +390,7 @@ func NewQuestDBStage(inputConnector msgConn[*QuestDBMessage], cfg *QuestDBConfig
 func (qs *QuestDBStage) Init(ctx context.Context) error {
 	// Create the sender pool
 	senderPool, err := qdb.PoolFromOptions(
-		qdb.WithAddress(qs.cfg.Address),
+		qdb.WithAddress(qs.Config().Address),
 		qdb.WithHttp(),
 		qdb.WithAutoFlushRows(75_000),
 		qdb.WithRetryTimeout(time.Second),

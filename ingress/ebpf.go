@@ -8,12 +8,13 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
+	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
-	"github.com/FerroO2000/goccia/internal"
-	"github.com/FerroO2000/goccia/internal/message"
 )
 
 //////////////
@@ -41,6 +42,11 @@ type EBPFLinkFn[O any, OPtr ebpfObjsPtr[O]] func(objs OPtr) (link.Link, error)
 // from the given eBPF objects.
 type EBPFRingBufferGetter[O any, OPtr ebpfObjsPtr[O]] func(objs OPtr) *ebpf.Map
 
+// Default values for the ebpf ingress stage configuration.
+const (
+	DefaultEBPFConfigUseUnsafe = false
+)
+
 // EBPFConfig is the configuration for the ebpf ingress stage.
 type EBPFConfig[O any, OPtr ebpfObjsPtr[O]] struct {
 	// LoadFn defines the function to load the eBPF spec.
@@ -55,16 +61,14 @@ type EBPFConfig[O any, OPtr ebpfObjsPtr[O]] struct {
 	// UseUnsafe states whether the data read from the ring buffer should be
 	// converted to a Go struct using an unsafe cast. Otherwise, the data is
 	// converted with [binary.Read], which is slower.
-	//
-	// Default: false
 	UseUnsafe bool
 
 	// CollectionOptions defines the options for loading the eBPF collection.
 	CollectionOptions *ebpf.CollectionOptions
 }
 
-// DefaultEBPFConfig returns the default configuration for the ebpf ingress stage.
-func DefaultEBPFConfig[O any, OPtr ebpfObjsPtr[O]](
+// NewEBPFConfig returns the default configuration for the ebpf ingress stage.
+func NewEBPFConfig[O any, OPtr ebpfObjsPtr[O]](
 	loadFn EBPFLoadFn, attachFn EBPFLinkFn[O, OPtr], ringBufferGetter EBPFRingBufferGetter[O, OPtr],
 ) *EBPFConfig[O, OPtr] {
 
@@ -72,10 +76,13 @@ func DefaultEBPFConfig[O any, OPtr ebpfObjsPtr[O]](
 		LoadFn:            loadFn,
 		LinkFn:            attachFn,
 		RingBufferGetter:  ringBufferGetter,
-		UseUnsafe:         false,
+		UseUnsafe:         DefaultEBPFConfigUseUnsafe,
 		CollectionOptions: nil,
 	}
 }
+
+// Validate checks the configuration.
+func (c *EBPFConfig[O, OPtr]) Validate(_ *config.AnomalyCollector) {}
 
 ///////////////
 //  MESSAGE  //
@@ -274,9 +281,7 @@ func (es *ebpfSource[T]) close() {
 
 // EBPFStage is an ingress stage that reads data from an eBPF ring buffer.
 type EBPFStage[T, O any, OPtr ebpfObjsPtr[O]] struct {
-	*stage[*EBPFMessage[T]]
-
-	cfg *EBPFConfig[O, OPtr]
+	*stage[*EBPFMessage[T], *EBPFConfig[O, OPtr]]
 
 	source *ebpfSource[T]
 
@@ -289,9 +294,7 @@ func NewEBPFStage[T, O any, OPtr ebpfObjsPtr[O]](outputConnector msgConn[*EBPFMe
 	source := newEBPFSource[T]()
 
 	return &EBPFStage[T, O, OPtr]{
-		stage: newStage("ebpf", source, outputConnector),
-
-		cfg: cfg,
+		stage: newStage("ebpf", source, outputConnector, cfg),
 
 		source: source,
 	}

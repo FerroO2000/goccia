@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -22,25 +23,32 @@ const (
 //  CONFIG  //
 //////////////
 
+// Default values for the UDP stage configuration.
+const (
+	DefaultUDPConfigIPAddr = "0.0.0.0"
+	DefaultUDPConfigPort   = 20_000
+)
+
 // UDPConfig structs contains the configuration for the UDP stage.
 type UDPConfig struct {
 	// IPAddr is the IP address to listen on.
-	//
-	// Default: 0.0.0.0
 	IPAddr string
 
 	// Port is the port to listen on.
-	//
-	// Default: 20_000
 	Port uint16
 }
 
-// DefaultUDPConfig returns the default configuration for the UDP stage.
-func DefaultUDPConfig() *UDPConfig {
+// NewUDPConfig returns the default configuration for the UDP stage.
+func NewUDPConfig() *UDPConfig {
 	return &UDPConfig{
-		IPAddr: "0.0.0.0",
-		Port:   20_000,
+		IPAddr: DefaultUDPConfigIPAddr,
+		Port:   DefaultUDPConfigPort,
 	}
+}
+
+// Validate checks the configuration.
+func (c *UDPConfig) Validate(ac *config.AnomalyCollector) {
+	config.CheckNotEmpty(ac, "IPAddr", &c.IPAddr, DefaultUDPConfigIPAddr)
 }
 
 ///////////////
@@ -205,9 +213,7 @@ func (us *udpSource) handleBuf(ctx context.Context, buf []byte) *msg[*UDPMessage
 
 // UDPStage is an ingress stage that reads UDP datagrams.
 type UDPStage struct {
-	*stage[*UDPMessage]
-
-	cfg *UDPConfig
+	*stage[*UDPMessage, *UDPConfig]
 
 	source *udpSource
 }
@@ -217,9 +223,7 @@ func NewUDPStage(outputConnector msgConn[*UDPMessage], cfg *UDPConfig) *UDPStage
 	source := newUDPSource()
 
 	return &UDPStage{
-		stage: newStage("udp", source, outputConnector),
-
-		cfg: cfg,
+		stage: newStage("udp", source, outputConnector, cfg),
 
 		source: source,
 	}

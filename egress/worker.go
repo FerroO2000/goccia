@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
 	"go.opentelemetry.io/otel/metric"
 )
@@ -132,7 +133,7 @@ func (w *worker[Args, In]) close(ctx context.Context) {
 type workerPool[Args any, In msgEnv] struct {
 	tel *internal.Telemetry
 
-	cfg *pool.Config
+	cfg *config.Pool
 
 	scaler *pool.Scaler
 
@@ -147,7 +148,7 @@ type workerPool[Args any, In msgEnv] struct {
 }
 
 func newWorkerPool[Args any, In msgEnv](
-	tel *internal.Telemetry, workerInstMaker workerInstanceMaker[Args, In], cfg *pool.Config,
+	tel *internal.Telemetry, workerInstMaker workerInstanceMaker[Args, In], cfg *config.Pool,
 ) *workerPool[Args, In] {
 
 	return &workerPool[Args, In]{

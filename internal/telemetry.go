@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"log"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -108,7 +107,6 @@ func (t *Telemetry) NewUpDownCounter(name string, getter func() int64, opts ...m
 	}
 
 	_, err = t.meter.RegisterCallback(func(_ context.Context, o metric.Observer) error {
-		log.Print(name)
 		o.ObserveInt64(counter, getter(), t.getMetricDefaultAttributes())
 		return nil
 	}, counter)

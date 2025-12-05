@@ -5,33 +5,43 @@ import (
 	"fmt"
 
 	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/pool"
-	stageCommon "github.com/FerroO2000/goccia/internal/stage"
 )
 
 //////////////
 //  CONFIG  //
 //////////////
 
+// Default configuration values for the custom processor stage.
+const (
+	DefaultCustomConfigName = "custom"
+)
+
 // CustomConfig structs contains the configuration for a custom processor stage.
 type CustomConfig struct {
-	Stage *stageCommon.Config
+	*config.Base
 
 	// Name is the name of the stage.
 	// It is used to identify the stage in the telemetry.
-	//
-	// Default: "custom"
 	Name string
 }
 
-// DefaultCustomConfig returns the default configuration for a custom processor stage.
-func DefaultCustomConfig(runningMode stageCommon.RunningMode) *CustomConfig {
+// NewCustomConfig returns the default configuration for a custom processor stage.
+func NewCustomConfig(runningMode config.StageRunningMode) *CustomConfig {
 	return &CustomConfig{
-		Stage: stageCommon.DefaultConfig(runningMode),
+		Base: config.NewBase(runningMode),
 
-		Name: "custom",
+		Name: DefaultCustomConfigName,
 	}
+}
+
+// Validate checks the configuration.
+func (c *CustomConfig) Validate(ac *config.AnomalyCollector) {
+	c.Base.Validate(ac)
+
+	config.CheckNotEmpty(ac, "Name", &c.Name, DefaultCustomConfigName)
 }
 
 ///////////////
@@ -147,9 +157,7 @@ func (cw *customWorker[In, T, Out]) Close(_ context.Context) error {
 
 // CustomStage is a processor stage that uses a custom handler to process messages.
 type CustomStage[In msgEnv, T any, Out msgEnvPtr[T]] struct {
-	stage[*customWorkerArgs[In, T, Out], In, Out]
-
-	cfg *CustomConfig
+	stage[*customWorkerArgs[In, T, Out], In, Out, *CustomConfig]
 
 	handler CustomHandler[In, T, Out]
 }
@@ -161,10 +169,8 @@ func NewCustomStage[In msgEnv, T any, Out msgEnvPtr[T]](
 
 	return &CustomStage[In, T, Out]{
 		stage: newStage(
-			cfg.Name, inputConnector, outputConnector, newCustomWorkerInstMaker[In, T, Out](), cfg.Stage,
+			cfg.Name, inputConnector, outputConnector, newCustomWorkerInstMaker[In, T, Out](), cfg,
 		),
-
-		cfg: cfg,
 
 		handler: handler,
 	}
@@ -177,5 +183,5 @@ func (cs *CustomStage[In, T, Out]) Init(ctx context.Context) error {
 		return err
 	}
 
-	return cs.stage.Init(ctx, newCustomWorkerArgs(cs.cfg.Name, cs.handler))
+	return cs.stage.Init(ctx, newCustomWorkerArgs(cs.Config().Name, cs.handler))
 }

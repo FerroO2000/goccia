@@ -26,11 +26,11 @@ func main() {
 	tickerToCustom := connector.NewRingBuffer[*ingress.TickerMessage](connectorSize)
 	customToKafka := connector.NewRingBuffer[*egress.KafkaMessage](connectorSize)
 
-	tickerCfg := ingress.DefaultTickerConfig()
+	tickerCfg := ingress.NewTickerConfig()
 	tickerCfg.Interval = time.Second
 	tickerStage := ingress.NewTickerStage(tickerToCustom, tickerCfg)
 
-	customCfg := processor.DefaultCustomConfig(goccia.StageRunningModePool)
+	customCfg := processor.NewCustomConfig(goccia.StageRunningModePool)
 	customCfg.Name = "ticker_to_kafka"
 	customStage := processor.NewCustomStage(newTickerToKafkaHandler(), tickerToCustom, customToKafka, customCfg)
 

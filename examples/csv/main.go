@@ -23,11 +23,11 @@ func main() {
 	decoderToEncoder := connector.NewRingBuffer[*processor.CSVMessage](connectorSize)
 	encoderToFileEgress := connector.NewRingBuffer[*processor.CSVEncodedMessage](connectorSize)
 
-	fileIngressCfg := ingress.DefaultFileConfig()
+	fileIngressCfg := ingress.NewFileConfig()
 	fileIngressCfg.WatchedDirs = []string{"./data/in"}
 	fileIngressStage := ingress.NewFileStage(fileIngressToCsv, fileIngressCfg)
 
-	csvDecoderCfg := processor.DefaultCSVConfig(goccia.StageRunningModeSingle)
+	csvDecoderCfg := processor.NewCSVConfig(goccia.StageRunningModeSingle)
 	csvDecoderCfg.AddColumnDef(processor.NewCSVColumnDef("frame", processor.CSVColumnTypeInt))
 	csvDecoderCfg.AddColumnDef(processor.NewCSVColumnDef("time", processor.CSVColumnTypeFloat))
 	csvDecoderCfg.AddColumnDef(processor.NewCSVColumnDef("x", processor.CSVColumnTypeFloat))
@@ -39,11 +39,11 @@ func main() {
 
 	csvDecoderStage := processor.NewCSVDecoderStage(fileIngressToCsv, decoderToEncoder, csvDecoderCfg)
 
-	csvEncoderCfg := processor.DefaultCSVConfig(goccia.StageRunningModeSingle)
+	csvEncoderCfg := processor.NewCSVConfig(goccia.StageRunningModeSingle)
 	csvEncoderCfg.Columns = csvDecoderCfg.Columns
 	csvEncoderStage := processor.NewCSVEncoderStage(decoderToEncoder, encoderToFileEgress, csvEncoderCfg)
 
-	fileEgressCfg := egress.DefaultFileConfig("./data/out/out.csv")
+	fileEgressCfg := egress.NewFileConfig("./data/out/out.csv")
 	fileEgressStage := egress.NewFileStage(encoderToFileEgress, fileEgressCfg)
 
 	pipeline := goccia.NewPipeline()

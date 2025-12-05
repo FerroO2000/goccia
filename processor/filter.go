@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 
 	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
-	stageCommon "github.com/FerroO2000/goccia/internal/stage"
 )
 
 //////////////
@@ -16,13 +16,13 @@ import (
 
 // FilterConfig structs contains the configuration for the [FilterStage].
 type FilterConfig struct {
-	Stage *stageCommon.Config
+	*config.Base
 }
 
-// DefaultFilterConfig returns the default configuration for the [FilterStage].
-func DefaultFilterConfig(runningMode stageCommon.RunningMode) *FilterConfig {
+// NewFilterConfig returns the default configuration for the [FilterStage].
+func NewFilterConfig(runningMode config.StageRunningMode) *FilterConfig {
 	return &FilterConfig{
-		Stage: stageCommon.DefaultConfig(runningMode),
+		Base: config.NewBase(runningMode),
 	}
 }
 
@@ -118,9 +118,7 @@ func (fw *filterWorker[T]) Close(_ context.Context) error {
 
 // FilterStage is a processor stage that filters messages based on a user-defined function.
 type FilterStage[T msgEnv] struct {
-	stage[*filterWorkerArgs[T], T, T]
-
-	cfg *FilterConfig
+	stage[*filterWorkerArgs[T], T, T, *FilterConfig]
 
 	filterFn func(T) bool
 }
@@ -129,10 +127,8 @@ type FilterStage[T msgEnv] struct {
 func NewFilterStage[T msgEnv](filterFn func(T) bool, inputConnector, outputConnector msgConn[T], cfg *FilterConfig) *FilterStage[T] {
 	return &FilterStage[T]{
 		stage: newStage(
-			"filter", inputConnector, outputConnector, newFilterWorkerInstMaker[T](), cfg.Stage,
+			"filter", inputConnector, outputConnector, newFilterWorkerInstMaker[T](), cfg,
 		),
-
-		cfg: cfg,
 
 		filterFn: filterFn,
 	}

@@ -5,7 +5,16 @@ import (
 	"errors"
 
 	"github.com/FerroO2000/goccia/connector"
+	"github.com/FerroO2000/goccia/internal/config"
 )
+
+//////////////
+//  CONFIG  //
+//////////////
+
+type sinkConfig struct{}
+
+func (c *sinkConfig) Validate(_ *config.AnomalyCollector) {}
 
 /////////////
 //  STAGE  //
@@ -14,13 +23,13 @@ import (
 // SinkStage is an egress stage that simply destroys all incoming messages.
 // It is intended for testing purposes.
 type SinkStage[T msgEnv] struct {
-	*stageBase[any, T]
+	*stageBase[any, T, *sinkConfig]
 }
 
 // NewSinkStage returns a new sink egress stage.
 func NewSinkStage[T msgEnv](inputConnector msgConn[T]) *SinkStage[T] {
 	return &SinkStage[T]{
-		stageBase: newStageBase[any]("sink", inputConnector),
+		stageBase: newStageBase[any]("sink", inputConnector, &sinkConfig{}),
 	}
 }
 

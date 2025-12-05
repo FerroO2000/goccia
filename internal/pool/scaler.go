@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
 )
 
 type scalerConfig struct {
@@ -19,7 +20,7 @@ type scalerConfig struct {
 	interval            time.Duration
 }
 
-func newScalerConfig(poolCfg *Config) *scalerConfig {
+func newScalerConfig(poolCfg *config.Pool) *scalerConfig {
 	return &scalerConfig{
 		enabled:             poolCfg.AutoScaleEnabled,
 		maxWorkers:          poolCfg.MaxWorkers,
@@ -51,7 +52,7 @@ type Scaler struct {
 }
 
 // NewScaler returns a new auto-scaler instance.
-func NewScaler(tel *internal.Telemetry, poolCfg *Config) *Scaler {
+func NewScaler(tel *internal.Telemetry, poolCfg *config.Pool) *Scaler {
 	cfg := newScalerConfig(poolCfg)
 
 	return &Scaler{

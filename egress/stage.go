@@ -6,26 +6,28 @@ import (
 
 	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/internal"
-	"github.com/FerroO2000/goccia/internal/pool"
-	stageCommon "github.com/FerroO2000/goccia/internal/stage"
+	"github.com/FerroO2000/goccia/internal/config"
 )
 
-type stage[WArgs any, In msgEnv] interface {
+type stage[WArgs any, In msgEnv, Cfg cfg] interface {
 	Init(ctx context.Context, workerArgs WArgs) error
 	Run(ctx context.Context)
 	Close()
 	Tel() *internal.Telemetry
+	Config() Cfg
 }
 
-func newStage[WArgs any, In msgEnv](
-	name string, inConn msgConn[In], workerInstMaker workerInstanceMaker[WArgs, In], cfg *stageCommon.Config,
-) stage[WArgs, In] {
+func newStage[WArgs any, In msgEnv, Cfg stageCfg](
+	name string, inConn msgConn[In], workerInstMaker workerInstanceMaker[WArgs, In], cfg Cfg,
+) stage[WArgs, In, Cfg] {
 
-	switch cfg.RunningMode {
-	case stageCommon.RunningModeSingle:
-		return newStageSingle(name, inConn, workerInstMaker)
-	case stageCommon.RunningModePool:
-		return newStagePool(name, inConn, workerInstMaker, cfg.Pool)
+	stageCfg := cfg.GetStage()
+
+	switch stageCfg.RunningMode {
+	case config.StageRunningModeSingle:
+		return newStageSingle(name, inConn, workerInstMaker, cfg)
+	case config.StageRunningModePool:
+		return newStagePool(name, inConn, workerInstMaker, cfg, stageCfg.Pool)
 	default:
 		return nil
 	}
@@ -35,63 +37,74 @@ func newStage[WArgs any, In msgEnv](
 //  BASE  //
 ////////////
 
-type stageBase[WArgs any, In msgEnv] struct {
+type stageBase[WArgs any, In msgEnv, Cfg cfg] struct {
 	tel *internal.Telemetry
+
+	config Cfg
 
 	inputConnector msgConn[In]
 }
 
-func newStageBase[WArgs any, In msgEnv](name string, inConn msgConn[In]) *stageBase[WArgs, In] {
-	return &stageBase[WArgs, In]{
+func newStageBase[WArgs any, In msgEnv, Cfg cfg](name string, inConn msgConn[In], cfg Cfg) *stageBase[WArgs, In, Cfg] {
+	return &stageBase[WArgs, In, Cfg]{
 		tel: internal.NewTelemetry("egress", name),
+
+		config: cfg,
 
 		inputConnector: inConn,
 	}
 }
 
-func (s *stageBase[WArgs, In]) init() {
+func (s *stageBase[WArgs, In, Cfg]) init() {
 	s.tel.LogInfo("initializing")
+
+	configValidator := config.NewValidator(s.tel)
+	configValidator.Validate(s.config)
 }
 
-func (s *stageBase[WArgs, In]) run() {
+func (s *stageBase[WArgs, In, Cfg]) run() {
 	s.tel.LogInfo("running")
 }
 
-func (s *stageBase[WArgs, In]) close() {
+func (s *stageBase[WArgs, In, Cfg]) close() {
 	s.tel.LogInfo("closing")
 }
 
-func (s *stageBase[WArgs, In]) Tel() *internal.Telemetry {
+func (s *stageBase[WArgs, In, Cfg]) Tel() *internal.Telemetry {
 	return s.tel
+}
+
+func (s *stageBase[WArgs, In, Cfg]) Config() Cfg {
+	return s.config
 }
 
 //////////////
 //  SINGLE  //
 //////////////
 
-type stageSingle[WArgs any, In msgEnv] struct {
-	*stageBase[WArgs, In]
+type stageSingle[WArgs any, In msgEnv, Cfg cfg] struct {
+	*stageBase[WArgs, In, Cfg]
 
 	worker *worker[WArgs, In]
 }
 
-func newStageSingle[WArgs any, In msgEnv](
-	name string, inConn msgConn[In], workerInstMaker workerInstanceMaker[WArgs, In],
-) *stageSingle[WArgs, In] {
+func newStageSingle[WArgs any, In msgEnv, Cfg cfg](
+	name string, inConn msgConn[In], workerInstMaker workerInstanceMaker[WArgs, In], cfg Cfg,
+) *stageSingle[WArgs, In, Cfg] {
 
-	stageBase := newStageBase[WArgs](name, inConn)
+	stageBase := newStageBase[WArgs](name, inConn, cfg)
 
 	workerInst := workerInstMaker()
 	workerMetrics := newWorkerMetrics(stageBase.tel)
 
-	return &stageSingle[WArgs, In]{
+	return &stageSingle[WArgs, In, Cfg]{
 		stageBase: stageBase,
 
 		worker: newWorker(stageBase.tel, 0, workerInst, workerMetrics),
 	}
 }
 
-func (s *stageSingle[WArgs, In]) Init(ctx context.Context, workerArgs WArgs) error {
+func (s *stageSingle[WArgs, In, Cfg]) Init(ctx context.Context, workerArgs WArgs) error {
 	s.stageBase.init()
 
 	// Initialize the worker metrics
@@ -100,7 +113,7 @@ func (s *stageSingle[WArgs, In]) Init(ctx context.Context, workerArgs WArgs) err
 	return s.worker.init(ctx, workerArgs)
 }
 
-func (s *stageSingle[WArgs, In]) Run(ctx context.Context) {
+func (s *stageSingle[WArgs, In, Cfg]) Run(ctx context.Context) {
 	s.stageBase.run()
 
 	for {
@@ -129,7 +142,7 @@ func (s *stageSingle[WArgs, In]) Run(ctx context.Context) {
 	}
 }
 
-func (s *stageSingle[WArgs, In]) Close() {
+func (s *stageSingle[WArgs, In, Cfg]) Close() {
 	s.stageBase.close()
 
 	s.worker.close(context.Background())
@@ -139,32 +152,32 @@ func (s *stageSingle[WArgs, In]) Close() {
 //  POOL  //
 ////////////
 
-type stagePool[WArgs any, In msgEnv] struct {
-	*stageBase[WArgs, In]
+type stagePool[WArgs any, In msgEnv, Cfg cfg] struct {
+	*stageBase[WArgs, In, Cfg]
 
 	workerPool *workerPool[WArgs, In]
 }
 
-func newStagePool[WArgs any, In msgEnv](
-	name string, inConn msgConn[In], workerInstMaker workerInstanceMaker[WArgs, In], cfg *pool.Config,
-) *stagePool[WArgs, In] {
+func newStagePool[WArgs any, In msgEnv, Cfg cfg](
+	name string, inConn msgConn[In], workerInstMaker workerInstanceMaker[WArgs, In], cfg Cfg, poolCfg *config.Pool,
+) *stagePool[WArgs, In, Cfg] {
 
-	stageBase := newStageBase[WArgs](name, inConn)
+	stageBase := newStageBase[WArgs](name, inConn, cfg)
 
-	return &stagePool[WArgs, In]{
+	return &stagePool[WArgs, In, Cfg]{
 		stageBase: stageBase,
 
-		workerPool: newWorkerPool(stageBase.tel, workerInstMaker, cfg),
+		workerPool: newWorkerPool(stageBase.tel, workerInstMaker, poolCfg),
 	}
 }
 
-func (s *stagePool[WArgs, In]) Init(ctx context.Context, workerArgs WArgs) error {
+func (s *stagePool[WArgs, In, Cfg]) Init(ctx context.Context, workerArgs WArgs) error {
 	s.stageBase.init()
 
 	return s.workerPool.init(ctx, workerArgs)
 }
 
-func (s *stagePool[WArgs, In]) Run(ctx context.Context) {
+func (s *stagePool[WArgs, In, Cfg]) Run(ctx context.Context) {
 	s.stageBase.run()
 
 	// Run the worker pool
@@ -197,7 +210,7 @@ func (s *stagePool[WArgs, In]) Run(ctx context.Context) {
 	}
 }
 
-func (s *stagePool[WArgs, In]) Close() {
+func (s *stagePool[WArgs, In, Cfg]) Close() {
 	s.stageBase.close()
 
 	s.workerPool.close()

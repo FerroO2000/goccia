@@ -30,25 +30,25 @@ func main() {
 	canToCustom := connector.NewRingBuffer[*processor.CANMessage](connectorSize)
 	customToQuestDB := connector.NewRingBuffer[*egress.QuestDBMessage](connectorSize)
 
-	udpCfg := ingress.DefaultUDPConfig()
+	udpCfg := ingress.NewUDPConfig()
 	udpStage := ingress.NewUDPStage(udpToCannelloni, udpCfg)
 
-	cannelloniCfg := processor.DefaultCannelloniConfig(goccia.StageRunningModePool)
+	cannelloniCfg := processor.NewCannelloniConfig(goccia.StageRunningModePool)
 	cannelloniStage := processor.NewCannelloniDecoderStage(udpToCannelloni, cannelloniToROB, cannelloniCfg)
 
-	robCfg := processor.DefaultROBConfig()
+	robCfg := processor.NewROBConfig()
 	robStage := processor.NewROBStage(cannelloniToROB, robToCAN, robCfg)
 
-	canCfg := processor.DefaultCANConfig(goccia.StageRunningModePool)
+	canCfg := processor.NewCANConfig(goccia.StageRunningModePool)
 	canCfg.Messages = getMessages()
 	canStage := processor.NewCANStage(robToCAN, canToCustom, canCfg)
 
-	customCfg := processor.DefaultCustomConfig(goccia.StageRunningModePool)
+	customCfg := processor.NewCustomConfig(goccia.StageRunningModePool)
 	customCfg.Name = "can_to_questdb"
 	customCfg.Stage.Pool.MinWorkers = customCfg.Stage.Pool.InitialWorkers
 	customStage := processor.NewCustomStage(newCANToQuestDBHandler(), canToCustom, customToQuestDB, customCfg)
 
-	questDBCfg := egress.DefaultQuestDBConfig(goccia.StageRunningModePool)
+	questDBCfg := egress.NewQuestDBConfig(goccia.StageRunningModePool)
 	questDBCfg.Stage.Pool.MinWorkers = questDBCfg.Stage.Pool.InitialWorkers
 	questDBStage := egress.NewQuestDBStage(customToQuestDB, questDBCfg)
 

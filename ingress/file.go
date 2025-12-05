@@ -11,10 +11,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/fsnotify/fsnotify"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -22,76 +23,86 @@ import (
 //  CONFIG  //
 //////////////
 
+// Default values for the file ingress stage configuration.
+const (
+	DefaultFileConfigChunkSize       = 4096
+	DefaultFileConfigCheckChunkDelim = true
+	DefaultFileConfigChunkDelim      = '\n'
+	DefaultFileConfigMaxChunkSize    = 32 * 1024
+	DefaultFileConfigForceReRead     = false
+	DefaultFileConfigCloseDebounce   = time.Second
+)
+
+// DefaultFileConfigWatchedDirs is the default list of directories to watch.
+var DefaultFileConfigWatchedDirs = []string{"."}
+
 // FileConfig structs contains the configuration for the file ingress stage.
 type FileConfig struct {
 	// WatchedDirs contains the list of directories to watch.
-	//
-	// Default: "."
 	WatchedDirs []string
 
 	// ChunkSize is the size of the chunks to read from a file.
-	//
-	// Default: 4096
 	ChunkSize int
 
 	// CheckChunkDelim states wether to check for a delimiter byte.
 	// If true, the reader will grow the chunk until the delimiter (or EOF) is found.
 	// This option allows the reader to behave like an hybrid between a chunked reader
 	// and a line reader.
-	//
-	// Default: true
 	CheckChunkDelim bool
 
 	// ChunkDelim is the delimiter byte used to grow the chunks.
 	// It is only used if CheckChunkDelim is true.
-	//
-	// Default: '\n'
 	ChunkDelim byte
 
 	// MaxChunkSize is the maximum size of the chunks to read from a file.
 	// It is only used if CheckChunkDelim is true.
-	//
-	// Default: 32K (ChunkSize * 8)
 	MaxChunkSize int
 
 	// ForceReRead states wether to re-read the files after the reader is closed.
 	// If false, the reader will seek to the last read offset.
-	//
-	// Default: false
 	ForceReRead bool
 
 	// CloseDebounce is the duration to wait before closing the reader (file).
 	// This is useful to avoid closing and re-opening the file too often
 	// in scenarios where the file is being frequently modified.
-	//
-	// Default: 1s
 	CloseDebounce time.Duration
 }
 
-// DefaultFileConfig returns the default configuration for the file ingress stage.
-func DefaultFileConfig() *FileConfig {
-	chunkSize := 4096
-
+// NewFileConfig returns the default configuration for the file ingress stage.
+func NewFileConfig() *FileConfig {
 	return &FileConfig{
-		WatchedDirs:     []string{"."},
-		ChunkSize:       chunkSize,
-		CheckChunkDelim: true,
-		ChunkDelim:      '\n',
-		MaxChunkSize:    chunkSize * 8,
-		ForceReRead:     false,
-		CloseDebounce:   time.Second,
+		WatchedDirs:     DefaultFileConfigWatchedDirs,
+		ChunkSize:       DefaultFileConfigChunkSize,
+		CheckChunkDelim: DefaultFileConfigCheckChunkDelim,
+		ChunkDelim:      DefaultFileConfigChunkDelim,
+		MaxChunkSize:    DefaultFileConfigMaxChunkSize,
+		ForceReRead:     DefaultFileConfigForceReRead,
+		CloseDebounce:   DefaultFileConfigCloseDebounce,
 	}
 }
 
-func (fc *FileConfig) toReaderConfig(filePath string) *fileReaderConfig {
+// Validate checks the configuration.
+func (c *FileConfig) Validate(ac *config.AnomalyCollector) {
+	config.CheckLen(ac, "WatchedDirs", &c.WatchedDirs, DefaultFileConfigWatchedDirs)
+
+	config.CheckNotNegative(ac, "ChunkSize", &c.ChunkSize, DefaultFileConfigChunkSize)
+	config.CheckNotZero(ac, "ChunkSize", &c.ChunkSize, DefaultFileConfigChunkSize)
+
+	config.CheckNotNegative(ac, "MaxChunkSize", &c.MaxChunkSize, DefaultFileConfigMaxChunkSize)
+	config.CheckNotZero(ac, "MaxChunkSize", &c.MaxChunkSize, DefaultFileConfigMaxChunkSize)
+
+	config.CheckNotNegative(ac, "CloseDebounce", &c.CloseDebounce, DefaultFileConfigCloseDebounce)
+}
+
+func (c *FileConfig) toReaderConfig(filePath string) *fileReaderConfig {
 	return &fileReaderConfig{
 		filePath:        filePath,
-		chunkSize:       fc.ChunkSize,
-		checkChunkDelim: fc.CheckChunkDelim,
-		chunkDelim:      fc.ChunkDelim,
-		maxChunkSize:    fc.MaxChunkSize,
-		closeDebounce:   fc.CloseDebounce,
-		forceReRead:     fc.ForceReRead,
+		chunkSize:       c.ChunkSize,
+		checkChunkDelim: c.CheckChunkDelim,
+		chunkDelim:      c.ChunkDelim,
+		maxChunkSize:    c.MaxChunkSize,
+		closeDebounce:   c.CloseDebounce,
+		forceReRead:     c.ForceReRead,
 	}
 }
 
@@ -703,9 +714,7 @@ func (fs *fileSource) close() {
 
 // FileStage is an ingress stage that reads file from a list of directories.
 type FileStage struct {
-	*stage[*FileMessage]
-
-	cfg *FileConfig
+	*stage[*FileMessage, *FileConfig]
 
 	source *fileSource
 }
@@ -715,9 +724,7 @@ func NewFileStage(outputConnector msgConn[*FileMessage], cfg *FileConfig) *FileS
 	source := newFileSource()
 
 	return &FileStage{
-		stage: newStage("file", source, outputConnector),
-
-		cfg: cfg,
+		stage: newStage("file", source, outputConnector, cfg),
 
 		source: source,
 	}

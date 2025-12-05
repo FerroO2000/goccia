@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
 )
 
 type source[Out msgEnv] interface {
@@ -11,20 +12,24 @@ type source[Out msgEnv] interface {
 	run(ctx context.Context, outputConnector msgConn[Out])
 }
 
-type stage[Out msgEnv] struct {
+type stage[Out msgEnv, Cfg cfg] struct {
 	tel *internal.Telemetry
+
+	cfg Cfg
 
 	source source[Out]
 
 	outputConnector msgConn[Out]
 }
 
-func newStage[Out msgEnv](name string, source source[Out], outConn msgConn[Out]) *stage[Out] {
+func newStage[Out msgEnv, Cfg cfg](name string, source source[Out], outConn msgConn[Out], cfg Cfg) *stage[Out, Cfg] {
 	tel := internal.NewTelemetry("ingress", name)
 	source.setTelemetry(tel)
 
-	return &stage[Out]{
+	return &stage[Out, Cfg]{
 		tel: tel,
+
+		cfg: cfg,
 
 		source: source,
 
@@ -32,17 +37,20 @@ func newStage[Out msgEnv](name string, source source[Out], outConn msgConn[Out])
 	}
 }
 
-func (s *stage[Out]) Init(_ context.Context) error {
+func (s *stage[Out, Cfg]) Init(_ context.Context) error {
 	s.tel.LogInfo("initializing")
+
+	configValidator := config.NewValidator(s.tel)
+	configValidator.Validate(s.cfg)
 
 	return nil
 }
 
-func (s *stage[Out]) Run(ctx context.Context) {
+func (s *stage[Out, Cfg]) Run(ctx context.Context) {
 	s.source.run(ctx, s.outputConnector)
 }
 
-func (s *stage[Out]) Close() {
+func (s *stage[Out, Cfg]) Close() {
 	s.tel.LogInfo("closing")
 
 	// Close the output connector

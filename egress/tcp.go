@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
-	stageCommon "github.com/FerroO2000/goccia/internal/stage"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -18,34 +18,46 @@ import (
 //  CONFIG  //
 //////////////
 
+// Default values for the TCP egress stage configuration.
+const (
+	DefaultTCPConfigIPAddr       = "127.0.0.1"
+	DefaultTCPConfigPort         = 20_000
+	DefaultTCPConfigWriteTimeout = 10 * time.Second
+)
+
 // TCPConfig structs contains the configuration for the TCP egress stage.
 type TCPConfig struct {
-	Stage *stageCommon.Config
+	*config.Base
 
 	// IPAddr is the destination IP address.
-	//
-	// Default: 127.0.0.1
 	IPAddr string
 
 	// Port is the destination port.
-	//
-	// Default: 20_000
 	Port uint16
 
 	// WriteTimeout is the timeout for writing messages to the TCP connection.
-	//
-	// Default: 10s
 	WriteTimeout time.Duration
 }
 
-// DefaultTCPConfig returns a default TCPConfig.
-func DefaultTCPConfig(runningMode stageCommon.RunningMode) *TCPConfig {
+// NewTCPConfig returns a default TCPConfig.
+func NewTCPConfig(runningMode config.StageRunningMode) *TCPConfig {
 	return &TCPConfig{
-		Stage:        stageCommon.DefaultConfig(runningMode),
-		IPAddr:       "127.0.0.1",
-		Port:         20_000,
-		WriteTimeout: 10 * time.Second,
+		Base: config.NewBase(runningMode),
+
+		IPAddr:       DefaultTCPConfigIPAddr,
+		Port:         DefaultTCPConfigPort,
+		WriteTimeout: DefaultTCPConfigWriteTimeout,
 	}
+}
+
+// Validate checks the configuration.
+func (c *TCPConfig) Validate(ac *config.AnomalyCollector) {
+	c.Base.Validate(ac)
+
+	config.CheckNotEmpty(ac, "IPAddr", &c.IPAddr, DefaultTCPConfigIPAddr)
+
+	config.CheckNotNegative(ac, "WriteTimeout", &c.WriteTimeout, DefaultTCPConfigWriteTimeout)
+	config.CheckNotZero(ac, "WriteTimeout", &c.WriteTimeout, DefaultTCPConfigWriteTimeout)
 }
 
 ////////////////////////
@@ -155,9 +167,7 @@ func (tw *tcpWorker[T]) Close(_ context.Context) error {
 
 // TCPStage is an egress stage that writes messages to a TCP connection.
 type TCPStage[T msgSer] struct {
-	stage[*tcpWorkerArgs, T]
-
-	cfg *TCPConfig
+	stage[*tcpWorkerArgs, T, *TCPConfig]
 
 	conn *net.TCPConn
 }
@@ -165,22 +175,20 @@ type TCPStage[T msgSer] struct {
 // NewTCPStage returns a new TCP egress stage.
 func NewTCPStage[T msgSer](inputConnector msgConn[T], cfg *TCPConfig) *TCPStage[T] {
 	return &TCPStage[T]{
-		stage: newStage(
-			"tcp", inputConnector, newTCPWorkerInstMaker[T](), cfg.Stage,
-		),
-
-		cfg: cfg,
+		stage: newStage("tcp", inputConnector, newTCPWorkerInstMaker[T](), cfg),
 	}
 }
 
 // Init initializes the stage.
 func (ts *TCPStage[T]) Init(ctx context.Context) error {
+	cfg := ts.Config()
+
 	// Parse the IP address
-	parsedAddr, err := netip.ParseAddr(ts.cfg.IPAddr)
+	parsedAddr, err := netip.ParseAddr(cfg.IPAddr)
 	if err != nil {
 		return err
 	}
-	addr := net.TCPAddrFromAddrPort(netip.AddrPortFrom(parsedAddr, ts.cfg.Port))
+	addr := net.TCPAddrFromAddrPort(netip.AddrPortFrom(parsedAddr, cfg.Port))
 
 	// Dial the TCP connection
 	conn, err := net.DialTCP("tcp", nil, addr)
@@ -190,5 +198,5 @@ func (ts *TCPStage[T]) Init(ctx context.Context) error {
 
 	ts.conn = conn
 
-	return ts.stage.Init(ctx, newTCPWorkerArgs(ts.conn, ts.cfg.WriteTimeout))
+	return ts.stage.Init(ctx, newTCPWorkerArgs(ts.conn, cfg.WriteTimeout))
 }

@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 
 	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
-	stageCommon "github.com/FerroO2000/goccia/internal/stage"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -17,29 +17,38 @@ import (
 //  CONFIG  //
 //////////////
 
+// Default values for the UDP egress stage configuration.
+const (
+	DefaultUDPConfigIPAddr = "127.0.0.1"
+	DefaultUDPConfigPort   = 20_000
+)
+
 // UDPConfig structs contains the configuration for the UDP egress stage.
 type UDPConfig struct {
-	Stage *stageCommon.Config
+	*config.Base
 
 	// IPAddr is the destination IP address.
-	//
-	// Default: 127.0.0.1
 	IPAddr string
 
 	// Port is the destination port.
-	//
-	// Default: 20_000
 	Port uint16
 }
 
-// DefaultUDPConfig returns the default configuration for the UDP egress stage.
-func DefaultUDPConfig(runningMode stageCommon.RunningMode) *UDPConfig {
+// NewUDPConfig returns the default configuration for the UDP egress stage.
+func NewUDPConfig(runningMode config.StageRunningMode) *UDPConfig {
 	return &UDPConfig{
-		Stage: stageCommon.DefaultConfig(runningMode),
+		Base: config.NewBase(runningMode),
 
 		IPAddr: "127.0.0.1",
 		Port:   20_000,
 	}
+}
+
+// Validate checks the configuration.
+func (c *UDPConfig) Validate(ac *config.AnomalyCollector) {
+	c.Base.Validate(ac)
+
+	config.CheckNotEmpty(ac, "IPAddr", &c.IPAddr, DefaultUDPConfigIPAddr)
 }
 
 ////////////////////////
@@ -142,9 +151,7 @@ func (uw *udpWorker[T]) Close(_ context.Context) error {
 
 // UDPStage is an egress stage that sends UDP datagrams.
 type UDPStage[T msgSer] struct {
-	stage[*udpWorkerArgs, T]
-
-	cfg *UDPConfig
+	stage[*udpWorkerArgs, T, *UDPConfig]
 
 	conn *net.UDPConn
 }
@@ -152,22 +159,20 @@ type UDPStage[T msgSer] struct {
 // NewUDPStage returns a new UDP egress stage.
 func NewUDPStage[T msgSer](inputConnector msgConn[T], cfg *UDPConfig) *UDPStage[T] {
 	return &UDPStage[T]{
-		stage: newStage(
-			"udp", inputConnector, newUDPWorkerInstMaker[T](), cfg.Stage,
-		),
-
-		cfg: cfg,
+		stage: newStage("udp", inputConnector, newUDPWorkerInstMaker[T](), cfg),
 	}
 }
 
 // Init initializes the stage.
 func (us *UDPStage[T]) Init(ctx context.Context) error {
+	cfg := us.Config()
+
 	// Parse the IP address
-	parsedAddr, err := netip.ParseAddr(us.cfg.IPAddr)
+	parsedAddr, err := netip.ParseAddr(cfg.IPAddr)
 	if err != nil {
 		return err
 	}
-	addr := net.UDPAddrFromAddrPort(netip.AddrPortFrom(parsedAddr, us.cfg.Port))
+	addr := net.UDPAddrFromAddrPort(netip.AddrPortFrom(parsedAddr, cfg.Port))
 
 	// Dial the UDP connection
 	conn, err := net.DialUDP("udp", nil, addr)

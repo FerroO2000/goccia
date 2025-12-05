@@ -8,6 +8,7 @@ import (
 
 	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/rob"
 )
@@ -16,57 +17,78 @@ import (
 //  CONFIG  //
 //////////////
 
+// Default configuration values for the re-order buffer stage.
+const (
+	DefaultROBConfigMaxSeqNum           = 255
+	DefaultROBConfigPrimaryBufferSize   = 128
+	DefaultROBConfigAuxiliaryBufferSize = 128
+	DefaultROBConfigFlushTreshold       = 0.3
+	DefaultROBConfigBaseAlpha           = 0.2
+	DefaultROBConfigJumpThreshold       = 8
+	DefaultROBConfigResetTimeout        = 100 * time.Millisecond
+)
+
 // ROBConfig structs contains the configuration for the re-order buffer stage.
 type ROBConfig struct {
 	// MaxSeqNum is the maximum possible sequence number.
-	//
-	// Default: 255
 	MaxSeqNum uint64
 
 	// PrimaryBufferSize is the size of the primary buffer.
-	//
-	// Default: 128
 	PrimaryBufferSize uint64
 
 	// AuxiliaryBufferSize is the size of the auxiliary buffer.
-	//
-	// Default: 128
 	AuxiliaryBufferSize uint64
 
 	// FlushTreshold is the value of the fullness of the auxiliary buffer
 	// needed for flushing the primary buffer.
-	//
-	// Default: 0.3
 	FlushTreshold float64
 
 	// BaseAlpha is the base value for the alpha parameter for the EMA.
-	//
-	// Default: 0.2
 	BaseAlpha float64
 
 	// JumpThreshold is the threshold used by the time smoother (EMA)
 	// for adjusting the alpha parameter when there is a jump in the sequence.
-	//
-	// Default: 8
 	JumpThreshold uint64
 
 	// ResetTimeout is the timeout for resetting the re-order buffer.
-	//
-	// Default: 100ms
 	ResetTimeout time.Duration
 }
 
-// DefaultROBConfig returns the default configuration for the re-order buffer stage.
-func DefaultROBConfig() *ROBConfig {
+// NewROBConfig returns the default configuration for the re-order buffer stage.
+func NewROBConfig() *ROBConfig {
 	return &ROBConfig{
-		MaxSeqNum:           255,
-		PrimaryBufferSize:   128,
-		AuxiliaryBufferSize: 128,
-		FlushTreshold:       0.3,
-		BaseAlpha:           0.2,
-		JumpThreshold:       8,
-		ResetTimeout:        100 * time.Millisecond,
+		MaxSeqNum:           DefaultROBConfigMaxSeqNum,
+		PrimaryBufferSize:   DefaultROBConfigPrimaryBufferSize,
+		AuxiliaryBufferSize: DefaultROBConfigAuxiliaryBufferSize,
+		FlushTreshold:       DefaultROBConfigFlushTreshold,
+		BaseAlpha:           DefaultROBConfigBaseAlpha,
+		JumpThreshold:       DefaultROBConfigJumpThreshold,
+		ResetTimeout:        DefaultROBConfigResetTimeout,
 	}
+}
+
+// Validate checks the configuration.
+func (c *ROBConfig) Validate(ac *config.AnomalyCollector) {
+	config.CheckNotZero(ac, "MaxSeqNum", &c.MaxSeqNum, DefaultROBConfigMaxSeqNum)
+
+	config.CheckNotZero(ac, "PrimaryBufferSize", &c.PrimaryBufferSize, DefaultROBConfigPrimaryBufferSize)
+	config.CheckNotGreaterThan(ac, "PrimaryBufferSize", "MaxSeqNum", &c.PrimaryBufferSize, c.MaxSeqNum+1)
+
+	config.CheckNotZero(ac, "AuxiliaryBufferSize", &c.AuxiliaryBufferSize, DefaultROBConfigAuxiliaryBufferSize)
+	config.CheckNotGreaterThan(ac,
+		"AuxiliaryBufferSize", "MaxSeqNum - PrimaryBufferSize",
+		&c.AuxiliaryBufferSize, c.MaxSeqNum+1-c.PrimaryBufferSize,
+	)
+
+	config.CheckNotNegative(ac, "FlushTreshold", &c.FlushTreshold, DefaultROBConfigFlushTreshold)
+	config.CheckNotZero(ac, "FlushTreshold", &c.FlushTreshold, DefaultROBConfigFlushTreshold)
+
+	config.CheckNotNegative(ac, "BaseAlpha", &c.BaseAlpha, DefaultROBConfigBaseAlpha)
+	config.CheckNotZero(ac, "BaseAlpha", &c.BaseAlpha, DefaultROBConfigBaseAlpha)
+
+	config.CheckNotNegative(ac, "JumpThreshold", &c.JumpThreshold, DefaultROBConfigJumpThreshold)
+
+	config.CheckNotNegative(ac, "ResetTimeout", &c.ResetTimeout, DefaultROBConfigResetTimeout)
 }
 
 /////////////

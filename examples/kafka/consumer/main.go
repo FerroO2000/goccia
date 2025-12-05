@@ -28,7 +28,7 @@ func main() {
 	kafkaIngressCfg := ingress.DefaultKafkaConfig("example-topic")
 	kafkaIngressStage := ingress.NewKafkaStage(kafkaToRaw, kafkaIngressCfg)
 
-	customCfg := processor.DefaultCustomConfig(goccia.StageRunningModePool)
+	customCfg := processor.NewCustomConfig(goccia.StageRunningModePool)
 	customCfg.Name = "ingress_to_egress"
 	customStage := processor.NewCustomStage(newIngressToEgressHandler(), kafkaToRaw, customToKafka, customCfg)
 

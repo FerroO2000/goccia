@@ -6,10 +6,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/segmentio/kafka-go"
 	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/telemetry"
+	"github.com/segmentio/kafka-go"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -17,16 +18,44 @@ import (
 //  CONFIG  //
 //////////////
 
+// DefaultKafkaConfigBrokers is the default list of Kafka brokers to connect to.
+var DefaultKafkaConfigBrokers = []string{"localhost:9092"}
+
+// Default values for the Kafka ingress stage configuration.
+const (
+	DefaultKafkaConfigGroupID                = "group"
+	DefaultKafkaConfigQueueCapacity          = 100
+	DefaultKafkaConfigMinBytes               = 1
+	DefaultKafkaConfigMaxBytes               = 1 << 20
+	DefaultKafkaConfigMaxWait                = 10 * time.Second
+	DefaultKafkaConfigReadBatchTimeout       = 10 * time.Second
+	DefaultKafkaConfigHeartbeatInterval      = 3 * time.Second
+	DefaultKafkaConfigCommitInterval         = 0
+	DefaultKafkaConfigPartitionWatchInterval = 5 * time.Second
+	DefaultKafkaConfigWatchPartitionChanges  = false
+	DefaultKafkaConfigSessionTimeout         = 30 * time.Second
+	DefaultKafkaConfigRebalanceTimeout       = 30 * time.Second
+	DefaultKafkaConfigJoinGroupBackoff       = 5 * time.Second
+	DefaultKafkaConfigRetentionTime          = -1
+	DefaultKafkaConfigStartOffset            = kafka.FirstOffset
+	DefaultKafkaConfigReadMinBackoff         = 100 * time.Millisecond
+	DefaultKafkaConfigReadMaxBackoff         = 1 * time.Second
+	DefaultKafkaConfigIsolationLevel         = kafka.ReadUncommitted
+	DefaultKafkaConfigMaxAttempts            = 3
+)
+
+// DefaultKafkaConfigGroupBalancer is the default balancer used to distribute messages across partitions.
+var DefaultKafkaConfigGroupBalancer = []kafka.GroupBalancer{
+	kafka.RangeGroupBalancer{},
+	kafka.RoundRobinGroupBalancer{},
+}
+
 // KafkaConfig structs contains the configuration for the Kafka ingress stage.
 type KafkaConfig struct {
 	// The list of broker addresses used to connect to the kafka cluster.
-	//
-	// Default: "localhost:9092"
 	Brokers []string
 
 	// GroupID holds the consumer group id.
-	//
-	// Default: "group"
 	GroupID string
 
 	// Topics allows specifying multiple topics, but can only be used in
@@ -46,33 +75,23 @@ type KafkaConfig struct {
 	// will accept. Setting a high minimum when consuming from a low-volume topic
 	// may result in delayed delivery when the broker does not have enough data to
 	// satisfy the defined minimum.
-	//
-	// Default: 1
 	MinBytes int
 
 	// MaxBytes indicates to the broker the maximum batch size that the consumer
 	// will accept. The broker will truncate a message to satisfy this maximum, so
 	// choose a value that is high enough for your largest message size.
-	//
-	// Default: 1MB
 	MaxBytes int
 
 	// Maximum amount of time to wait for new data to come when fetching batches
 	// of messages from kafka.
-	//
-	// Default: 10s
 	MaxWait time.Duration
 
 	// ReadBatchTimeout amount of time to wait to fetch message from kafka messages batch.
-	//
-	// Default: 10s
 	ReadBatchTimeout time.Duration
 
 	// GroupBalancers is the priority-ordered list of client-side consumer group
 	// balancing strategies that will be offered to the coordinator.  The first
 	// strategy that all group members support will be chosen by the leader.
-	//
-	// Default: [Range, RoundRobin]
 	//
 	// Only used when GroupID is set
 	GroupBalancers []kafka.GroupBalancer
@@ -80,15 +99,11 @@ type KafkaConfig struct {
 	// HeartbeatInterval sets the optional frequency at which the reader sends the consumer
 	// group heartbeat update.
 	//
-	// Default: 3s
-	//
 	// Only used when GroupID is set
 	HeartbeatInterval time.Duration
 
 	// CommitInterval indicates the interval at which offsets are committed to
 	// the broker.  If 0, commits will be handled synchronously.
-	//
-	// Default: 0
 	//
 	// Only used when GroupID is set
 	CommitInterval time.Duration
@@ -96,8 +111,6 @@ type KafkaConfig struct {
 	// PartitionWatchInterval indicates how often a reader checks for partition changes.
 	// If a reader sees a partition change (such as a partition add) it will rebalance the group
 	// picking up new partitions.
-	//
-	// Default: 5s
 	//
 	// Only used when GroupID is set and WatchPartitionChanges is set.
 	PartitionWatchInterval time.Duration
@@ -109,8 +122,6 @@ type KafkaConfig struct {
 	// SessionTimeout optionally sets the length of time that may pass without a heartbeat
 	// before the coordinator considers the consumer dead and initiates a rebalance.
 	//
-	// Default: 30s
-	//
 	// Only used when GroupID is set
 	SessionTimeout time.Duration
 
@@ -118,23 +129,17 @@ type KafkaConfig struct {
 	// for members to join as part of a rebalance.  For kafka servers under higher
 	// load, it may be useful to set this value higher.
 	//
-	// Default: 30s
-	//
 	// Only used when GroupID is set
 	RebalanceTimeout time.Duration
 
 	// JoinGroupBackoff optionally sets the length of time to wait between re-joining
 	// the consumer group after an error.
-	//
-	// Default: 5s
 	JoinGroupBackoff time.Duration
 
 	// RetentionTime optionally sets the length of time the consumer group will be saved
 	// by the broker. -1 will disable the setting and leave the
 	// retention up to the broker's offsets.retention.minutes property. By
 	// default, that setting is 1 day for kafka < 2.0 and 7 days for kafka >= 2.0.
-	//
-	// Default: -1
 	//
 	// Only used when GroupID is set
 	RetentionTime time.Duration
@@ -143,21 +148,15 @@ type KafkaConfig struct {
 	// consuming when it finds a partition without a committed offset.  If
 	// non-zero, it must be set to one of FirstOffset or LastOffset.
 	//
-	// Default: FirstOffset
-	//
 	// Only used when GroupID is set
 	StartOffset int64
 
 	// BackoffDelayMin optionally sets the smallest amount of time the reader will wait before
 	// polling for new messages
-	//
-	// Default: 100ms
 	ReadBackoffMin time.Duration
 
 	// BackoffDelayMax optionally sets the maximum amount of time the reader will wait before
 	// polling for new messages
-	//
-	// Default: 1s
 	ReadBackoffMax time.Duration
 
 	// IsolationLevel controls the visibility of transactional records.
@@ -166,43 +165,43 @@ type KafkaConfig struct {
 	IsolationLevel kafka.IsolationLevel
 
 	// Limit of how many attempts to connect will be made before returning the error.
-	//
-	// The default is to try 3 times.
 	MaxAttempts int
 }
 
 // DefaultKafkaConfig returns a default kafka config.
 // There are NO default topics set.
 func DefaultKafkaConfig(topics ...string) *KafkaConfig {
-	groupBalancer := []kafka.GroupBalancer{
-		kafka.RangeGroupBalancer{},
-		kafka.RoundRobinGroupBalancer{},
-	}
-
 	return &KafkaConfig{
-		Brokers:                []string{"localhost:9092"},
-		GroupID:                "group",
+		Brokers:                DefaultKafkaConfigBrokers,
+		GroupID:                DefaultKafkaConfigGroupID,
 		Topics:                 topics,
-		QueueCapacity:          100,
-		MinBytes:               1,
-		MaxBytes:               10e6,
-		MaxWait:                10 * time.Second,
-		ReadBatchTimeout:       10 * time.Second,
-		GroupBalancers:         groupBalancer,
-		HeartbeatInterval:      3 * time.Second,
-		CommitInterval:         0,
-		PartitionWatchInterval: 5 * time.Second,
-		WatchPartitionChanges:  false,
-		SessionTimeout:         30 * time.Second,
-		RebalanceTimeout:       30 * time.Second,
-		JoinGroupBackoff:       5 * time.Second,
-		RetentionTime:          time.Hour * 24 * 7,
-		StartOffset:            kafka.FirstOffset,
-		ReadBackoffMin:         100 * time.Millisecond,
-		ReadBackoffMax:         1 * time.Second,
-		IsolationLevel:         kafka.ReadUncommitted,
-		MaxAttempts:            3,
+		QueueCapacity:          DefaultKafkaConfigQueueCapacity,
+		MinBytes:               DefaultKafkaConfigMinBytes,
+		MaxBytes:               DefaultKafkaConfigMaxBytes,
+		MaxWait:                DefaultKafkaConfigMaxWait,
+		ReadBatchTimeout:       DefaultKafkaConfigReadBatchTimeout,
+		GroupBalancers:         DefaultKafkaConfigGroupBalancer,
+		HeartbeatInterval:      DefaultKafkaConfigHeartbeatInterval,
+		CommitInterval:         DefaultKafkaConfigCommitInterval,
+		PartitionWatchInterval: DefaultKafkaConfigPartitionWatchInterval,
+		WatchPartitionChanges:  DefaultKafkaConfigWatchPartitionChanges,
+		SessionTimeout:         DefaultKafkaConfigSessionTimeout,
+		RebalanceTimeout:       DefaultKafkaConfigRebalanceTimeout,
+		JoinGroupBackoff:       DefaultKafkaConfigJoinGroupBackoff,
+		RetentionTime:          DefaultKafkaConfigRetentionTime,
+		StartOffset:            DefaultKafkaConfigStartOffset,
+		ReadBackoffMin:         DefaultKafkaConfigReadMinBackoff,
+		ReadBackoffMax:         DefaultKafkaConfigReadMaxBackoff,
+		IsolationLevel:         DefaultKafkaConfigIsolationLevel,
+		MaxAttempts:            DefaultKafkaConfigMaxAttempts,
 	}
+}
+
+// Validate checks the configuration.
+func (c *KafkaConfig) Validate(ac *config.AnomalyCollector) {
+	config.CheckLen(ac, "Brokers", &c.Brokers, DefaultKafkaConfigBrokers)
+
+	config.CheckNotEmpty(ac, "GroupID", &c.GroupID, DefaultKafkaConfigGroupID)
 }
 
 ///////////////
@@ -334,9 +333,7 @@ func (ks *kafkaSource) close() {
 
 // KafkaStage is an ingress stage that reads messages from Kafka.
 type KafkaStage struct {
-	*stage[*KafkaMessage]
-
-	cfg *KafkaConfig
+	*stage[*KafkaMessage, *KafkaConfig]
 
 	source *kafkaSource
 }
@@ -346,9 +343,7 @@ func NewKafkaStage(outConnector msgConn[*KafkaMessage], cfg *KafkaConfig) *Kafka
 	source := newKafkaSource()
 
 	return &KafkaStage{
-		stage: newStage("kafka", source, outConnector),
-
-		cfg: cfg,
+		stage: newStage("kafka", source, outConnector, cfg),
 
 		source: source,
 	}

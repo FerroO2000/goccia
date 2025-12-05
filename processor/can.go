@@ -5,11 +5,11 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/squadracorsepolito/acmelib"
 	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/pool"
-	stageCommon "github.com/FerroO2000/goccia/internal/stage"
+	"github.com/squadracorsepolito/acmelib"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -19,15 +19,15 @@ import (
 
 // CANConfig structs contains the configuration for the CAN processor stage.
 type CANConfig struct {
-	Stage *stageCommon.Config
+	*config.Base
 
 	Messages []*acmelib.Message
 }
 
-// DefaultCANConfig returns the default configuration for the CAN processor stage.
-func DefaultCANConfig(runningMode stageCommon.RunningMode) *CANConfig {
+// NewCANConfig returns the default configuration for the CAN processor stage.
+func NewCANConfig(runningMode config.StageRunningMode) *CANConfig {
 	return &CANConfig{
-		Stage: stageCommon.DefaultConfig(runningMode),
+		Base: config.NewBase(runningMode),
 
 		Messages: []*acmelib.Message{},
 	}
@@ -294,25 +294,21 @@ func (cw *canWorker[T]) Close(_ context.Context) error {
 
 // CANStage is a processor stage that decodes CAN messages.
 type CANStage[T CANMessageCarrier] struct {
-	stage[*canWorkerArgs, T, *CANMessage]
-
-	cfg *CANConfig
+	stage[*canWorkerArgs, T, *CANMessage, *CANConfig]
 }
 
 // NewCANStage returns a new CAN processor stage.
 func NewCANStage[T CANMessageCarrier](inputConnector msgConn[T], outputConnector msgConn[*CANMessage], cfg *CANConfig) *CANStage[T] {
 	return &CANStage[T]{
 		stage: newStage(
-			"can", inputConnector, outputConnector, newCANWorkerInstMaker[T](), cfg.Stage,
+			"can", inputConnector, outputConnector, newCANWorkerInstMaker[T](), cfg,
 		),
-
-		cfg: cfg,
 	}
 }
 
 // Init initializes the stage.
 func (cs *CANStage[T]) Init(ctx context.Context) error {
-	decoder := newCANDecoder(cs.cfg.Messages)
+	decoder := newCANDecoder(cs.Config().Messages)
 
 	return cs.stage.Init(ctx, newCANWorkerArgs(decoder))
 }

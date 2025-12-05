@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/pool"
 	"go.opentelemetry.io/otel/attribute"
@@ -46,53 +47,55 @@ const (
 	TCPFramingModeLengthPrefixed
 )
 
+// Default values for the TCP ingress stage configuration.
+const (
+	DefaultTCPConfigIPAddr          = "0.0.0.0"
+	DefaultTCPConfigPort            = 20_000
+	DefaultTCPConfigReadTimeout     = 10 * time.Second
+	DefaultTCPConfigFramingMode     = TCPFramingModeDelimited
+	DefaultTCPConfigMaxMessageSize  = 4 << 20
+	DefaultTCPConfigOutputQueueSize = 512
+	DefaultTCPConfigHeaderLen       = 16
+)
+
+// DefaultTCPConfigDelimiter is the default delimiter for delimited messages.
+var DefaultTCPConfigDelimiter = []byte("\r\n")
+
 // TCPConfig structs contains the configuration for the TCP ingress stage.
 type TCPConfig struct {
 	// IPAddr is the IP address of the server to listen on.
-	//
-	// Default: 0.0.0.0
 	IPAddr string
 
 	// Port is the port to listen on.
-	//
-	// Default: 20_000
 	Port uint16
 
 	// ReadTimeout is the timeout for reading from a connection.
-	//
-	// Default: 10s
 	ReadTimeout time.Duration
 
 	// FramingMode is the framing mode to use.
 	// It basically defines how the messages are separated.
-	//
-	// Default: TCPFramingModeDelimited
 	FramingMode TCPFramingMode
 
 	// MaxMessageSize is the maximum size of a message.
 	// If the accumulator that is holding the message
 	// gets bigger, the connection is closed.
-	//
-	// Default: 4MB
 	MaxMessageSize int
 
 	// Delimiter is the delimiter to use to separate messages
 	// when the FramingMode is TCPFramingModeDelimited.
-	//
-	// Default: "\r\n"
 	Delimiter []byte
 
 	// HeaderLen is the length of the header in the context
 	// of the TCPFramingModeLengthPrefixed mode.
 	HeaderLen int
 
-	// MessageLengthFieldOffset is the offset in the header
-	// of the message length field when FramingMode is TCPFramingModeLengthPrefixed.
-	MessageLengthFieldOffset int
-
 	// MessageLengthFieldLen is the length of the message length field
 	// when FramingMode is TCPFramingModeLengthPrefixed.
 	MessageLengthFieldLen int
+
+	// MessageLengthFieldOffset is the offset in the header
+	// of the message length field when FramingMode is TCPFramingModeLengthPrefixed.
+	MessageLengthFieldOffset int
 
 	// MessageLengthFieldEndianess is the endianess (byte order)
 	// of the message length field when FramingMode is TCPFramingModeLengthPrefixed.
@@ -102,22 +105,55 @@ type TCPConfig struct {
 	// placed between the TCP stage and the output connector.
 	// It is used to convey messages coming from the connection goroutines
 	// to the output connector.
-	//
-	// Default: 512
 	OutputQueueSize int
 }
 
-// DefaultTCPConfig returns a default TCPConfig.
-func DefaultTCPConfig() TCPConfig {
+// NewTCPConfig returns a default TCPConfig.
+func NewTCPConfig() TCPConfig {
 	return TCPConfig{
-		IPAddr:          "0.0.0.0",
-		Port:            20_000,
-		ReadTimeout:     10 * time.Second,
-		FramingMode:     TCPFramingModeDelimited,
-		MaxMessageSize:  4 * 1024 * 1024,
-		Delimiter:       []byte("\r\n"),
-		OutputQueueSize: 512,
+		IPAddr:          DefaultTCPConfigIPAddr,
+		Port:            DefaultTCPConfigPort,
+		ReadTimeout:     DefaultTCPConfigReadTimeout,
+		FramingMode:     DefaultTCPConfigFramingMode,
+		MaxMessageSize:  DefaultTCPConfigMaxMessageSize,
+		Delimiter:       DefaultTCPConfigDelimiter,
+		OutputQueueSize: DefaultTCPConfigOutputQueueSize,
 	}
+}
+
+// Validate checks the configuration.
+func (c *TCPConfig) Validate(ac *config.AnomalyCollector) {
+	config.CheckNotEmpty(ac, "IPAddr", &c.IPAddr, DefaultTCPConfigIPAddr)
+
+	config.CheckNotZero(ac, "Port", &c.Port, DefaultTCPConfigPort)
+
+	config.CheckNotNegative(ac, "ReadTimeout", &c.ReadTimeout, DefaultTCPConfigReadTimeout)
+	config.CheckNotZero(ac, "ReadTimeout", &c.ReadTimeout, DefaultTCPConfigReadTimeout)
+
+	config.CheckNotNegative(ac, "MaxMessageSize", &c.MaxMessageSize, DefaultTCPConfigMaxMessageSize)
+	config.CheckNotZero(ac, "MaxMessageSize", &c.MaxMessageSize, DefaultTCPConfigMaxMessageSize)
+
+	config.CheckLen(ac, "Delimiter", &c.Delimiter, DefaultTCPConfigDelimiter)
+
+	config.CheckNotNegative(ac, "OutputQueueSize", &c.OutputQueueSize, DefaultTCPConfigOutputQueueSize)
+	config.CheckNotZero(ac, "OutputQueueSize", &c.OutputQueueSize, DefaultTCPConfigOutputQueueSize)
+
+	if c.FramingMode == TCPFramingModeDelimited {
+		return
+	}
+
+	// Check configuration when framing mode is length-prefixed
+	config.CheckNotNegative(ac, "HeaderLen", &c.HeaderLen, DefaultTCPConfigHeaderLen)
+	config.CheckNotZero(ac, "HeaderLen", &c.HeaderLen, DefaultTCPConfigHeaderLen)
+
+	config.CheckNotNegative(ac, "MessageLengthFieldLen", &c.MessageLengthFieldLen, c.HeaderLen)
+	config.CheckNotGreaterThan(ac, "MessageLengthFieldLen", "HeaderLen", &c.MessageLengthFieldLen, c.HeaderLen)
+
+	config.CheckNotNegative(ac, "MessageLengthFieldOffset", &c.MessageLengthFieldOffset, 0)
+	config.CheckNotGreaterThan(ac,
+		"MessageLengthFieldOffset", "HeaderLen-MessageLengthFieldLen",
+		&c.MessageLengthFieldOffset, c.HeaderLen-c.MessageLengthFieldLen,
+	)
 }
 
 ///////////////
@@ -557,9 +593,7 @@ func (ts *tcpSource) close() {
 
 // TCPStage is an ingress stage that reads TCP connections and extracts messages.
 type TCPStage struct {
-	*stage[*TCPMessage]
-
-	cfg *TCPConfig
+	*stage[*TCPMessage, *TCPConfig]
 
 	source *tcpSource
 }
@@ -579,9 +613,7 @@ func NewTCPStage(outputConnector msgConn[*TCPMessage], cfg *TCPConfig) *TCPStage
 	})
 
 	return &TCPStage{
-		stage: newStage("tcp", source, outputConnector),
-
-		cfg: cfg,
+		stage: newStage("tcp", source, outputConnector, cfg),
 
 		source: source,
 	}

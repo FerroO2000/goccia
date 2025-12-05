@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	stageCommon "github.com/FerroO2000/goccia/internal/stage"
+	"github.com/FerroO2000/goccia/internal/config"
 )
 
 // CSVColumnType represents the type of a CSV column.
@@ -58,18 +58,19 @@ func (cd *CSVColumnDef) getTimestampLayout() string {
 
 // CSVConfig represents the configuration of the CSV decoder/encoder stages.
 type CSVConfig struct {
-	Stage *stageCommon.Config
+	*config.Base
 
 	// Columns is the list of column definitions.
 	Columns []*CSVColumnDef
 }
 
-// DefaultCSVConfig returns the default configuration for the CSV decoder/encoder stages.
+// NewCSVConfig returns the default configuration for the CSV decoder/encoder stages.
 // It returns an empty list of column definitions;
 // use the provided methods to add column definitions.
-func DefaultCSVConfig(runningMode stageCommon.RunningMode) *CSVConfig {
+func NewCSVConfig(runningMode config.StageRunningMode) *CSVConfig {
 	return &CSVConfig{
-		Stage:   stageCommon.DefaultConfig(runningMode),
+		Base: config.NewBase(runningMode),
+
 		Columns: []*CSVColumnDef{},
 	}
 }

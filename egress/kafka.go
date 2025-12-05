@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
-	stageCommon "github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/telemetry"
 
 	"github.com/segmentio/kafka-go"
@@ -15,63 +15,65 @@ import (
 //  CONFIG  //
 //////////////
 
+// DefaultKafkaConfigBrokers is the default list of Kafka brokers to connect to.
+var DefaultKafkaConfigBrokers = []string{"localhost:9092"}
+
+// DefaultKafkaConfigBalancer is the default balancer used to distribute messages across partitions.
+var DefaultKafkaConfigBalancer = &kafka.RoundRobin{}
+
+// Default values for the Kafka egress stage configuration.
+const (
+	DefaultKafkaConfigMaxAttempts            = 10
+	DefaultKafkaConfigWriteMinBackoff        = 100 * time.Millisecond
+	DefaultKafkaConfigWriteMaxBackoff        = 1 * time.Second
+	DefaultKafkaConfigBatchSize              = 100
+	DefaultKafkaConfigBatchBytes             = 1048576
+	DefaultKafkaConfigBatchTimeout           = 1 * time.Second
+	DefaultKafkaConfigReadTimeout            = 10 * time.Second
+	DefaultKafkaConfigWriteTimeout           = 10 * time.Second
+	DefaultKafkaConfigRequiredAcks           = kafka.RequireNone
+	DefaultKafkaConfigAsync                  = true
+	DefaultKafkaConfigCompression            = kafka.Snappy
+	DefaultKafkaConfigAllowAutoTopicCreation = true
+)
+
 // KafkaConfig structs contains the configuration for the Kafka egress stage.
 type KafkaConfig struct {
-	Stage *stageCommon.Config
+	*config.Base
 
 	// A list of Kafka brokers to connect to.
-	//
-	// Default: localhost:9092
 	Brokers []string
 
 	// The balancer used to distribute messages across partitions.
-	//
-	// Default: RoundRobin.
 	Balancer kafka.Balancer
 
 	// Limit on how many attempts will be made to deliver a message.
-	//
-	// Default: 10.
 	MaxAttempts int
 
 	// WriteBackoffMin optionally sets the smallest amount of time the writer waits before
 	// it attempts to write a batch of messages
-	//
-	// Default: 100ms
 	WriteBackoffMin time.Duration
 
 	// WriteBackoffMax optionally sets the maximum amount of time the writer waits before
 	// it attempts to write a batch of messages
-	//
-	// Default: 1s
 	WriteBackoffMax time.Duration
 
 	// Limit on how many messages will be buffered before being sent to a
 	// partition.
-	//
-	// The default is to use a target batch size of 100 messages.
 	BatchSize int
 
 	// Limit the maximum size of a request in bytes before being sent to
 	// a partition.
-	//
-	// The default is to use a kafka default value of 1048576.
 	BatchBytes int64
 
 	// Time limit on how often incomplete message batches will be flushed to
 	// kafka.
-	//
-	// The default is to flush at least every second.
 	BatchTimeout time.Duration
 
 	// Timeout for read operations performed by the Writer.
-	//
-	// Defaults to 10 seconds.
 	ReadTimeout time.Duration
 
 	// Timeout for write operation performed by the Writer.
-	//
-	// Defaults to 10 seconds.
 	WriteTimeout time.Duration
 
 	// Number of acknowledges from partition replicas required before receiving
@@ -80,24 +82,18 @@ type KafkaConfig struct {
 	//  RequireNone (0)  fire-and-forget, do not wait for acknowledgements from the
 	//  RequireOne  (1)  wait for the leader to acknowledge the writes
 	//  RequireAll  (-1) wait for the full ISR to acknowledge the writes
-	//
-	// Defaults to RequireNone.
 	RequiredAcks kafka.RequiredAcks
 
 	// Setting this flag to true causes the WriteMessages method to never block.
 	// It also means that errors are ignored since the caller will not receive
 	// the returned value. Use this only if you don't care about guarantees of
 	// whether the messages were written to kafka.
-	//
-	// Defaults to true.
 	Async bool
 
 	// Compression set the compression codec to be used to compress messages.
 	Compression kafka.Compression
 
 	// A transport used to send messages to kafka clusters.
-	//
-	// If nil, DefaultTransport is used.
 	Transport kafka.RoundTripper
 
 	// AllowAutoTopicCreation notifies writer to create topic if missing.
@@ -105,24 +101,24 @@ type KafkaConfig struct {
 }
 
 // DefaultKafkaConfig returns a default Kafka egress config.
-func DefaultKafkaConfig(runningMode stageCommon.RunningMode) *KafkaConfig {
+func DefaultKafkaConfig(runningMode config.StageRunningMode) *KafkaConfig {
 	return &KafkaConfig{
-		Stage: stageCommon.DefaultConfig(runningMode),
+		Base: config.NewBase(runningMode),
 
-		Brokers:                []string{"localhost:9092"},
-		Balancer:               &kafka.RoundRobin{},
-		MaxAttempts:            10,
-		WriteBackoffMin:        100 * time.Millisecond,
-		WriteBackoffMax:        1 * time.Second,
-		BatchSize:              100,
-		BatchBytes:             1048576,
-		BatchTimeout:           time.Second,
-		ReadTimeout:            10 * time.Second,
-		WriteTimeout:           10 * time.Second,
-		RequiredAcks:           kafka.RequireNone,
-		Async:                  true,
-		Compression:            kafka.Snappy,
-		AllowAutoTopicCreation: true,
+		Brokers:                DefaultKafkaConfigBrokers,
+		Balancer:               DefaultKafkaConfigBalancer,
+		MaxAttempts:            DefaultKafkaConfigMaxAttempts,
+		WriteBackoffMin:        DefaultKafkaConfigWriteMinBackoff,
+		WriteBackoffMax:        DefaultKafkaConfigWriteMaxBackoff,
+		BatchSize:              DefaultKafkaConfigBatchSize,
+		BatchBytes:             DefaultKafkaConfigBatchBytes,
+		BatchTimeout:           DefaultKafkaConfigBatchTimeout,
+		ReadTimeout:            DefaultKafkaConfigReadTimeout,
+		WriteTimeout:           DefaultKafkaConfigWriteTimeout,
+		RequiredAcks:           DefaultKafkaConfigRequiredAcks,
+		Async:                  DefaultKafkaConfigAsync,
+		Compression:            DefaultKafkaConfigCompression,
+		AllowAutoTopicCreation: DefaultKafkaConfigAllowAutoTopicCreation,
 	}
 }
 
@@ -224,9 +220,7 @@ func (kw *kafkaWorker) Close(_ context.Context) error { return nil }
 
 // KafkaStage is an egress stage that writes messages to Kafka.
 type KafkaStage struct {
-	stage[*kafkaWorkerArgs, *KafkaMessage]
-
-	cfg *KafkaConfig
+	stage[*kafkaWorkerArgs, *KafkaMessage, *KafkaConfig]
 
 	writer *kafka.Writer
 }
@@ -234,30 +228,30 @@ type KafkaStage struct {
 // NewKafkaStage returns a new Kafka egress stage.
 func NewKafkaStage(inputConnector msgConn[*KafkaMessage], cfg *KafkaConfig) *KafkaStage {
 	return &KafkaStage{
-		stage: newStage("kafka", inputConnector, newKafkaWorkerInstMaker(), cfg.Stage),
-
-		cfg: cfg,
+		stage: newStage("kafka", inputConnector, newKafkaWorkerInstMaker(), cfg),
 	}
 }
 
 // Init initializes the stage.
 func (ks *KafkaStage) Init(ctx context.Context) error {
+	cfg := ks.Config()
+
 	ks.writer = &kafka.Writer{
-		Addr:                   kafka.TCP(ks.cfg.Brokers...),
-		Balancer:               ks.cfg.Balancer,
-		MaxAttempts:            ks.cfg.MaxAttempts,
-		WriteBackoffMin:        ks.cfg.WriteBackoffMin,
-		WriteBackoffMax:        ks.cfg.WriteBackoffMax,
-		BatchSize:              ks.cfg.BatchSize,
-		BatchBytes:             ks.cfg.BatchBytes,
-		BatchTimeout:           ks.cfg.BatchTimeout,
-		ReadTimeout:            ks.cfg.ReadTimeout,
-		WriteTimeout:           ks.cfg.WriteTimeout,
-		RequiredAcks:           ks.cfg.RequiredAcks,
-		Async:                  ks.cfg.Async,
-		Compression:            ks.cfg.Compression,
-		Transport:              ks.cfg.Transport,
-		AllowAutoTopicCreation: ks.cfg.AllowAutoTopicCreation,
+		Addr:                   kafka.TCP(cfg.Brokers...),
+		Balancer:               cfg.Balancer,
+		MaxAttempts:            cfg.MaxAttempts,
+		WriteBackoffMin:        cfg.WriteBackoffMin,
+		WriteBackoffMax:        cfg.WriteBackoffMax,
+		BatchSize:              cfg.BatchSize,
+		BatchBytes:             cfg.BatchBytes,
+		BatchTimeout:           cfg.BatchTimeout,
+		ReadTimeout:            cfg.ReadTimeout,
+		WriteTimeout:           cfg.WriteTimeout,
+		RequiredAcks:           cfg.RequiredAcks,
+		Async:                  cfg.Async,
+		Compression:            cfg.Compression,
+		Transport:              cfg.Transport,
+		AllowAutoTopicCreation: cfg.AllowAutoTopicCreation,
 	}
 
 	return ks.stage.Init(ctx, newKafkaWorkerArgs(ks.writer))

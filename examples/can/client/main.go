@@ -27,18 +27,18 @@ func main() {
 	customToCannelloni := connector.NewRingBuffer[*processor.CannelloniMessage](connectorSize)
 	cannelloniToUDP := connector.NewRingBuffer[*processor.CannelloniEncodedMessage](connectorSize)
 
-	tickerCfg := ingress.DefaultTickerConfig()
+	tickerCfg := ingress.NewTickerConfig()
 	tickerCfg.Interval = time.Millisecond * 10
 	tickerStage := ingress.NewTickerStage(tickerToCustom, tickerCfg)
 
-	customCfg := processor.DefaultCustomConfig(goccia.StageRunningModeSingle)
+	customCfg := processor.NewCustomConfig(goccia.StageRunningModeSingle)
 	customCfg.Name = "ticker_to_cannelloni"
 	customStage := processor.NewCustomStage(newTickerToCannelloniHandler(), tickerToCustom, customToCannelloni, customCfg)
 
-	cannelloniCfg := processor.DefaultCannelloniConfig(goccia.StageRunningModeSingle)
+	cannelloniCfg := processor.NewCannelloniConfig(goccia.StageRunningModeSingle)
 	cannelloniStage := processor.NewCannelloniEncoderStage(customToCannelloni, cannelloniToUDP, cannelloniCfg)
 
-	udpCfg := egress.DefaultUDPConfig(goccia.StageRunningModeSingle)
+	udpCfg := egress.NewUDPConfig(goccia.StageRunningModeSingle)
 	udpStage := egress.NewUDPStage(cannelloniToUDP, udpCfg)
 
 	pipeline := goccia.NewPipeline()

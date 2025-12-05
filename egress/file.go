@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -17,35 +18,49 @@ import (
 //  CONFIG  //
 //////////////
 
+// Default values for the file egress stage configuration.
+const (
+	DefaultFileConfigBufferSize               = 4096
+	DefaultFileConfigFlushThresholdPercentage = 0.75
+	DefaultFileConfigFlushDeadline            = time.Second
+)
+
 // FileConfig structs contains the configuration for the file egress stage.
 type FileConfig struct {
 	// Path is the path to the file.
 	Path string
 
 	// BufferSize is the size of the buffer used to write messages to the file.
-	//
-	// Default: 4096
 	BufferSize int
 
 	// FlushThresholdPercentage is the percentage of the buffer size that triggers a flush.
-	//
-	// Default: 0.75
 	FlushThresholdPercentage float64
 
 	// FlushDeadline is the maximum time to wait before flushing the buffer.
-	//
-	// Default: 1s
 	FlushDeadline time.Duration
 }
 
-// DefaultFileConfig returns the default configuration for the file egress stage.
-func DefaultFileConfig(path string) *FileConfig {
+// NewFileConfig returns the default configuration for the file egress stage.
+func NewFileConfig(path string) *FileConfig {
 	return &FileConfig{
 		Path:                     path,
-		BufferSize:               4096,
-		FlushThresholdPercentage: 0.75,
-		FlushDeadline:            time.Second,
+		BufferSize:               DefaultFileConfigBufferSize,
+		FlushThresholdPercentage: DefaultFileConfigFlushThresholdPercentage,
+		FlushDeadline:            DefaultFileConfigFlushDeadline,
 	}
+}
+
+// Validate checks the configuration.
+func (c *FileConfig) Validate(ac *config.AnomalyCollector) {
+	config.CheckNotNegative(ac, "BufferSize", &c.BufferSize, DefaultFileConfigBufferSize)
+	config.CheckNotZero(ac, "BufferSize", &c.BufferSize, DefaultFileConfigBufferSize)
+
+	config.CheckNotNegative(ac, "FlushThresholdPercentage", &c.FlushThresholdPercentage, DefaultFileConfigFlushThresholdPercentage)
+	config.CheckNotZero(ac, "FlushThresholdPercentage", &c.FlushThresholdPercentage, DefaultFileConfigFlushThresholdPercentage)
+	config.CheckNotLower(ac, "FlushThresholdPercentage", &c.FlushThresholdPercentage, 1.0)
+
+	config.CheckNotNegative(ac, "FlushDeadline", &c.FlushDeadline, DefaultFileConfigFlushDeadline)
+	config.CheckNotZero(ac, "FlushDeadline", &c.FlushDeadline, DefaultFileConfigFlushDeadline)
 }
 
 ////////////////////////
@@ -242,25 +257,25 @@ func (fw *fileWorker[T]) Close(_ context.Context) error {
 // FileStage is an egress stage that writes messages to a file sequentially.
 // It spawns a single worker that writes messages to the file.
 type FileStage[T msgSer] struct {
-	stage[*fileWorkerArgs, T]
-
-	cfg *FileConfig
+	stage[*fileWorkerArgs, T, *FileConfig]
 
 	file *os.File
+	path string
 }
 
 // NewFileStage returns a new file egress stage.
 func NewFileStage[T msgSer](inputConnector msgConn[T], cfg *FileConfig) *FileStage[T] {
 	return &FileStage[T]{
-		stage: newStageSingle("file", inputConnector, newFileWorkerInstMaker[T]()),
-
-		cfg: cfg,
+		stage: newStageSingle("file", inputConnector, newFileWorkerInstMaker[T](), cfg),
 	}
 }
 
 // Init initializes the stage.
 func (fs *FileStage[T]) Init(ctx context.Context) error {
-	path := fs.cfg.Path
+	cfg := fs.Config()
+
+	path := cfg.Path
+	fs.path = path
 
 	// Open the file as append only
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -270,11 +285,11 @@ func (fs *FileStage[T]) Init(ctx context.Context) error {
 	fs.file = file
 
 	// Create the bufio writer
-	writer := bufio.NewWriterSize(file, fs.cfg.BufferSize)
+	writer := bufio.NewWriterSize(file, cfg.BufferSize)
 
 	// Create the worker arguments
-	bufSizeThreshold := int64(float64(fs.cfg.BufferSize) * fs.cfg.FlushThresholdPercentage)
-	workerArgs := newFileWorkerArgs(writer, path, bufSizeThreshold, fs.cfg.FlushDeadline)
+	bufSizeThreshold := int64(float64(cfg.BufferSize) * cfg.FlushThresholdPercentage)
+	workerArgs := newFileWorkerArgs(writer, path, bufSizeThreshold, cfg.FlushDeadline)
 
 	return fs.stage.Init(ctx, workerArgs)
 }
@@ -285,10 +300,10 @@ func (fs *FileStage[T]) Close() {
 
 	// Sync and close the file
 	if err := fs.file.Sync(); err != nil {
-		fs.Tel().LogError("failed to sync file", err, "path", fs.cfg.Path)
+		fs.Tel().LogError("failed to sync file", err, "path", fs.path)
 	}
 
 	if err := fs.file.Close(); err != nil {
-		fs.Tel().LogError("failed to close file", err, "path", fs.cfg.Path)
+		fs.Tel().LogError("failed to close file", err, "path", fs.path)
 	}
 }

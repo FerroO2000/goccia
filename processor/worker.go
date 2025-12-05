@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
 )
 
@@ -142,7 +143,7 @@ func (w *worker[Args, In, Out]) close(ctx context.Context) {
 type workerPool[WArgs any, In, Out msgEnv] struct {
 	tel *internal.Telemetry
 
-	cfg *pool.Config
+	cfg *config.Pool
 
 	scaler *pool.Scaler
 
@@ -158,7 +159,7 @@ type workerPool[WArgs any, In, Out msgEnv] struct {
 }
 
 func newWorkerPool[WArgs any, In, Out msgEnv](
-	tel *internal.Telemetry, workerInstMaker workerInstanceMaker[WArgs, In, Out], cfg *pool.Config,
+	tel *internal.Telemetry, workerInstMaker workerInstanceMaker[WArgs, In, Out], cfg *config.Pool,
 ) *workerPool[WArgs, In, Out] {
 
 	return &workerPool[WArgs, In, Out]{

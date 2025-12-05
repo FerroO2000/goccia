@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -14,19 +15,28 @@ import (
 //  CONFIG  //
 //////////////
 
+// Default values for the Ticker stage configuration.
+const (
+	DefaultTickerConfigInterval = 100 * time.Millisecond
+)
+
 // TickerConfig structs contains the configuration for the Ticker stage.
 type TickerConfig struct {
 	// Interval is the duration between ticks.
-	//
-	// Default: 100ms
 	Interval time.Duration
 }
 
-// DefaultTickerConfig returns the default configuration for the Ticker stage.
-func DefaultTickerConfig() *TickerConfig {
+// NewTickerConfig returns the default configuration for the Ticker stage.
+func NewTickerConfig() *TickerConfig {
 	return &TickerConfig{
 		Interval: 100 * time.Millisecond,
 	}
+}
+
+// Validate checks the configuration.
+func (c *TickerConfig) Validate(ac *config.AnomalyCollector) {
+	config.CheckNotNegative(ac, "Interval", &c.Interval, DefaultTickerConfigInterval)
+	config.CheckNotZero(ac, "Interval", &c.Interval, DefaultTickerConfigInterval)
 }
 
 ///////////////
@@ -117,9 +127,7 @@ func (ts *tickerSource) handleTrigger(ctx context.Context, tick int) *msg[*Ticke
 
 // TickerStage is an ingress stage that ticks periodically.
 type TickerStage struct {
-	*stage[*TickerMessage]
-
-	cfg *TickerConfig
+	*stage[*TickerMessage, *TickerConfig]
 
 	source *tickerSource
 }
@@ -129,9 +137,7 @@ func NewTickerStage(outConnector msgConn[*TickerMessage], cfg *TickerConfig) *Ti
 	source := newTickerSource()
 
 	return &TickerStage{
-		stage: newStage("ticker", source, outConnector),
-
-		cfg: cfg,
+		stage: newStage("ticker", source, outConnector, cfg),
 
 		source: source,
 	}
