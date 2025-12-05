@@ -4,6 +4,8 @@ package pool
 import (
 	"runtime"
 	"time"
+
+	"github.com/FerroO2000/goccia/internal/config"
 )
 
 // Config is the configuration for the worker pool.
@@ -13,19 +15,20 @@ type Config struct {
 	// Default: true
 	AutoScaleEnabled bool
 
-	// InitialWorkers is the initial number of workers.
+	// MaxWorkers is the maximum number of workers.
 	//
-	// Default: 1
-	InitialWorkers int
+	// Default: number of CPUs
+	MaxWorkers int
 
 	// MinWorkers is the minimum number of workers.
 	//
 	// Default: 1
 	MinWorkers int
-	// MaxWorkers is the maximum number of workers.
+
+	// InitialWorkers is the initial number of workers.
 	//
-	// Default: number of CPUs
-	MaxWorkers int
+	// Default: half of the number of CPUs
+	InitialWorkers int
 
 	// InputQueueSize is the size of the queue that holds messages to be processed
 	// by the workers. It is basically the size of the buffer used to fan out the
@@ -65,9 +68,9 @@ type Config struct {
 func DefaultConfig() *Config {
 	return &Config{
 		AutoScaleEnabled:    true,
-		InitialWorkers:      max(1, runtime.NumCPU()/2),
-		MinWorkers:          1,
 		MaxWorkers:          runtime.NumCPU(),
+		MinWorkers:          1,
+		InitialWorkers:      max(1, runtime.NumCPU()/2),
 		InputQueueSize:      512,
 		OutputQueueSize:     512,
 		QueueDepthPerWorker: 64,
@@ -75,4 +78,25 @@ func DefaultConfig() *Config {
 		ScaleDownBackoff:    1.5,
 		AutoScaleInterval:   3 * time.Second,
 	}
+}
+
+func (c *Config) Validate(anomalies *config.Anomalies) {
+	config.CheckNotNegative(anomalies, "MaxWorkers", c.MaxWorkers, runtime.NumCPU())
+
+	config.CheckNotNegative(anomalies, "MinWorkers", c.MinWorkers, 1)
+	config.CheckNotGreaterThan(anomalies, "MinWorkers", "MaxWorkers", c.MinWorkers, c.MaxWorkers)
+
+	config.CheckNotNegative(anomalies, "InitialWorkers", c.InitialWorkers, max(1, runtime.NumCPU()/2))
+	config.CheckNotLowerThan(anomalies, "InitialWorkers", "MinWorkers", c.InitialWorkers, c.MinWorkers)
+	config.CheckNotGreaterThan(anomalies, "InitialWorkers", "MaxWorkers", c.InitialWorkers, c.MaxWorkers)
+
+	config.CheckNotNegative(anomalies, "InputQueueSize", c.InputQueueSize, 512)
+	config.CheckNotNegative(anomalies, "OutputQueueSize", c.OutputQueueSize, 512)
+
+	config.CheckNotNegative(anomalies, "QueueDepthPerWorker", c.QueueDepthPerWorker, 64)
+
+	config.CheckNotNegative(anomalies, "ScaleDownFactor", c.ScaleDownFactor, 0.1)
+	config.CheckNotNegative(anomalies, "ScaleDownBackoff", c.ScaleDownBackoff, 1.5)
+
+	config.CheckNotNegative(anomalies, "AutoScaleInterval", c.AutoScaleInterval, 3*time.Second)
 }
