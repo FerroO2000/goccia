@@ -9,7 +9,7 @@ local row = g.panel.row;
 local prometheus = q.prometheus;
 local tempo = q.tempo;
 
-g.dashboard.new('Acmetel Sever')
+g.dashboard.new('Goccia Pipeline')
 + g.dashboard.graphTooltip.withSharedCrosshair()
 + g.dashboard.withVariables(
   [
@@ -34,12 +34,12 @@ g.dashboard.new('Acmetel Sever')
       p.stat.base(
         'Handled Messages',
         [
-          prometheus.filteredCounter('worker_pool_handled_messages_total', 'acmetel_stage_name', 'cannelloni'),
-          prometheus.filteredCounter('worker_pool_handled_messages_total', 'acmetel_stage_name', 'can'),
+          prometheus.filteredCounter('processed_messages_total', 'goccia_stage_name', 'cannelloni'),
+          prometheus.filteredCounter('processed_messages_total', 'goccia_stage_name', 'can'),
         ]
       ),
 
-      p.stat.base('Delivered Messages', prometheus.counter('worker_pool_delivered_messages_total'), color='blue', w=3),
+      p.stat.base('Delivered Messages', prometheus.counter('delivered_messages_total'), color='blue', w=3),
 
       p.stat.base('Inserted Rows', prometheus.counter('inserted_rows_total'), color='purple', w=3),
 
@@ -55,7 +55,7 @@ g.dashboard.new('Acmetel Sever')
 
       p.timeSeries.step(
         'Active Workers',
-        prometheus.counter('worker_pool_active_workers', '{{acmetel_stage_kind}} - {{acmetel_stage_name}}')
+        prometheus.counter('worker_pool_active_workers', '{{goccia_stage_kind}} - {{goccia_stage_name}}')
       ),
 
       p.stat.base('ROB Stage', [
