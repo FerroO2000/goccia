@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -36,6 +37,11 @@ func Init(ctx context.Context, serviceName string) {
 	meterExporter := newMeterExporter(ctx)
 	meterProvider := newMeterProvider(resource, meterExporter)
 	otel.SetMeterProvider(meterProvider)
+
+	// Runtime
+	if err := runtime.Start(runtime.WithMinimumReadMemStatsInterval(time.Second)); err != nil {
+		panic(err)
+	}
 }
 
 func Close() {
@@ -79,7 +85,7 @@ func newTraceProvider(resource *resource.Resource, exporter sdktrace.SpanExporte
 	return sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(resource),
-		//sdktrace.WithSampler(sdktrace.TraceIDRatioBased(0.05)),
+		sdktrace.WithSampler(sdktrace.TraceIDRatioBased(0.05)),
 	)
 }
 

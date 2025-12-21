@@ -385,7 +385,7 @@ type CannelloniDecoderStage[T msgSer] struct {
 func NewCannelloniDecoderStage[T msgSer](inputConnector msgConn[T], outputConnector msgConn[*CannelloniMessage], cfg *CannelloniConfig) *CannelloniDecoderStage[T] {
 	return &CannelloniDecoderStage[T]{
 		stage: newStage(
-			"cannelloni", inputConnector, outputConnector, newCannelloniDecoderWorkerInstMaker[T](), cfg,
+			"cannelloni_decoder", inputConnector, outputConnector, newCannelloniDecoderWorkerInstMaker[T](), cfg,
 		),
 	}
 }
@@ -408,7 +408,7 @@ func NewCannelloniEncoderStage(
 
 	return &CannelloniEncoderStage{
 		stage: newStage(
-			"cannelloni", inputConnector, outputConnector, newCannelloniEncoderWorkerInstMaker(), cfg,
+			"cannelloni_encoder", inputConnector, outputConnector, newCannelloniEncoderWorkerInstMaker(), cfg,
 		),
 	}
 }

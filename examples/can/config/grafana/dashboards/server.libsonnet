@@ -46,6 +46,7 @@ g.dashboard.new('Goccia Pipeline')
       p.timeSeries.latency(
         'Message Processing Time',
         [
+          prometheus.quantile('total_message_processing_time', 99),
           prometheus.quantile('total_message_processing_time', 95),
           prometheus.quantile('total_message_processing_time', 90),
           prometheus.quantile('total_message_processing_time', 75),

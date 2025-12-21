@@ -10,6 +10,7 @@ import (
 	"github.com/FerroO2000/goccia"
 	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/egress"
+	"github.com/FerroO2000/goccia/examples/telemetry"
 	"github.com/FerroO2000/goccia/ingress"
 	"github.com/FerroO2000/goccia/processor"
 )
@@ -20,14 +21,14 @@ func main() {
 	ctx, cancelCtx := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer cancelCtx()
 
-	// telemetry.Init(ctx, "can-client-example")
+	telemetry.Init(ctx, "can-client-example")
 
 	tickerToCustom := connector.NewRingBuffer[*ingress.TickerMessage](connectorSize)
 	customToCannelloni := connector.NewRingBuffer[*processor.CannelloniMessage](connectorSize)
 	cannelloniToUDP := connector.NewRingBuffer[*processor.CannelloniEncodedMessage](connectorSize)
 
 	tickerCfg := ingress.NewTickerConfig()
-	tickerCfg.Interval = time.Millisecond * 10
+	tickerCfg.Interval = time.Millisecond
 	tickerStage := ingress.NewTickerStage(tickerToCustom, tickerCfg)
 
 	customCfg := processor.NewCustomConfig(goccia.StageRunningModeSingle)

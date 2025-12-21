@@ -117,8 +117,8 @@ type ebpfSourceConfig struct {
 type ebpfSourceMetrics struct {
 	tel *internal.Telemetry
 
-	records       atomic.Int64
-	parsingErrors atomic.Int64
+	receivedRecords atomic.Int64
+	parsingErrors   atomic.Int64
 
 	receivedBytes atomic.Int64
 }
@@ -130,13 +130,13 @@ func newEBPFSourceMetrics(tel *internal.Telemetry) *ebpfSourceMetrics {
 }
 
 func (esm *ebpfSourceMetrics) init() {
-	esm.tel.NewCounter("records", func() int64 { return esm.records.Load() })
+	esm.tel.NewCounter("received_records", func() int64 { return esm.receivedRecords.Load() })
 	esm.tel.NewCounter("parsing_errors", func() int64 { return esm.parsingErrors.Load() })
 	esm.tel.NewCounter("received_bytes", func() int64 { return esm.receivedBytes.Load() })
 }
 
-func (esm *ebpfSourceMetrics) incrementRecords() {
-	esm.records.Add(1)
+func (esm *ebpfSourceMetrics) incrementReceivedRecords() {
+	esm.receivedRecords.Add(1)
 }
 
 func (esm *ebpfSourceMetrics) incrementParsingErrors() {
@@ -242,7 +242,7 @@ func (es *ebpfSource[T]) handleRecord(ctx context.Context, record *ringbuf.Recor
 	msg.SaveSpan(span)
 
 	// Update metrics
-	es.metrics.incrementRecords()
+	es.metrics.incrementReceivedRecords()
 
 	return msg, nil
 }
