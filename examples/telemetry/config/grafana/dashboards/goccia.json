@@ -1,0 +1,3148 @@
+{
+   "graphTooltip": 1,
+   "panels": [
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "fieldConfig": {
+            "defaults": {
+               "color": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+               },
+               "unit": "decbytes"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 0
+         },
+         "id": 1,
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$metrics"
+               },
+               "expr": "go_memory_used_bytes{go_memory_type=\"other\",exported_job=\"$service\"}",
+               "interval": "15s",
+               "legendFormat": "{{go_memory_type}}"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$metrics"
+               },
+               "expr": "go_memory_used_bytes{go_memory_type=\"stack\",exported_job=\"$service\"}",
+               "interval": "15s",
+               "legendFormat": "{{go_memory_type}}"
+            }
+         ],
+         "title": "Memory Usage",
+         "type": "gauge"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "fieldConfig": {
+            "defaults": {
+               "color": {
+                  "mode": "palette-classic"
+               },
+               "custom": {
+                  "fillOpacity": 50,
+                  "lineInterpolation": "smooth",
+                  "lineWidth": 2
+               },
+               "unit": "ms"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 0
+         },
+         "id": 2,
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$metrics"
+               },
+               "expr": "histogram_quantile(0.99, sum by(le) (rate(total_message_processing_time_milliseconds_bucket{exported_job=\"$service\"}[$__rate_interval])))",
+               "interval": "15s",
+               "legendFormat": "p99"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$metrics"
+               },
+               "expr": "histogram_quantile(0.95, sum by(le) (rate(total_message_processing_time_milliseconds_bucket{exported_job=\"$service\"}[$__rate_interval])))",
+               "interval": "15s",
+               "legendFormat": "p95"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$metrics"
+               },
+               "expr": "histogram_quantile(0.90, sum by(le) (rate(total_message_processing_time_milliseconds_bucket{exported_job=\"$service\"}[$__rate_interval])))",
+               "interval": "15s",
+               "legendFormat": "p90"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$metrics"
+               },
+               "expr": "histogram_quantile(0.75, sum by(le) (rate(total_message_processing_time_milliseconds_bucket{exported_job=\"$service\"}[$__rate_interval])))",
+               "interval": "15s",
+               "legendFormat": "p75"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$metrics"
+               },
+               "expr": "histogram_quantile(0.50, sum by(le) (rate(total_message_processing_time_milliseconds_bucket{exported_job=\"$service\"}[$__rate_interval])))",
+               "interval": "15s",
+               "legendFormat": "p50"
+            }
+         ],
+         "title": "Message Processing Time",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "fieldConfig": {
+            "defaults": {
+               "color": {
+                  "mode": "palette-classic"
+               },
+               "custom": {
+                  "fillOpacity": 0,
+                  "lineInterpolation": "stepAfter",
+                  "lineWidth": 2
+               }
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 0
+         },
+         "id": 3,
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$metrics"
+               },
+               "expr": "worker_pool_active_workers{exported_job=\"$service\"}",
+               "interval": "15s",
+               "legendFormat": "{{goccia_stage_kind}} - {{goccia_stage_name}}"
+            }
+         ],
+         "title": "Active Workers",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 8
+         },
+         "id": 4,
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "tempo",
+                  "uid": "$traces"
+               },
+               "filters": [ ],
+               "limit": 20,
+               "query": "{resource.service.name=\"$service\" && traceDuration>100ms}",
+               "spss": 10
+            }
+         ],
+         "title": "Traces Over 100ms",
+         "type": "table"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 16
+         },
+         "id": 5,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "Bps"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 6,
+               "options": {
+                  "colorMode": "value",
+                  "graphMode": "area",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "rate(received_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"ebpf\",exported_job=\"$service\"}[$__rate_interval])",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Received Bytes Rate",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "decbytes"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 7,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "received_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"ebpf\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Received Bytes Total",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 8,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "received_records_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"ebpf\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Received Records",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 9,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "parsing_errors_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"ebpf\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Parsing Errors",
+               "type": "stat"
+            }
+         ],
+         "title": "Ingress - eBPF",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 17
+         },
+         "id": 10,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 11,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "readers{goccia_stage_kind=\"ingress\",goccia_stage_name=\"file\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Readers Total",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 12,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "active_readers{goccia_stage_kind=\"ingress\",goccia_stage_name=\"file\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Active Readers",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "Bps"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 13,
+               "options": {
+                  "colorMode": "value",
+                  "graphMode": "area",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "rate(read_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"file\",exported_job=\"$service\"}[$__rate_interval])",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Read Bytes Rate",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "decbytes"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 14,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "read_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"file\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Read Bytes Total",
+               "type": "stat"
+            }
+         ],
+         "title": "Ingress - File",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 18
+         },
+         "id": 15,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "Bps"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 16,
+               "options": {
+                  "colorMode": "value",
+                  "graphMode": "area",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "rate(received_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"kafka\",exported_job=\"$service\"}[$__rate_interval])",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Received Bytes Rate",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "decbytes"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 17,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "received_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"kafka\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Received Bytes Total",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 18,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "received_messages_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"kafka\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Received Messages",
+               "type": "stat"
+            }
+         ],
+         "title": "Ingress - Kafka",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 19
+         },
+         "id": 19,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 20,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "open_connections{goccia_stage_kind=\"ingress\",goccia_stage_name=\"tcp\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Open Connections",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "Bps"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 21,
+               "options": {
+                  "colorMode": "value",
+                  "graphMode": "area",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "rate(received_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"tcp\",exported_job=\"$service\"}[$__rate_interval])",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Received Bytes Rate",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "decbytes"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 22,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "received_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"tcp\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Received Bytes Total",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 23,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "received_messages_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"tcp\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Received Messages",
+               "type": "stat"
+            }
+         ],
+         "title": "Ingress - TCP",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 20
+         },
+         "id": 24,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "Bps"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 25,
+               "options": {
+                  "colorMode": "value",
+                  "graphMode": "area",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "rate(received_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"udp\",exported_job=\"$service\"}[$__rate_interval])",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Received Bytes Rate",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "decbytes"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 26,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "received_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"udp\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Received Bytes Total",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 27,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "received_messages_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"udp\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Received Messages",
+               "type": "stat"
+            }
+         ],
+         "title": "Ingress - UDP",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 21
+         },
+         "id": 28,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 29,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "processed_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"can\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Processed Messages",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 30,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "processing_errors_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"can\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Processing Errors",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 31,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "dropped_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"can\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Dropped Messages",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 32,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "can_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"can\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "CAN Messages",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 33,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "can_signals_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"can\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "CAN Signals",
+               "type": "stat"
+            }
+         ],
+         "title": "Processor - CAN",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 22
+         },
+         "id": 34,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 35,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "processed_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"cannelloni_decoder\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Processed Messages",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 36,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "processing_errors_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"cannelloni_decoder\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Processing Errors",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 37,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "dropped_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"cannelloni_decoder\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Dropped Messages",
+               "type": "stat"
+            }
+         ],
+         "title": "Processor - Cannelloni Decoder",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 23
+         },
+         "id": 38,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 39,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "processed_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"cannelloni_encoder\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Processed Messages",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 40,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "processing_errors_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"cannelloni_encoder\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Processing Errors",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 41,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "dropped_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"cannelloni_encoder\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Dropped Messages",
+               "type": "stat"
+            }
+         ],
+         "title": "Processor - Cannelloni Encoder",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 24
+         },
+         "id": 42,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 43,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "processed_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"csv_decoder\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Processed Messages",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 44,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "processing_errors_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"csv_decoder\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Processing Errors",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 45,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "dropped_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"csv_decoder\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Dropped Messages",
+               "type": "stat"
+            }
+         ],
+         "title": "Processor - CSV Decoder",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 25
+         },
+         "id": 46,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 47,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "processed_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"csv_encoder\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Processed Messages",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 48,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "processing_errors_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"csv_encoder\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Processing Errors",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 49,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "dropped_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"csv_encoder\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Dropped Messages",
+               "type": "stat"
+            }
+         ],
+         "title": "Processor - CSV Encoder",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 26
+         },
+         "id": 50,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 51,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "processed_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"custom\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Processed Messages",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 52,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "processing_errors_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"custom\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Processing Errors",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 53,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "dropped_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"custom\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Dropped Messages",
+               "type": "stat"
+            }
+         ],
+         "title": "Processor - Custom",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 27
+         },
+         "id": 54,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 55,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "filtered_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"filter\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Filtered Messages",
+               "type": "stat"
+            }
+         ],
+         "title": "Processor - Filter",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 28
+         },
+         "id": 56,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 57,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "ordered_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"rob\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Ordered Messages",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 58,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "primary_enqueued_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"rob\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Primary Enqueued Messages",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 59,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "auxiliary_enqueued_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"rob\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Auxiliary Enqueued Messages",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 60,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "out_of_order_sequence_number_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"rob\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Out of Order Sequence Number Count",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 61,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "duplicated_sequence_number_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"rob\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Duplicated Sequence Number Count",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 62,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "invalid_sequence_number_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"rob\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Invalid Sequence Number Count",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "yellow",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 63,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "resets_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"rob\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Resets",
+               "type": "stat"
+            }
+         ],
+         "title": "Processor - ReOrder Buffer",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 29
+         },
+         "id": 64,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 65,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "cloned_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"tee\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Cloned Messages",
+               "type": "stat"
+            }
+         ],
+         "title": "Processor - Tee",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 30
+         },
+         "id": 66,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 67,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "delivered_messages_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"file\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Delivered Messages",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 68,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "delivering_errors_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"file\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Delivering Errors",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "Bps"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 69,
+               "options": {
+                  "colorMode": "value",
+                  "graphMode": "area",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "rate(written_bytes_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"file\",exported_job=\"$service\"}[$__rate_interval])",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Written Bytes Rate",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "decbytes"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 70,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "written_bytes_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"file\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Written Bytes Total",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 71,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "write_errors_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"file\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Write Errors",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 72,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "flush_errors_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"file\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Flush Errors",
+               "type": "stat"
+            }
+         ],
+         "title": "Egress - File",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 31
+         },
+         "id": 73,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 74,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "delivered_messages_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"kafka\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Delivered Messages",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 75,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "delivering_errors_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"kafka\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Delivering Errors",
+               "type": "stat"
+            }
+         ],
+         "title": "Egress - Kafka",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 32
+         },
+         "id": 76,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 77,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "delivered_messages_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"questdb\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Delivered Messages",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 78,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "delivering_errors_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"questdb\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Delivering Errors",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 79,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "inserted_rows_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"questdb\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Inserted Rows",
+               "type": "stat"
+            }
+         ],
+         "title": "Egress - Quest DB",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 33
+         },
+         "id": 80,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 81,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "delivered_messages_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"tcp\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Delivered Messages",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 82,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "delivering_errors_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"tcp\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Delivering Errors",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "Bps"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 83,
+               "options": {
+                  "colorMode": "value",
+                  "graphMode": "area",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "rate(delivered_bytes_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"tcp\",exported_job=\"$service\"}[$__rate_interval])",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Delivered Bytes Rate",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "decbytes"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 84,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "delivered_bytes_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"tcp\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Delivered Bytes Total",
+               "type": "stat"
+            }
+         ],
+         "title": "Egress - TCP",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 34
+         },
+         "id": 85,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 86,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "delivered_messages_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"udp\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Delivered Messages",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "red",
+                        "mode": "fixed"
+                     },
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 87,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "delivering_errors_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"udp\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Delivering Errors",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "Bps"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 88,
+               "options": {
+                  "colorMode": "value",
+                  "graphMode": "area",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "rate(delivered_bytes_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"udp\",exported_job=\"$service\"}[$__rate_interval])",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Delivered Bytes Rate",
+               "type": "stat"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "color": {
+                        "fixedColor": "green",
+                        "mode": "fixed"
+                     },
+                     "unit": "decbytes"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 89,
+               "options": {
+                  "colorMode": "background_solid",
+                  "graphMode": "none",
+                  "showPercentChange": false
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$metrics"
+                     },
+                     "expr": "delivered_bytes_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"udp\",exported_job=\"$service\"}",
+                     "interval": "15s"
+                  }
+               ],
+               "title": "Delivered Bytes Total",
+               "type": "stat"
+            }
+         ],
+         "title": "Egress - UDP",
+         "type": "row"
+      }
+   ],
+   "refresh": "5s",
+   "schemaVersion": 39,
+   "templating": {
+      "list": [
+         {
+            "name": "metrics",
+            "query": "prometheus",
+            "type": "datasource"
+         },
+         {
+            "name": "traces",
+            "query": "tempo",
+            "type": "datasource"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${metrics}"
+            },
+            "name": "service",
+            "query": "label_values(go_memory_used_bytes, exported_job)",
+            "type": "query"
+         }
+      ]
+   },
+   "time": {
+      "from": "now-15m",
+      "to": "now"
+   },
+   "timepicker": {
+      "refresh_intervals": [
+         "250ms",
+         "500ms",
+         "1s",
+         "2s",
+         "5s",
+         "10s",
+         "30s",
+         "1m",
+         "5m",
+         "15m",
+         "30m",
+         "1h",
+         "2h",
+         "1d"
+      ]
+   },
+   "timezone": "browser",
+   "title": "Goccia"
+}

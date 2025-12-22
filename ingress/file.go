@@ -249,8 +249,6 @@ func (fr *fileReader) start(ctx context.Context) error {
 
 	fr.state = fileReaderStateStarted
 
-	fr.sourceMetrics.incrementActiveReaders()
-
 	return nil
 }
 
@@ -271,6 +269,8 @@ func (fr *fileReader) read(ctx context.Context) {
 			return
 		}
 	}
+
+	fr.sourceMetrics.incrementActiveReaders()
 
 	reader := bufio.NewReaderSize(fr.file, fr.cfg.chunkSize)
 	buf := make([]byte, fr.cfg.chunkSize)

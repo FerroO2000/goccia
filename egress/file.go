@@ -57,7 +57,7 @@ func (c *FileConfig) Validate(ac *config.AnomalyCollector) {
 
 	config.CheckNotNegative(ac, "FlushThresholdPercentage", &c.FlushThresholdPercentage, DefaultFileConfigFlushThresholdPercentage)
 	config.CheckNotZero(ac, "FlushThresholdPercentage", &c.FlushThresholdPercentage, DefaultFileConfigFlushThresholdPercentage)
-	config.CheckNotLower(ac, "FlushThresholdPercentage", &c.FlushThresholdPercentage, 1.0)
+	config.CheckNotGreaterThan(ac, "FlushThresholdPercentage", "1.0", &c.FlushThresholdPercentage, 1.0)
 
 	config.CheckNotNegative(ac, "FlushDeadline", &c.FlushDeadline, DefaultFileConfigFlushDeadline)
 	config.CheckNotZero(ac, "FlushDeadline", &c.FlushDeadline, DefaultFileConfigFlushDeadline)

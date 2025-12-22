@@ -12,7 +12,6 @@ processors:
     send_batch_size: 1024
 
 exporters:
-  # Export metrics to Prometheus
   prometheus:
     endpoint: "0.0.0.0:8889"
 
@@ -22,7 +21,7 @@ exporters:
       insecure: true
 
 service:
-  pipelines:    
+  pipelines:
     metrics:
       receivers: [otlp]
       processors: [batch]
@@ -32,5 +31,5 @@ service:
       receivers: [otlp]
       processors: [batch]
       exporters: [otlp/tempo]
-      
+
   extensions: []

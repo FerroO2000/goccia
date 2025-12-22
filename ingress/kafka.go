@@ -36,7 +36,7 @@ const (
 	DefaultKafkaConfigSessionTimeout         = 30 * time.Second
 	DefaultKafkaConfigRebalanceTimeout       = 30 * time.Second
 	DefaultKafkaConfigJoinGroupBackoff       = 5 * time.Second
-	DefaultKafkaConfigRetentionTime          = -1
+	DefaultKafkaConfigRetentionTime          = time.Hour * 24 * 7
 	DefaultKafkaConfigStartOffset            = kafka.FirstOffset
 	DefaultKafkaConfigReadMinBackoff         = 100 * time.Millisecond
 	DefaultKafkaConfigReadMaxBackoff         = 1 * time.Second

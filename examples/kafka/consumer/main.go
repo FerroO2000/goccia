@@ -20,7 +20,7 @@ func main() {
 	ctx, cancelCtx := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer cancelCtx()
 
-	telemetry.Init(ctx, "kafka-example")
+	telemetry.Init(ctx, "kafka-consumer-example")
 
 	kafkaToRaw := connector.NewRingBuffer[*ingress.KafkaMessage](connectorSize)
 	customToKafka := connector.NewRingBuffer[*egress.KafkaMessage](connectorSize)

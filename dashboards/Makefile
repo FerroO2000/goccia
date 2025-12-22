@@ -8,4 +8,4 @@ dash-download:
 	cd src && jb install github.com/grafana/grafonnet/gen/grafonnet-latest@main
 
 dash-gen:
-	jsonnet src/goccia.libsonnet -J src/vendor/ -J src/lib/ -J src/ingress/ -o goccia.json -o ../examples/can/config/grafana/dashboards/output/goccia.json
+	jsonnet src/goccia.libsonnet -J src/vendor/ -J src/lib/ -J src/ingress/ -o goccia.json -o ../examples/telemetry/config/grafana/dashboards/goccia.json

@@ -1,0 +1,56 @@
+services:
+    prometheus:
+        image: prom/prometheus
+        container_name: prometheus
+        command:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus"
+            - "--web.console.libraries=/etc/prometheus/console_libraries"
+            - "--web.console.templates=/etc/prometheus/consoles"
+            - "--storage.tsdb.retention.time=200h"
+            - "--web.enable-lifecycle"
+        volumes:
+            - $PWD/config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+        ports:
+            - "9090:9090"
+
+    tempo:
+        image: grafana/tempo
+        container_name: tempo
+        command: ["-config.file=/etc/tempo.yaml"]
+        volumes:
+            - $PWD/config/tempo/tempo.yaml:/etc/tempo.yaml
+        ports:
+            - "3200:3200"
+
+    otel-collector:
+        image: otel/opentelemetry-collector-contrib
+        container_name: otel-collector
+        depends_on:
+            - prometheus
+            - tempo
+        command: ["--config=/etc/otel-collector-config.yaml"]
+        volumes:
+            - $PWD/config/otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+        ports:
+            - "4317:4317"
+            - "4318:4318"
+            - "8889:8889"
+
+    grafana:
+        image: grafana/grafana
+        container_name: grafana
+        depends_on:
+            - tempo
+            - prometheus
+        user: "0"
+        volumes:
+            - $PWD/config/grafana/dashboard.yaml:/etc/grafana/provisioning/dashboards/main.yaml
+            - $PWD/config/grafana/datasource.yaml:/etc/grafana/provisioning/datasources/main.yaml
+            - $PWD/config/grafana/dashboards:/var/lib/grafana/dashboards
+        environment:
+            - GF_SECURITY_ADMIN_USER=admin
+            - GF_SECURITY_ADMIN_PASSWORD=admin
+            - GF_AUTH_ANONYMOUS_ENABLED=false
+        ports:
+            - "3000:3000"

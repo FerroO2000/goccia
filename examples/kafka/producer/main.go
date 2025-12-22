@@ -21,13 +21,13 @@ func main() {
 	ctx, cancelCtx := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer cancelCtx()
 
-	telemetry.Init(ctx, "kafka-example")
+	telemetry.Init(ctx, "kafka-producer-example")
 
 	tickerToCustom := connector.NewRingBuffer[*ingress.TickerMessage](connectorSize)
 	customToKafka := connector.NewRingBuffer[*egress.KafkaMessage](connectorSize)
 
 	tickerCfg := ingress.NewTickerConfig()
-	tickerCfg.Interval = time.Second
+	tickerCfg.Interval = time.Millisecond
 	tickerStage := ingress.NewTickerStage(tickerToCustom, tickerCfg)
 
 	customCfg := processor.NewCustomConfig(goccia.StageRunningModePool)
