@@ -9,6 +9,7 @@ import (
 	"github.com/FerroO2000/goccia"
 	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/egress"
+	"github.com/FerroO2000/goccia/examples/telemetry"
 	"github.com/FerroO2000/goccia/ingress"
 	"github.com/FerroO2000/goccia/processor"
 )
@@ -18,6 +19,8 @@ const connectorSize = 2048
 func main() {
 	ctx, cancelCtx := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer cancelCtx()
+
+	telemetry.Init(ctx, "csv-example")
 
 	fileIngressToCsv := connector.NewRingBuffer[*ingress.FileMessage](connectorSize)
 	decoderToEncoder := connector.NewRingBuffer[*processor.CSVMessage](connectorSize)

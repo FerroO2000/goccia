@@ -10,6 +10,7 @@ import (
 	"github.com/FerroO2000/goccia"
 	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/egress"
+	"github.com/FerroO2000/goccia/examples/telemetry"
 	"github.com/FerroO2000/goccia/ingress"
 	"github.com/FerroO2000/goccia/processor"
 	"github.com/cilium/ebpf"
@@ -34,6 +35,8 @@ func main() {
 	if len(os.Args) > 1 {
 		ifname = os.Args[1]
 	}
+
+	telemetry.Init(ctx, "ebpf-example")
 
 	ebpfToHandler := connector.NewRingBuffer[*ingress.EBPFMessage[PingEvent]](connectorSize)
 	handlerToSink := connector.NewRingBuffer[*ingress.EBPFMessage[PingEvent]](connectorSize)
