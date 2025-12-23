@@ -140,7 +140,7 @@ make file run
 
 ---
 
-### Kafka Example
+### Kafka 
 
 Manages Kafka producer and consumer applications.
 
