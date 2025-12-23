@@ -69,9 +69,13 @@ file:
 		$(MAKE) _telemetry-up; \
 	elif [ "$(filter-out $@,$(MAKECMDGOALS))" = "down" ]; then \
 		$(MAKE) _telemetry-down; \
-	elif [ "$(filter-out $@,$(MAKECMDGOALS))" = "gen" ]; then \
+	elif echo "$(filter-out $@,$(MAKECMDGOALS))" | grep -q "^gen"; then \
 		mkdir -p file/data/in; \
-		cd file && ./make_file.sh data/in/input.txt 0.1; \
+		FILE=$$(echo "$(filter-out $@,$(MAKECMDGOALS))" | awk '{print $$2}'); \
+		if [ -z "$$FILE" ]; then \
+			FILE="input.txt"; \
+		fi; \
+		cd file && ./gen_file.sh data/in/"$$FILE" 0.1; \
 	elif [ "$(filter-out $@,$(MAKECMDGOALS))" = "run" ]; then \
 		cd file && go run .; \
 	else \
