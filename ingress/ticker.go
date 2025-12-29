@@ -85,6 +85,8 @@ func (ts *tickerSource) init(interval time.Duration) {
 }
 
 func (ts *tickerSource) run(ctx context.Context, outConnector msgConn[*TickerMessage]) {
+	defer ts.ticker.Stop()
+
 	ticks := 0
 
 	for {

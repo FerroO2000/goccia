@@ -15,18 +15,15 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-const (
-	udpPayloadSize = 1474
-)
-
 //////////////
 //  CONFIG  //
 //////////////
 
 // Default values for the UDP stage configuration.
 const (
-	DefaultUDPConfigIPAddr = "0.0.0.0"
-	DefaultUDPConfigPort   = 20_000
+	DefaultUDPConfigIPAddr            = "0.0.0.0"
+	DefaultUDPConfigPort       uint16 = 20_000
+	DefaultUDPConfigBufferSize uint16 = 1472
 )
 
 // UDPConfig structs contains the configuration for the UDP stage.
@@ -36,34 +33,48 @@ type UDPConfig struct {
 
 	// Port is the port to listen on.
 	Port uint16
+
+	// BufferSize is the size of the buffer used to receive messages.
+	// It will also set the default dimension of the Payload field
+	// of the UDP message.
+	BufferSize uint16
 }
 
 // NewUDPConfig returns the default configuration for the UDP stage.
 func NewUDPConfig() *UDPConfig {
 	return &UDPConfig{
-		IPAddr: DefaultUDPConfigIPAddr,
-		Port:   DefaultUDPConfigPort,
+		IPAddr:     DefaultUDPConfigIPAddr,
+		Port:       DefaultUDPConfigPort,
+		BufferSize: DefaultUDPConfigBufferSize,
 	}
 }
 
 // Validate checks the configuration.
 func (c *UDPConfig) Validate(ac *config.AnomalyCollector) {
 	config.CheckNotEmpty(ac, "IPAddr", &c.IPAddr, DefaultUDPConfigIPAddr)
+
+	config.CheckNotZero(ac, "Port", &c.Port, DefaultUDPConfigPort)
+
+	config.CheckNotZero(ac, "BufferSize", &c.BufferSize, DefaultUDPConfigBufferSize)
 }
 
 ///////////////
 //  MESSAGE  //
 ///////////////
 
-var _ msgSer = (*UDPMessage)(nil)
+var udpMessagePool sync.Pool
 
-var udpMessagePool = sync.Pool{
-	New: func() any {
-		return &UDPMessage{
-			Payload: make([]byte, udpPayloadSize),
-		}
-	},
+func udpMessagePoolInit(payloadSize int) {
+	udpMessagePool = sync.Pool{
+		New: func() any {
+			return &UDPMessage{
+				Payload: make([]byte, payloadSize),
+			}
+		},
+	}
 }
+
+var _ msgSer = (*UDPMessage)(nil)
 
 // UDPMessage represents a UDP message.
 type UDPMessage struct {
@@ -96,6 +107,9 @@ var _ source[*UDPMessage] = (*udpSource)(nil)
 type udpSource struct {
 	tel *internal.Telemetry
 
+	// Config
+	bufferSize uint16
+
 	conn *net.UDPConn
 
 	// Metrics
@@ -111,7 +125,7 @@ func (us *udpSource) setTelemetry(tel *internal.Telemetry) {
 	us.tel = tel
 }
 
-func (us *udpSource) init(ipAddr string, port uint16) error {
+func (us *udpSource) init(ipAddr string, port, bufferSize uint16) error {
 	parsedAddr, err := netip.ParseAddr(ipAddr)
 	if err != nil {
 		return err
@@ -124,6 +138,9 @@ func (us *udpSource) init(ipAddr string, port uint16) error {
 	}
 
 	us.conn = conn
+
+	us.bufferSize = bufferSize
+	udpMessagePoolInit(int(bufferSize))
 
 	us.initMetrics()
 
@@ -142,7 +159,7 @@ func (us *udpSource) run(ctx context.Context, outConnector msgConn[*UDPMessage])
 		us.conn.Close()
 	}()
 
-	buf := make([]byte, udpPayloadSize)
+	buf := make([]byte, us.bufferSize)
 
 	for {
 		select {
@@ -151,11 +168,12 @@ func (us *udpSource) run(ctx context.Context, outConnector msgConn[*UDPMessage])
 		default:
 		}
 
-		// read the UDP payload
-		_, err := us.conn.Read(buf)
+		// Read the UDP payload
+		n, err := us.conn.Read(buf)
 		if err != nil {
 			// Check if the connection is closed
 			if errors.Is(err, net.ErrClosed) {
+				// Check if caused by context cancellation
 				select {
 				case <-ctx.Done():
 					return
@@ -168,7 +186,7 @@ func (us *udpSource) run(ctx context.Context, outConnector msgConn[*UDPMessage])
 		}
 
 		// Handle the buffer and send the message
-		msgOut := us.handleBuf(ctx, buf)
+		msgOut := us.handleBuf(ctx, buf[:n])
 		if err := outConnector.Write(msgOut); err != nil {
 			msgOut.Destroy()
 			us.tel.LogError("failed to write message to output connector", err)
@@ -231,7 +249,7 @@ func NewUDPStage(outputConnector msgConn[*UDPMessage], cfg *UDPConfig) *UDPStage
 
 // Init initializes the stage.
 func (us *UDPStage) Init(ctx context.Context) error {
-	if err := us.source.init(us.cfg.IPAddr, us.cfg.Port); err != nil {
+	if err := us.source.init(us.cfg.IPAddr, us.cfg.Port, us.cfg.BufferSize); err != nil {
 		return err
 	}
 
