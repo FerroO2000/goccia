@@ -19,10 +19,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-const (
-	tcpBufSize = 4096
-)
-
 //////////////
 //  CONFIG  //
 //////////////
@@ -51,6 +47,7 @@ const (
 const (
 	DefaultTCPConfigIPAddr          = "0.0.0.0"
 	DefaultTCPConfigPort            = 20_000
+	DefaultTCPConfigBufferSize      = 4096
 	DefaultTCPConfigReadTimeout     = 10 * time.Second
 	DefaultTCPConfigFramingMode     = TCPFramingModeDelimited
 	DefaultTCPConfigMaxMessageSize  = 4 << 20
@@ -68,6 +65,10 @@ type TCPConfig struct {
 
 	// Port is the port to listen on.
 	Port uint16
+
+	// BufferSize is the size of the buffer to use for reading
+	// from the connection.
+	BufferSize uint16
 
 	// ReadTimeout is the timeout for reading from a connection.
 	ReadTimeout time.Duration
@@ -193,6 +194,7 @@ var _ source[*TCPMessage] = (*tcpSource)(nil)
 type tcpSourceConfig struct {
 	fanInBufferSize int
 
+	bufferSize  int
 	readTimeout time.Duration
 
 	framingMode TCPFramingMode
@@ -217,6 +219,7 @@ type tcpSource struct {
 
 	listener *net.TCPListener
 
+	bufferSize  int
 	readTimeout time.Duration
 
 	// Framing
@@ -254,11 +257,12 @@ func newTCPSource(cfg *tcpSourceConfig) *tcpSource {
 
 		bufPool: sync.Pool{
 			New: func() any {
-				buf := make([]byte, tcpBufSize)
+				buf := make([]byte, cfg.bufferSize)
 				return buf
 			},
 		},
 
+		bufferSize:  cfg.bufferSize,
 		readTimeout: cfg.readTimeout,
 
 		framingMode: cfg.framingMode,
@@ -305,6 +309,8 @@ func (ts *tcpSource) initMetrics() {
 }
 
 func (ts *tcpSource) run(ctx context.Context, outConnector msgConn[*TCPMessage]) {
+	go ts.runBridge(ctx, outConnector)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -326,7 +332,7 @@ func (ts *tcpSource) run(ctx context.Context, outConnector msgConn[*TCPMessage])
 		}
 
 		// Spawn a goroutine to handle the connection
-		go ts.handleConn(ctx, conn, outConnector)
+		go ts.handleConn(ctx, conn)
 	}
 }
 
@@ -350,13 +356,11 @@ func (ts *tcpSource) runBridge(ctx context.Context, outConnector msgConn[*TCPMes
 	}
 }
 
-func (ts *tcpSource) handleConn(ctx context.Context, conn net.Conn, outConnector msgConn[*TCPMessage]) {
+func (ts *tcpSource) handleConn(ctx context.Context, conn net.Conn) {
 	ts.wg.Add(1)
 	defer ts.wg.Done()
 
 	defer conn.Close()
-
-	go ts.runBridge(ctx, outConnector)
 
 	// Channel to notify when the connection is closed normally
 	connClosed := make(chan struct{})
@@ -381,7 +385,7 @@ func (ts *tcpSource) handleConn(ctx context.Context, conn net.Conn, outConnector
 	defer ts.bufPool.Put(buf)
 
 	// Preallocate the accumulator
-	accBaseCap := 4 * tcpBufSize
+	accBaseCap := min(4*ts.bufferSize, ts.maxMsgSize)
 	acc := make([]byte, 0, accBaseCap)
 
 	minAccLen := 0
@@ -431,6 +435,12 @@ loop:
 		// Append the new bytes to the accumulator
 		acc = append(acc, buf[:n]...)
 
+		// Prevent accumulator from growing too large
+		if len(acc) > ts.maxMsgSize {
+			ts.tel.LogWarn("message too large, closing connection")
+			return
+		}
+
 		for {
 			accLen := len(acc)
 
@@ -445,6 +455,7 @@ loop:
 			totLen := 0
 			switch ts.framingMode {
 			case TCPFramingModeDelimited:
+				// Search for the delimiter
 				msgLen = bytes.Index(acc, ts.delimiter)
 				totLen = msgLen + ts.delimiterLen
 
@@ -480,7 +491,7 @@ loop:
 			}
 		}
 
-		// Prevent accumulator from growing too large
+		// Prevent accumulator from growing too large, as before
 		if len(acc) > ts.maxMsgSize {
 			ts.tel.LogWarn("message too large, closing connection")
 			return
