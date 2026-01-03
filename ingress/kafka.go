@@ -208,7 +208,7 @@ func (c *KafkaConfig) Validate(ac *config.AnomalyCollector) {
 //  MESSAGE  //
 ///////////////
 
-var _ msgEnv = (*KafkaMessage)(nil)
+var _ msgSer = (*KafkaMessage)(nil)
 
 // KafkaMessage represents a message returned by the Kafka ingress stage.
 type KafkaMessage struct {
@@ -225,6 +225,11 @@ func newKafkaMessage() *KafkaMessage {
 
 // Destroy cleans up the message.
 func (km *KafkaMessage) Destroy() {}
+
+// GetBytes returns the bytes of the Kafka's message value.
+func (km *KafkaMessage) GetBytes() []byte {
+	return km.Value
+}
 
 //////////////
 //  SOURCE  //

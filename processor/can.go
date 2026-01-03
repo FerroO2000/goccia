@@ -142,11 +142,12 @@ func (cd *canDecoder) decode(ctx context.Context, canID uint32, data []byte) []*
 	default:
 	}
 
-	fn, ok := cd.m[canID]
+	// Try to find the corresponding decode function
+	fnDecode, ok := cd.m[canID]
 	if !ok {
 		return nil
 	}
-	return fn(data)
+	return fnDecode(data)
 }
 
 ////////////////////////
