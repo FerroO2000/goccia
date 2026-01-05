@@ -2,8 +2,6 @@ module github.com/FerroO2000/goccia
 
 go 1.24.0
 
-ignore ./test/grafana-data
-
 require (
 	github.com/cilium/ebpf v0.20.0
 	github.com/fsnotify/fsnotify v1.9.0
