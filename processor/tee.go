@@ -13,7 +13,7 @@ import (
 // TeeStage is a processor stage that "clones" the input message to multiple output connectors.
 // Under the hood, it does not perform an actual copy of the real message data (envelope).
 // It only copies the message's metadata and increments the reference counter of the enveloped message.
-type TeeStage[T msgEnv] struct {
+type TeeStage[T msgBody] struct {
 	tel *internal.Telemetry
 
 	inputConnector   msgConn[T]
@@ -26,7 +26,7 @@ type TeeStage[T msgEnv] struct {
 }
 
 // NewTeeStage returns a new tee processor stage.
-func NewTeeStage[T msgEnv](inputConnector msgConn[T], outputConnectors ...msgConn[T]) *TeeStage[T] {
+func NewTeeStage[T msgBody](inputConnector msgConn[T], outputConnectors ...msgConn[T]) *TeeStage[T] {
 	return &TeeStage[T]{
 		tel: internal.NewTelemetry("processor", "tee"),
 
@@ -65,15 +65,11 @@ func (ts *TeeStage[T]) Run(ctx context.Context) {
 		default:
 		}
 
-		msgIn, err := ts.inputConnector.Read()
+		msgIn, err := ts.inputConnector.Read(ctx)
 		if err != nil {
 			if errors.Is(err, connector.ErrClosed) {
 				ts.tel.LogInfo("input connector is closed, stopping")
 				return
-			}
-
-			if !errors.Is(err, connector.ErrReadTimeout) {
-				ts.tel.LogError("failed to read from input connector", err)
 			}
 
 			continue

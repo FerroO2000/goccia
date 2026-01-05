@@ -2,20 +2,17 @@
 package rb
 
 import (
+	"context"
 	"errors"
 	"runtime"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"golang.org/x/sys/cpu"
 )
 
 // ErrClosed is returned when the buffer is closed.
 var ErrClosed = errors.New("ring buffer: buffer is closed")
-
-// ErrReadTimeout is returned when the buffer is empty and the read operation times out.
-var ErrReadTimeout = errors.New("ring buffer: read timeout")
 
 // BufferKind is the type of the internal buffer implementation.
 type BufferKind uint8
@@ -72,10 +69,6 @@ type RingBuffer[T any] struct {
 	notEmpty *sync.Cond
 	notFull  *sync.Cond
 	mux      *sync.Mutex
-
-	// readTimeout the maximum amount of time to wait the buffer is not empty
-	// before while reading
-	readTimeout time.Duration
 }
 
 // NewRingBuffer returns a new lock-free spsc/mpmc generic ring buffer.
@@ -88,8 +81,6 @@ func NewRingBuffer[T any](capacity uint32, kind BufferKind) *RingBuffer[T] {
 		mux:      mux,
 		notEmpty: sync.NewCond(mux),
 		notFull:  sync.NewCond(mux),
-
-		readTimeout: 3 * time.Second,
 	}
 
 	parsedCapacity := roundToPowerOf2(capacity)
@@ -137,16 +128,7 @@ func (rb *RingBuffer[T]) len() uint32 {
 	}
 }
 
-// SetReadTimeout sets the read timeout.
-// It must be used before calling the Write/Read methods.
-func (rb *RingBuffer[T]) SetReadTimeout(readTimeout time.Duration) {
-	rb.readTimeout = readTimeout
-}
-
-func (rb *RingBuffer[T]) wait(cond *sync.Cond) error {
-	timer := time.NewTimer(rb.readTimeout)
-	defer timer.Stop()
-
+func (rb *RingBuffer[T]) wait(ctx context.Context, cond *sync.Cond) error {
 	done := make(chan struct{})
 
 	go func() {
@@ -158,11 +140,11 @@ func (rb *RingBuffer[T]) wait(cond *sync.Cond) error {
 	case <-done:
 		return nil
 
-	case <-timer.C:
+	case <-ctx.Done():
 		// Wake up the waiting goroutine
 		cond.Broadcast()
 		<-done
-		return ErrReadTimeout
+		return ctx.Err()
 	}
 }
 
@@ -221,7 +203,7 @@ cleanup:
 	return nil
 }
 
-func (rb *RingBuffer[T]) Read() (T, error) {
+func (rb *RingBuffer[T]) Read(ctx context.Context) (T, error) {
 	var item T
 	var popOk bool
 
@@ -263,7 +245,7 @@ func (rb *RingBuffer[T]) Read() (T, error) {
 		}
 
 		// Wait for data, return an error if the timeout is reached
-		if err := rb.wait(rb.notEmpty); err != nil {
+		if err := rb.wait(ctx, rb.notEmpty); err != nil {
 			rb.mux.Unlock()
 			return item, err
 		}

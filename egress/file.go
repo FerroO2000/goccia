@@ -197,7 +197,7 @@ func (fw *fileWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
 	defer span.End()
 
 	// Write message bytes to file
-	chunk := msgIn.GetEnvelope().GetBytes()
+	chunk := msgIn.GetBody().GetBytes()
 	n, err := fw.writer.Write(chunk)
 	if err != nil {
 		fw.Tel.LogError("failed to write to file", err, "path", fw.path)

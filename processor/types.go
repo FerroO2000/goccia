@@ -10,18 +10,18 @@ import (
 	"github.com/FerroO2000/goccia/internal/message"
 )
 
-type msgEnv = message.Envelope
+type msgBody = message.Body
 
-type msgEnvPtr[T any] interface {
+type msgBodyPtr[T any] interface {
 	*T
-	msgEnv
+	msgBody
 }
 
-type msg[T msgEnv] = message.Message[T]
+type msg[T msgBody] = message.Message[T]
 
 type msgSer = message.Serializable
 
-type msgConn[T msgEnv] = connector.Connector[*msg[T]]
+type msgConn[T msgBody] = connector.Connector[*msg[T]]
 
 type cfg = config.Config
 type stageCfg = config.WithStage

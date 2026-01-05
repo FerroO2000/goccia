@@ -123,7 +123,7 @@ func (uw *udpWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
 	_, span := uw.Tel.NewTrace(ctx, "deliver UDP message")
 	defer span.End()
 
-	udpMsg := msgIn.GetEnvelope()
+	udpMsg := msgIn.GetBody()
 
 	payload := udpMsg.GetBytes()
 	payloadSize := len(payload)

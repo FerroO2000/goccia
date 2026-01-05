@@ -623,7 +623,7 @@ func (fs *fileSource) runBridge(ctx context.Context, outConn msgConn[*FileMessag
 		default:
 		}
 
-		msgOut, err := fs.fanIn.ReadTask()
+		msgOut, err := fs.fanIn.ReadTask(ctx)
 		if err != nil {
 			continue
 		}

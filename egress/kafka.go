@@ -126,7 +126,7 @@ func DefaultKafkaConfig(runningMode config.StageRunningMode) *KafkaConfig {
 //  MESSAGE  //
 ///////////////
 
-var _ msgEnv = (*KafkaMessage)(nil)
+var _ msgBody = (*KafkaMessage)(nil)
 
 // KafkaMessage represents the message used by the Kafka egress stage.
 type KafkaMessage struct {
@@ -187,7 +187,7 @@ func (kw *kafkaWorker) Deliver(ctx context.Context, msgIn *msg[*KafkaMessage]) e
 	ctx, span := kw.Tel.NewTrace(ctx, "deliver kafka message")
 	defer span.End()
 
-	kafkaMsgIn := msgIn.GetEnvelope()
+	kafkaMsgIn := msgIn.GetBody()
 
 	// Create the header that carries the trace and eventual user defined headers
 	headerCarrier := telemetry.NewKafkaHeaderCarrier(kafkaMsgIn.headers)

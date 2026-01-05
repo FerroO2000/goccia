@@ -5,9 +5,9 @@ import (
 	"github.com/FerroO2000/goccia/internal/rb"
 )
 
-type msgVal = message.Envelope
+type msgBody = message.Body
 
-type msgWrap[T msgVal] = message.Message[T]
+type msgWrap[T msgBody] = message.Message[T]
 
 // RingBuffer is a lock-free spsc generic ring buffer.
 type RingBuffer[T any] = rb.RingBuffer[T]

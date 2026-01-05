@@ -8,17 +8,16 @@ import (
 	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
-	"github.com/FerroO2000/goccia/internal/rb"
 )
 
-type stage[WArgs any, In, Out msgEnv, Cfg cfg] interface {
+type stage[WArgs any, In, Out msgBody, Cfg cfg] interface {
 	Init(ctx context.Context, workerArgs WArgs) error
 	Run(ctx context.Context)
 	Close()
 	Config() Cfg
 }
 
-func newStage[WArgs any, In, Out msgEnv, Cfg stageCfg](
+func newStage[WArgs any, In, Out msgBody, Cfg stageCfg](
 	name string, inConn msgConn[In], outConn msgConn[Out], workerInstMaker workerInstanceMaker[WArgs, In, Out], cfg Cfg,
 ) stage[WArgs, In, Out, Cfg] {
 
@@ -38,7 +37,7 @@ func newStage[WArgs any, In, Out msgEnv, Cfg stageCfg](
 //  BASE  //
 ////////////
 
-type stageBase[WArgs any, In, Out msgEnv, Cfg cfg] struct {
+type stageBase[WArgs any, In, Out msgBody, Cfg cfg] struct {
 	tel *internal.Telemetry
 
 	config Cfg
@@ -47,7 +46,7 @@ type stageBase[WArgs any, In, Out msgEnv, Cfg cfg] struct {
 	outputConnector msgConn[Out]
 }
 
-func newStageBase[WArgs any, In, Out msgEnv, Cfg cfg](
+func newStageBase[WArgs any, In, Out msgBody, Cfg cfg](
 	name string, inConn msgConn[In], outConn msgConn[Out], cfg Cfg) *stageBase[WArgs, In, Out, Cfg] {
 
 	return &stageBase[WArgs, In, Out, Cfg]{
@@ -86,13 +85,13 @@ func (s *stageBase[WArgs, In, Out, Cfg]) Config() Cfg {
 //  SINGLE  //
 //////////////
 
-type stageSingle[WArgs any, In, Out msgEnv, Cfg cfg] struct {
+type stageSingle[WArgs any, In, Out msgBody, Cfg cfg] struct {
 	*stageBase[WArgs, In, Out, Cfg]
 
 	worker *worker[WArgs, In, Out]
 }
 
-func newStageSingle[WArgs any, In, Out msgEnv, Cfg cfg](
+func newStageSingle[WArgs any, In, Out msgBody, Cfg cfg](
 	name string, inConn msgConn[In], outConn msgConn[Out], workerInstMaker workerInstanceMaker[WArgs, In, Out], cfg Cfg,
 ) *stageSingle[WArgs, In, Out, Cfg] {
 
@@ -127,16 +126,12 @@ func (s *stageSingle[WArgs, In, Out, Cfg]) Run(ctx context.Context) {
 		default:
 		}
 
-		msgIn, err := s.inputConnector.Read()
+		msgIn, err := s.inputConnector.Read(ctx)
 		if err != nil {
 			// Check if the input connector is closed, if so stop
 			if errors.Is(err, connector.ErrClosed) {
 				s.tel.LogInfo("input connector is closed, stopping")
 				return
-			}
-
-			if !errors.Is(err, connector.ErrReadTimeout) {
-				s.tel.LogError("failed to read from input connector", err)
 			}
 
 			continue
@@ -162,14 +157,14 @@ func (s *stageSingle[WArgs, In, Out, Cfg]) Close() {
 //  POOL  //
 ////////////
 
-type stagePool[WArgs any, In, Out msgEnv, Cfg cfg] struct {
+type stagePool[WArgs any, In, Out msgBody, Cfg cfg] struct {
 	*stageBase[WArgs, In, Out, Cfg]
 
 	writerWg   *sync.WaitGroup
 	workerPool *workerPool[WArgs, In, Out]
 }
 
-func newStagePool[WArgs any, In, Out msgEnv, Cfg cfg](
+func newStagePool[WArgs any, In, Out msgBody, Cfg cfg](
 	name string, inConn msgConn[In], outConn msgConn[Out], workerInstMaker workerInstanceMaker[WArgs, In, Out], cfg Cfg, poolCfg *config.Pool,
 ) *stagePool[WArgs, In, Out, Cfg] {
 
@@ -200,7 +195,7 @@ func (s *stagePool[WArgs, In, Out, Cfg]) runWriter(ctx context.Context) {
 		default:
 		}
 
-		msgOut, err := s.workerPool.extractMessage()
+		msgOut, err := s.workerPool.extractMessage(ctx)
 		if err != nil {
 			continue
 		}
@@ -228,16 +223,12 @@ func (s *stagePool[WArgs, In, Out, Cfg]) Run(ctx context.Context) {
 		default:
 		}
 
-		msg, err := s.inputConnector.Read()
+		msg, err := s.inputConnector.Read(ctx)
 		if err != nil {
 			// Check if the input connector is closed, if so stop
 			if errors.Is(err, connector.ErrClosed) {
 				s.tel.LogInfo("input connector is closed, stopping")
 				return
-			}
-
-			if !errors.Is(err, rb.ErrReadTimeout) {
-				s.tel.LogError("failed to read from input connector", err)
 			}
 
 			continue

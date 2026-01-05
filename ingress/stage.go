@@ -7,12 +7,12 @@ import (
 	"github.com/FerroO2000/goccia/internal/config"
 )
 
-type source[Out msgEnv] interface {
+type source[Out msgBody] interface {
 	setTelemetry(tel *internal.Telemetry)
 	run(ctx context.Context, outputConnector msgConn[Out])
 }
 
-type stage[Out msgEnv, Cfg cfg] struct {
+type stage[Out msgBody, Cfg cfg] struct {
 	tel *internal.Telemetry
 
 	cfg Cfg
@@ -22,7 +22,7 @@ type stage[Out msgEnv, Cfg cfg] struct {
 	outputConnector msgConn[Out]
 }
 
-func newStage[Out msgEnv, Cfg cfg](name string, source source[Out], outConn msgConn[Out], cfg Cfg) *stage[Out, Cfg] {
+func newStage[Out msgBody, Cfg cfg](name string, source source[Out], outConn msgConn[Out], cfg Cfg) *stage[Out, Cfg] {
 	tel := internal.NewTelemetry("ingress", name)
 	source.setTelemetry(tel)
 

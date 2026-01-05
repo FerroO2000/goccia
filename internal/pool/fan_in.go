@@ -1,6 +1,10 @@
 package pool
 
-import "github.com/FerroO2000/goccia/internal/rb"
+import (
+	"context"
+
+	"github.com/FerroO2000/goccia/internal/rb"
+)
 
 // FanIn is an utility struct to be used by a worker pool
 // that receives tasks (messages) from multiple workers.
@@ -21,8 +25,8 @@ func (fi *FanIn[T]) AddTask(task T) error {
 }
 
 // ReadTask dequeues a task from the ring buffer.
-func (fi *FanIn[T]) ReadTask() (T, error) {
-	return fi.buffer.Read()
+func (fi *FanIn[T]) ReadTask(ctx context.Context) (T, error) {
+	return fi.buffer.Read(ctx)
 }
 
 // Close closes the ring buffer.

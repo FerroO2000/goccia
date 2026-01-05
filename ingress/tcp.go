@@ -344,7 +344,7 @@ func (ts *tcpSource) runBridge(ctx context.Context, outConnector msgConn[*TCPMes
 		default:
 		}
 
-		msgOut, err := ts.fanIn.ReadTask()
+		msgOut, err := ts.fanIn.ReadTask(ctx)
 		if err != nil {
 			continue
 		}
@@ -475,7 +475,7 @@ loop:
 
 			// Handle the message and send the result to the output connector
 			outMsg := ts.handleMessage(ctx, msg)
-			outMsg.GetEnvelope().RemoteAddr = conn.RemoteAddr().String()
+			outMsg.GetBody().RemoteAddr = conn.RemoteAddr().String()
 			if err := ts.fanIn.AddTask(outMsg); err != nil {
 				outMsg.Destroy()
 				ts.tel.LogError("failed to write message to fan in connector", err)

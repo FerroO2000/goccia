@@ -43,7 +43,7 @@ func (c *TickerConfig) Validate(ac *config.AnomalyCollector) {
 //  MESSAGE  //
 ///////////////
 
-var _ msgEnv = (*TickerMessage)(nil)
+var _ msgBody = (*TickerMessage)(nil)
 
 // TickerMessage is the message returned by the Ticker stage.
 type TickerMessage struct {

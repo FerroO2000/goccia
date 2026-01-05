@@ -141,7 +141,7 @@ func (tw *tcpWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
 		return err
 	}
 
-	tcpMsg := msgIn.GetEnvelope()
+	tcpMsg := msgIn.GetBody()
 
 	tcpMsgRaw := tcpMsg.GetBytes()
 	deliveredBytes, err := tw.conn.Write(tcpMsgRaw)

@@ -164,7 +164,7 @@ func (w *csvEncoderWorker) Handle(ctx context.Context, msgIn *msg[*CSVMessage]) 
 	_, span := w.Tel.NewTrace(ctx, "encode csv data")
 	defer span.End()
 
-	rows := msgIn.GetEnvelope().Rows
+	rows := msgIn.GetBody().Rows
 	data := w.encoder.encode(rows)
 
 	csvEncMsg := newCSVEncodedMessage(data)

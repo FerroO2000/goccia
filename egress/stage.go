@@ -9,7 +9,7 @@ import (
 	"github.com/FerroO2000/goccia/internal/config"
 )
 
-type stage[WArgs any, In msgEnv, Cfg cfg] interface {
+type stage[WArgs any, In msgBody, Cfg cfg] interface {
 	Init(ctx context.Context, workerArgs WArgs) error
 	Run(ctx context.Context)
 	Close()
@@ -17,7 +17,7 @@ type stage[WArgs any, In msgEnv, Cfg cfg] interface {
 	Config() Cfg
 }
 
-func newStage[WArgs any, In msgEnv, Cfg stageCfg](
+func newStage[WArgs any, In msgBody, Cfg stageCfg](
 	name string, inConn msgConn[In], workerInstMaker workerInstanceMaker[WArgs, In], cfg Cfg,
 ) stage[WArgs, In, Cfg] {
 
@@ -37,7 +37,7 @@ func newStage[WArgs any, In msgEnv, Cfg stageCfg](
 //  BASE  //
 ////////////
 
-type stageBase[WArgs any, In msgEnv, Cfg cfg] struct {
+type stageBase[WArgs any, In msgBody, Cfg cfg] struct {
 	tel *internal.Telemetry
 
 	config Cfg
@@ -45,7 +45,7 @@ type stageBase[WArgs any, In msgEnv, Cfg cfg] struct {
 	inputConnector msgConn[In]
 }
 
-func newStageBase[WArgs any, In msgEnv, Cfg cfg](name string, inConn msgConn[In], cfg Cfg) *stageBase[WArgs, In, Cfg] {
+func newStageBase[WArgs any, In msgBody, Cfg cfg](name string, inConn msgConn[In], cfg Cfg) *stageBase[WArgs, In, Cfg] {
 	return &stageBase[WArgs, In, Cfg]{
 		tel: internal.NewTelemetry("egress", name),
 
@@ -82,13 +82,13 @@ func (s *stageBase[WArgs, In, Cfg]) Config() Cfg {
 //  SINGLE  //
 //////////////
 
-type stageSingle[WArgs any, In msgEnv, Cfg cfg] struct {
+type stageSingle[WArgs any, In msgBody, Cfg cfg] struct {
 	*stageBase[WArgs, In, Cfg]
 
 	worker *worker[WArgs, In]
 }
 
-func newStageSingle[WArgs any, In msgEnv, Cfg cfg](
+func newStageSingle[WArgs any, In msgBody, Cfg cfg](
 	name string, inConn msgConn[In], workerInstMaker workerInstanceMaker[WArgs, In], cfg Cfg,
 ) *stageSingle[WArgs, In, Cfg] {
 
@@ -123,16 +123,12 @@ func (s *stageSingle[WArgs, In, Cfg]) Run(ctx context.Context) {
 		default:
 		}
 
-		msgIn, err := s.inputConnector.Read()
+		msgIn, err := s.inputConnector.Read(ctx)
 		if err != nil {
 			// Check if the input connector is closed, if so stop
 			if errors.Is(err, connector.ErrClosed) {
 				s.tel.LogInfo("input connector is closed, stopping")
 				return
-			}
-
-			if !errors.Is(err, connector.ErrReadTimeout) {
-				s.tel.LogError("failed to read from input connector", err)
 			}
 
 			continue
@@ -152,13 +148,13 @@ func (s *stageSingle[WArgs, In, Cfg]) Close() {
 //  POOL  //
 ////////////
 
-type stagePool[WArgs any, In msgEnv, Cfg cfg] struct {
+type stagePool[WArgs any, In msgBody, Cfg cfg] struct {
 	*stageBase[WArgs, In, Cfg]
 
 	workerPool *workerPool[WArgs, In]
 }
 
-func newStagePool[WArgs any, In msgEnv, Cfg cfg](
+func newStagePool[WArgs any, In msgBody, Cfg cfg](
 	name string, inConn msgConn[In], workerInstMaker workerInstanceMaker[WArgs, In], cfg Cfg, poolCfg *config.Pool,
 ) *stagePool[WArgs, In, Cfg] {
 
@@ -191,16 +187,12 @@ func (s *stagePool[WArgs, In, Cfg]) Run(ctx context.Context) {
 		default:
 		}
 
-		msg, err := s.inputConnector.Read()
+		msg, err := s.inputConnector.Read(ctx)
 		if err != nil {
 			// Check if the input connector is closed, if so stop
 			if errors.Is(err, connector.ErrClosed) {
 				s.tel.LogInfo("input connector is closed, stopping")
 				return
-			}
-
-			if !errors.Is(err, connector.ErrReadTimeout) {
-				s.tel.LogError("failed to read from input connector", err)
 			}
 
 			continue

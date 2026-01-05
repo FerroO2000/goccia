@@ -40,7 +40,7 @@ func NewCANConfig(runningMode config.StageRunningMode) *CANConfig {
 // CANMessageCarrier interface defines the common methods
 // for all message types that carry CAN messages.
 type CANMessageCarrier interface {
-	msgEnv
+	msgBody
 
 	// GetRawMessages returns the list of raw CAN messages.
 	GetRawMessages() []CANRawMessage
@@ -94,7 +94,7 @@ type CANSignal struct {
 	ValueEnum string
 }
 
-var _ msgEnv = (*CANMessage)(nil)
+var _ msgBody = (*CANMessage)(nil)
 
 // CANMessage represents a decoded CAN message.
 // It only contains the value of the signals of every message.
@@ -231,7 +231,7 @@ func (cw *canWorker[T]) Handle(ctx context.Context, msgIn *msg[T]) (*msg[*CANMes
 	// Create the CAN message
 	canMsg := newCANMessage()
 
-	rawMessages := msgIn.GetEnvelope().GetRawMessages()
+	rawMessages := msgIn.GetBody().GetRawMessages()
 	rawMsgCount := len(rawMessages)
 
 	for _, msg := range rawMessages {

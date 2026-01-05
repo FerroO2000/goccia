@@ -122,8 +122,8 @@ func testBuffer(t *testing.T, buffer buffer[int], prodNum, consNum, items int) {
 
 func Test_RingBuffer(t *testing.T) {
 	const (
-		capacity     = 1024
-		itemsPerProd = 1_000_000
+		capacity   = 1024
+		totalItems = 1_000_000
 	)
 
 	suite := []struct {
@@ -142,15 +142,15 @@ func Test_RingBuffer(t *testing.T) {
 		tName := fmt.Sprintf("%s-P%d-C%d", tCase.kind, tCase.prodNum, tCase.consNum)
 
 		t.Run(tName, func(t *testing.T) {
-			testRingBuffer(t, tCase.kind, tCase.capacity, tCase.prodNum, tCase.consNum, itemsPerProd)
+			testRingBuffer(t, tCase.kind, tCase.capacity, tCase.prodNum, tCase.consNum, totalItems)
 		})
 	}
 }
 
-func testRingBuffer(t *testing.T, kind BufferKind, capacity, prodNum, consNum, itemsPerProd int) {
+func testRingBuffer(t *testing.T, kind BufferKind, capacity, prodNum, consNum, totalItems int) {
 	assert := assert.New(t)
 
-	totalItems := prodNum * itemsPerProd
+	itemsPerProd := totalItems / prodNum
 
 	rb := NewRingBuffer[int](uint32(capacity), kind)
 
@@ -173,7 +173,7 @@ func testRingBuffer(t *testing.T, kind BufferKind, capacity, prodNum, consNum, i
 
 			// Each consumer reads until the buffer is closed
 			for {
-				item, err := rb.Read()
+				item, err := rb.Read(t.Context())
 				if err != nil {
 					assert.ErrorIs(err, ErrClosed)
 					return
@@ -203,15 +203,6 @@ func testRingBuffer(t *testing.T, kind BufferKind, capacity, prodNum, consNum, i
 			}
 		}(i)
 	}
-
-	// go func() {
-	// 	ticker := time.NewTicker(time.Second)
-	// 	defer ticker.Stop()
-
-	// 	for range ticker.C {
-	// 		t.Logf("Received %d items", receivedCount.Load())
-	// 	}
-	// }()
 
 	// Wait for all producers to finish
 	producerWg.Wait()
@@ -293,7 +284,7 @@ func benchWriteReadCycle(b *testing.B, kind BufferKind, capacity int) {
 
 		// Empty the buffer
 		for range itemsPerCycle {
-			_, err := rb.Read()
+			_, err := rb.Read(b.Context())
 			if err != nil {
 				b.Logf("Read error: %v", err)
 				continue
@@ -312,7 +303,7 @@ func benchWriteReadSteady(b *testing.B, kind BufferKind, capacity int) {
 			continue
 		}
 
-		_, err := rb.Read()
+		_, err := rb.Read(b.Context())
 		if err != nil {
 			b.Logf("Read error: %v", err)
 			continue

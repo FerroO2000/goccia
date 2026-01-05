@@ -16,14 +16,14 @@ import (
 //  INSTANCE  //
 ////////////////
 
-type workerInstance[Args any, In msgEnv] interface {
+type workerInstance[Args any, In msgBody] interface {
 	Init(ctx context.Context, args Args) error
 	Close(ctx context.Context) error
 	SetTelemetry(tel *internal.Telemetry)
 	Deliver(ctx context.Context, task *msg[In]) error
 }
 
-type workerInstanceMaker[Args any, In msgEnv] func() workerInstance[Args, In]
+type workerInstanceMaker[Args any, In msgBody] func() workerInstance[Args, In]
 
 ///////////////
 //  METRICS  //
@@ -67,7 +67,7 @@ func (wm *workerMetrics) recordTotalMessageProcessingTime(ctx context.Context, r
 //  WORKER  //
 //////////////
 
-type worker[Args any, In msgEnv] struct {
+type worker[Args any, In msgBody] struct {
 	tel *internal.Telemetry
 
 	id   int
@@ -76,7 +76,7 @@ type worker[Args any, In msgEnv] struct {
 	metrics *workerMetrics
 }
 
-func newWorker[Args any, In msgEnv](
+func newWorker[Args any, In msgBody](
 	tel *internal.Telemetry, id int, inst workerInstance[Args, In], metrics *workerMetrics,
 ) *worker[Args, In] {
 
@@ -130,7 +130,7 @@ func (w *worker[Args, In]) close(ctx context.Context) {
 //  POOL  //
 ////////////
 
-type workerPool[Args any, In msgEnv] struct {
+type workerPool[Args any, In msgBody] struct {
 	tel *internal.Telemetry
 
 	cfg *config.Pool
@@ -147,7 +147,7 @@ type workerPool[Args any, In msgEnv] struct {
 	metrics *workerMetrics
 }
 
-func newWorkerPool[Args any, In msgEnv](
+func newWorkerPool[Args any, In msgBody](
 	tel *internal.Telemetry, workerInstMaker workerInstanceMaker[Args, In], cfg *config.Pool,
 ) *workerPool[Args, In] {
 
@@ -226,7 +226,7 @@ func (wp *workerPool[Args, In]) runWorker(ctx context.Context) {
 			return
 
 		default:
-			msgIn, err := wp.fanOut.ReadTask()
+			msgIn, err := wp.fanOut.ReadTask(ctx)
 			if err != nil {
 				continue
 			}

@@ -31,6 +31,21 @@ const (
 	EnqueueStatusErr
 )
 
+func (es EnqueueStatus) String() string {
+	switch es {
+	case EnqueueStatusInOrder:
+		return "in-order"
+	case EnqueueStatusPrimary:
+		return "primary"
+	case EnqueueStatusAuxiliary:
+		return "auxiliary"
+	case EnqueueStatusErr:
+		return "error"
+	default:
+		return "unknown"
+	}
+}
+
 // Config is the configuration for the re-order buffer structure [ROB].
 type Config struct {
 	// MaxSeqNum is the maximum possible sequence number.

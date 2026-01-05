@@ -1,16 +1,16 @@
 // Package message contains the structures and interfaces for messages.
 package message
 
-// Envelope interface defines the common methods for all message envelopes.
-type Envelope interface {
-	// Destroy cleans up the envelope.
+// Body interface defines the common methods for all message bodies.
+type Body interface {
+	// Destroy cleans up the body data.
 	Destroy()
 }
 
 // Serializable interface defines the common methods for all message envelopes
 // that can be serialized into bytes.
 type Serializable interface {
-	Envelope
+	Body
 
 	// GetBytes returns the bytes of the message.
 	GetBytes() []byte
@@ -19,7 +19,7 @@ type Serializable interface {
 // ReOrderable interface defines the common methods for all re-orderable message envelopes.
 // This is used in the context of the re-order buffer.
 type ReOrderable interface {
-	Envelope
+	Body
 
 	// GetSequenceNumber returns the sequence number of the message.
 	GetSequenceNumber() uint64

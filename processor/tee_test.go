@@ -33,8 +33,8 @@ func Test_TeeStage(t *testing.T) {
 
 	assert.NoError(stage.Init(t.Context()))
 
-	msgEnvelope := &dummyMsg{value: 1}
-	msgIn := message.NewMessage(msgEnvelope)
+	msgBody := &dummyMsg{value: 1}
+	msgIn := message.NewMessage(msgBody)
 	assert.NoError(inConn.Write(msgIn))
 
 	ctx, cancelCtx := context.WithCancel(t.Context())
@@ -45,10 +45,10 @@ func Test_TeeStage(t *testing.T) {
 
 	readOutput := func(out msgConn[*dummyMsg]) {
 		for range msgCountPerOutput {
-			msgOut, err := out.Read()
+			msgOut, err := out.Read(ctx)
 			assert.NoError(err)
 
-			assert.Equal(msgEnvelope, msgOut.GetEnvelope())
+			assert.Equal(msgBody, msgOut.GetBody())
 
 			if currMsgCount.Add(1) == int64(targetMsgCount) {
 				cancelCtx()

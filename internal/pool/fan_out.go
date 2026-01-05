@@ -31,8 +31,8 @@ func (fo *FanOut[T]) AddTask(ctx context.Context, task T) error {
 }
 
 // ReadTask dequeues a task from the ring buffer.
-func (fo *FanOut[T]) ReadTask() (T, error) {
-	return fo.buffer.Read()
+func (fo *FanOut[T]) ReadTask(ctx context.Context) (T, error) {
+	return fo.buffer.Read(ctx)
 }
 
 // Close closes the ring buffer.

@@ -14,14 +14,14 @@ import (
 //  INSTANCE  //
 ////////////////
 
-type workerInstance[Args any, In, Out msgEnv] interface {
+type workerInstance[Args any, In, Out msgBody] interface {
 	Init(ctx context.Context, args Args) error
 	Close(ctx context.Context) error
 	SetTelemetry(tel *internal.Telemetry)
 	Handle(ctx context.Context, task *msg[In]) (*msg[Out], error)
 }
 
-type workerInstanceMaker[Args any, In, Out msgEnv] func() workerInstance[Args, In, Out]
+type workerInstanceMaker[Args any, In, Out msgBody] func() workerInstance[Args, In, Out]
 
 ///////////////
 //  METRICS  //
@@ -63,7 +63,7 @@ func (wm *workerMetrics) incrementProcessingErrors() {
 //  WORKER  //
 //////////////
 
-type worker[Args any, In, Out msgEnv] struct {
+type worker[Args any, In, Out msgBody] struct {
 	tel *internal.Telemetry
 
 	id   int
@@ -72,7 +72,7 @@ type worker[Args any, In, Out msgEnv] struct {
 	metrics *workerMetrics
 }
 
-func newWorker[Args any, In, Out msgEnv](
+func newWorker[Args any, In, Out msgBody](
 	tel *internal.Telemetry, id int, inst workerInstance[Args, In, Out], metrics *workerMetrics,
 ) *worker[Args, In, Out] {
 	return &worker[Args, In, Out]{
@@ -140,7 +140,7 @@ func (w *worker[Args, In, Out]) close(ctx context.Context) {
 //  POOL  //
 ////////////
 
-type workerPool[WArgs any, In, Out msgEnv] struct {
+type workerPool[WArgs any, In, Out msgBody] struct {
 	tel *internal.Telemetry
 
 	cfg *config.Pool
@@ -158,7 +158,7 @@ type workerPool[WArgs any, In, Out msgEnv] struct {
 	metrics *workerMetrics
 }
 
-func newWorkerPool[WArgs any, In, Out msgEnv](
+func newWorkerPool[WArgs any, In, Out msgBody](
 	tel *internal.Telemetry, workerInstMaker workerInstanceMaker[WArgs, In, Out], cfg *config.Pool,
 ) *workerPool[WArgs, In, Out] {
 
@@ -240,7 +240,7 @@ func (wp *workerPool[WArgs, In, Out]) runWorker(ctx context.Context) {
 			return
 
 		default:
-			msgIn, err := wp.fanOut.ReadTask()
+			msgIn, err := wp.fanOut.ReadTask(ctx)
 			if err != nil {
 				continue
 			}
@@ -277,6 +277,6 @@ func (wp *workerPool[WArgs, In, Out]) addMessage(ctx context.Context, msgIn *msg
 	return nil
 }
 
-func (wp *workerPool[WArgs, In, Out]) extractMessage() (*msg[Out], error) {
-	return wp.fanIn.ReadTask()
+func (wp *workerPool[WArgs, In, Out]) extractMessage(ctx context.Context) (*msg[Out], error) {
+	return wp.fanIn.ReadTask(ctx)
 }

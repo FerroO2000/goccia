@@ -223,7 +223,7 @@ func (w *csvDecoderWorker[T]) Handle(ctx context.Context, msgIn *msg[T]) (*msg[*
 	_, span := w.Tel.NewTrace(ctx, "decode csv data")
 	defer span.End()
 
-	data := msgIn.GetEnvelope().GetBytes()
+	data := msgIn.GetBody().GetBytes()
 	csvMsg := NewCSVMessage()
 
 	if err := w.decoder.decode(data, csvMsg); err != nil {

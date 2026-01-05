@@ -8,33 +8,34 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type messageEnvelope[T Envelope] struct {
+type messageBody[T Body] struct {
 	value T
 	refs  atomic.Int32
 }
 
-func newMessageEnvelope[T Envelope](value T) *messageEnvelope[T] {
-	return &messageEnvelope[T]{
+func newMessageBody[T Body](value T) *messageBody[T] {
+	return &messageBody[T]{
 		value: value,
 	}
 }
 
 // Message is the base struct for all messages.
 // It is the data structure passed between stages.
-type Message[T Envelope] struct {
+type Message[T Body] struct {
+	// Metadatas
 	receiveTime    time.Time
 	timestamp      time.Time
 	sequenceNumber uint64
 	isDropped      bool
 	span           trace.SpanContext
 
-	envelope *messageEnvelope[T]
+	body *messageBody[T]
 }
 
 // NewMessage creates a new message.
-func NewMessage[T Envelope](value T) *Message[T] {
+func NewMessage[T Body](value T) *Message[T] {
 	return &Message[T]{
-		envelope: newMessageEnvelope(value),
+		body: newMessageBody(value),
 	}
 }
 
@@ -94,29 +95,29 @@ func (m *Message[T]) LoadSpanContext(ctx context.Context) context.Context {
 
 // Clone clones the message.
 func (m *Message[T]) Clone() *Message[T] {
-	m.envelope.refs.Add(1)
+	m.body.refs.Add(1)
 
 	return &Message[T]{
 		receiveTime: m.receiveTime,
 		timestamp:   m.receiveTime,
 		span:        m.span,
-		envelope:    m.envelope,
+		body:        m.body,
 	}
 }
 
 // Destroy cleans up the message.
 // If the reference count was 0 before this method is called,
-// it will call the underlying message envelopr's Destroy method.
+// it will call the underlying message body's Destroy method.
 // This lets the stage's specific data be cleaned up properly even
 // if the are pooled.
 func (m *Message[T]) Destroy() {
-	if m.envelope.refs.Add(-1) == -1 {
-		m.envelope.value.Destroy()
+	if m.body.refs.Add(-1) == -1 {
+		m.body.value.Destroy()
 	}
 }
 
-// GetEnvelope returns the envelope of the message,
+// GetBody returns the body of the message,
 // i.e. the stage's specific data.
-func (m *Message[T]) GetEnvelope() T {
-	return m.envelope.value
+func (m *Message[T]) GetBody() T {
+	return m.body.value
 }

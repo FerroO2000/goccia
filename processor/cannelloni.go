@@ -279,7 +279,7 @@ func (cdw *cannelloniDecoderWorker[T]) Handle(ctx context.Context, msgIn *msg[T]
 	defer span.End()
 
 	// Decode the frame
-	f, err := cdw.decoder.decode(msgIn.GetEnvelope().GetBytes())
+	f, err := cdw.decoder.decode(msgIn.GetBody().GetBytes())
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +339,7 @@ func (cew *cannelloniEncoderWorker) Handle(ctx context.Context, msgIn *msg[*Cann
 	_, span := cew.Tel.NewTrace(ctx, "handle cannelloni frame")
 	defer span.End()
 
-	msgVal := msgIn.GetEnvelope()
+	msgVal := msgIn.GetBody()
 
 	f := &cannelloniFrame{
 		version:        1,

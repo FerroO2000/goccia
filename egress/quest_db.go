@@ -53,7 +53,7 @@ func (c *QuestDBConfig) Validate(ac *config.AnomalyCollector) {
 //  MESSAGE  //
 ///////////////
 
-var _ msgEnv = (*QuestDBMessage)(nil)
+var _ msgBody = (*QuestDBMessage)(nil)
 
 // QuestDBMessage represents a QuestDB message.
 // It contains the definition of the rows and columns to be inserted
@@ -315,7 +315,7 @@ func (qw *questDBWorker) Deliver(ctx context.Context, msgIn *msg[*QuestDBMessage
 	ctx, span := qw.Tel.NewTrace(ctx, "deliver QuestDB rows")
 	defer span.End()
 
-	qdbMsg := msgIn.GetEnvelope()
+	qdbMsg := msgIn.GetBody()
 	timestamp := msgIn.GetTimestamp()
 
 	tmpInsRows := 0

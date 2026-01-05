@@ -154,7 +154,7 @@ func NewCSVTimestampColumn(name string, value time.Time) *CSVColumn {
 	return col
 }
 
-var _ msgEnv = (*CSVMessage)(nil)
+var _ msgBody = (*CSVMessage)(nil)
 
 var csvMessagePool = sync.Pool{
 	New: func() any {

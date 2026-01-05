@@ -30,11 +30,11 @@ func NewFilterConfig(runningMode config.StageRunningMode) *FilterConfig {
 //  WORKER ARGUMENTS  //
 ////////////////////////
 
-type filterWorkerArgs[T msgEnv] struct {
+type filterWorkerArgs[T msgBody] struct {
 	filterFn func(T) bool
 }
 
-func newFilterWorkerArgs[T msgEnv](filterFn func(T) bool) *filterWorkerArgs[T] {
+func newFilterWorkerArgs[T msgBody](filterFn func(T) bool) *filterWorkerArgs[T] {
 	return &filterWorkerArgs[T]{
 		filterFn: filterFn,
 	}
@@ -70,7 +70,7 @@ func (fwm *filterWorkerMetrics) incrementFilteredMessages() {
 //  WORKER IMPLEMENTATION  //
 /////////////////////////////
 
-type filterWorker[T msgEnv] struct {
+type filterWorker[T msgBody] struct {
 	pool.BaseWorker
 
 	filterFn func(T) bool
@@ -78,7 +78,7 @@ type filterWorker[T msgEnv] struct {
 	metrics *filterWorkerMetrics
 }
 
-func newFilterWorkerInstMaker[T msgEnv]() workerInstanceMaker[*filterWorkerArgs[T], T, T] {
+func newFilterWorkerInstMaker[T msgBody]() workerInstanceMaker[*filterWorkerArgs[T], T, T] {
 	return func() workerInstance[*filterWorkerArgs[T], T, T] {
 		return &filterWorker[T]{
 			metrics: filterWorkerMetricsInst,
@@ -99,7 +99,7 @@ func (fw *filterWorker[T]) Handle(ctx context.Context, msgIn *msg[T]) (*msg[T], 
 	_, span := fw.Tel.NewTrace(msgIn.LoadSpanContext(ctx), "filter message")
 	defer span.End()
 
-	if !fw.filterFn(msgIn.GetEnvelope()) {
+	if !fw.filterFn(msgIn.GetBody()) {
 		msgIn.Drop()
 
 		fw.metrics.incrementFilteredMessages()
@@ -117,14 +117,14 @@ func (fw *filterWorker[T]) Close(_ context.Context) error {
 /////////////
 
 // FilterStage is a processor stage that filters messages based on a user-defined function.
-type FilterStage[T msgEnv] struct {
+type FilterStage[T msgBody] struct {
 	stage[*filterWorkerArgs[T], T, T, *FilterConfig]
 
 	filterFn func(T) bool
 }
 
 // NewFilterStage returns a new filter processor stage.
-func NewFilterStage[T msgEnv](filterFn func(T) bool, inputConnector, outputConnector msgConn[T], cfg *FilterConfig) *FilterStage[T] {
+func NewFilterStage[T msgBody](filterFn func(T) bool, inputConnector, outputConnector msgConn[T], cfg *FilterConfig) *FilterStage[T] {
 	return &FilterStage[T]{
 		stage: newStage(
 			"filter", inputConnector, outputConnector, newFilterWorkerInstMaker[T](), cfg,

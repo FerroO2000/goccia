@@ -11,6 +11,7 @@ import (
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/rob"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 //////////////
@@ -137,9 +138,6 @@ func NewROBStage[T message.ReOrderable](inConnector, outConnector msgConn[T], cf
 func (rs *ROBStage[T]) Init(_ context.Context) error {
 	rs.tel.LogInfo("initializing")
 
-	// Initialize the rob and set the read timeout of
-	// the input connector to the reset timeout
-	rs.inputConnector.SetReadTimeout(rs.cfg.ResetTimeout)
 	rs.rob = rob.NewROB(rs.outputConnector, &rob.Config{
 		MaxSeqNum:           rs.cfg.MaxSeqNum,
 		PrimaryBufferSize:   rs.cfg.PrimaryBufferSize,
@@ -181,42 +179,45 @@ func (rs *ROBStage[T]) Run(ctx context.Context) {
 		default:
 		}
 
-		msgIn, err := rs.inputConnector.Read()
+		// Read the next message with a timeout context
+		// in order to reset the re-order buffer
+		deadlineCtx, cancelCtx := context.WithTimeout(ctx, rs.cfg.ResetTimeout)
+		msgIn, err := rs.inputConnector.Read(deadlineCtx)
+		cancelCtx()
+
 		if err != nil {
 			if errors.Is(err, connector.ErrClosed) {
 				return
 			}
 
-			// Check if the input connector has timed out
-			if errors.Is(err, connector.ErrReadTimeout) {
-				// Check if the rob has to be reset
-				if resetNeeded {
-					rs.rob.FlushAndReset()
-					rs.resets.Add(1)
-					resetNeeded = false
+			// This means the context is done.
+			// Check if the rob has to be reset
+			if resetNeeded {
+				rs.rob.FlushAndReset()
+				rs.resets.Add(1)
+				resetNeeded = false
 
-					rs.tel.LogInfo("resetting and flushing re-order buffer")
-				}
-
-				continue
+				rs.tel.LogInfo("resetting and flushing re-order buffer")
 			}
 
-			rs.tel.LogError("failed to read from input connector", err)
 			continue
 		}
 
 		// Set the sequence number encoded in the message
 		// value into the main message struct
-		msgIn.SetSequenceNumber(msgIn.GetEnvelope().GetSequenceNumber())
+		msgIn.SetSequenceNumber(msgIn.GetBody().GetSequenceNumber())
 
 		// Try to enqueue the message
-		rs.enqueue(msgIn)
+		rs.enqueue(ctx, msgIn)
 
 		resetNeeded = true
 	}
 }
 
-func (rs *ROBStage[T]) enqueue(msgIn *msg[T]) {
+func (rs *ROBStage[T]) enqueue(ctx context.Context, msgIn *msg[T]) {
+	_, span := rs.tel.NewTrace(msgIn.LoadSpanContext(ctx), "enqueue message")
+	defer span.End()
+
 	status, err := rs.rob.Enqueue(msgIn)
 	if err != nil {
 		if errors.Is(err, rob.ErrSeqNumOutOfWindow) {
@@ -227,6 +228,8 @@ func (rs *ROBStage[T]) enqueue(msgIn *msg[T]) {
 			rs.invalidSeqNum.Add(1)
 		}
 	}
+
+	span.SetAttributes(attribute.String("status", status.String()))
 
 	switch status {
 	case rob.EnqueueStatusInOrder:

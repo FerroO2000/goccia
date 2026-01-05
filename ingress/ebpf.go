@@ -88,7 +88,7 @@ func (c *EBPFConfig[O, OPtr]) Validate(_ *config.AnomalyCollector) {}
 //  MESSAGE  //
 ///////////////
 
-var _ msgEnv = (*EBPFMessage[any])(nil)
+var _ msgBody = (*EBPFMessage[any])(nil)
 
 // EBPFMessage is the message type for the ebpf ingress stage.
 type EBPFMessage[T any] struct {
