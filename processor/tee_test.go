@@ -1,7 +1,7 @@
 package processor
 
 import (
-	"context"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -37,13 +37,16 @@ func Test_TeeStage(t *testing.T) {
 	msgIn := message.NewMessage(msgBody)
 	assert.NoError(inConn.Write(msgIn))
 
-	ctx, cancelCtx := context.WithCancel(t.Context())
-
 	msgCountPerOutput := 1
-	targetMsgCount := msgCountPerOutput * outConnCount
+	targetMsgCount := int64(msgCountPerOutput * outConnCount)
 	var currMsgCount atomic.Int64
 
+	wg := sync.WaitGroup{}
+	wg.Add(outConnCount)
+
 	readOutput := func(out msgConn[*dummyMsg]) {
+		defer wg.Done()
+
 		for range msgCountPerOutput {
 			msgOut, err := out.Read(t.Context())
 			assert.NoError(err)
@@ -51,18 +54,18 @@ func Test_TeeStage(t *testing.T) {
 
 			currMsgCount.Add(1)
 		}
-
-		if currMsgCount.Load() == int64(targetMsgCount) {
-			cancelCtx()
-		}
 	}
 
 	for _, outConn := range outConnectors {
 		go readOutput(outConn)
 	}
 
-	stage.Run(ctx)
+	go stage.Run(t.Context())
+
+	wg.Wait()
 
 	inConn.Close()
 	stage.Close()
+
+	assert.Equal(targetMsgCount, currMsgCount.Load())
 }
