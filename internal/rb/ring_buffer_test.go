@@ -27,11 +27,11 @@ func Test_bufferImplementations(t *testing.T) {
 		buffer           buffer[int]
 		prodNum, consNum int
 	}{
-		{BufferKindSPSC, newSPSCBuffer[int](128), 1, 1},
-		{BufferKindMPMC, newMPMCBuffer[int](128), 1, 1},
-		{BufferKindMPMC, newMPMCBuffer[int](128), 1, 8},
-		{BufferKindMPMC, newMPMCBuffer[int](128), 8, 1},
-		{BufferKindMPMC, newMPMCBuffer[int](128), 8, 8},
+		{BufferKindSPSC, newSPSCBuffer[int](capacity), 1, 1},
+		{BufferKindMPMC, newMPMCBuffer[int](capacity), 1, 1},
+		{BufferKindMPMC, newMPMCBuffer[int](capacity), 1, 8},
+		{BufferKindMPMC, newMPMCBuffer[int](capacity), 8, 1},
+		{BufferKindMPMC, newMPMCBuffer[int](capacity), 8, 8},
 	}
 
 	for _, tCase := range suite {

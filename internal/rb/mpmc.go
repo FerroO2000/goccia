@@ -3,7 +3,6 @@ package rb
 import (
 	"runtime"
 	"sync/atomic"
-	"time"
 
 	"golang.org/x/sys/cpu"
 )
@@ -81,8 +80,6 @@ func (rb *mpmcBuffer[T]) push(item T) bool {
 			runtime.Gosched()
 			continue
 		}
-
-		time.Sleep(time.Microsecond * 100)
 
 		// Write the data
 		slot.data = item

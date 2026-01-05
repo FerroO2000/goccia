@@ -45,14 +45,15 @@ func Test_TeeStage(t *testing.T) {
 
 	readOutput := func(out msgConn[*dummyMsg]) {
 		for range msgCountPerOutput {
-			msgOut, err := out.Read(ctx)
+			msgOut, err := out.Read(t.Context())
 			assert.NoError(err)
-
 			assert.Equal(msgBody, msgOut.GetBody())
 
-			if currMsgCount.Add(1) == int64(targetMsgCount) {
-				cancelCtx()
-			}
+			currMsgCount.Add(1)
+		}
+
+		if currMsgCount.Load() == int64(targetMsgCount) {
+			cancelCtx()
 		}
 	}
 
