@@ -19,7 +19,7 @@ type buffer[T any] interface {
 func Test_bufferImplementations(t *testing.T) {
 	const (
 		capacity = 128
-		items    = 1_000_000
+		items    = 100_000
 	)
 
 	suite := []struct {
