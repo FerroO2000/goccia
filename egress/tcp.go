@@ -27,8 +27,6 @@ const (
 
 // TCPConfig structs contains the configuration for the TCP egress stage.
 type TCPConfig struct {
-	*config.Base
-
 	// IPAddr is the destination IP address.
 	IPAddr string
 
@@ -40,10 +38,8 @@ type TCPConfig struct {
 }
 
 // NewTCPConfig returns a default TCPConfig.
-func NewTCPConfig(runningMode config.StageRunningMode) *TCPConfig {
+func NewTCPConfig() *TCPConfig {
 	return &TCPConfig{
-		Base: config.NewBase(runningMode),
-
 		IPAddr:       DefaultTCPConfigIPAddr,
 		Port:         DefaultTCPConfigPort,
 		WriteTimeout: DefaultTCPConfigWriteTimeout,
@@ -52,8 +48,6 @@ func NewTCPConfig(runningMode config.StageRunningMode) *TCPConfig {
 
 // Validate checks the configuration.
 func (c *TCPConfig) Validate(ac *config.AnomalyCollector) {
-	c.Base.Validate(ac)
-
 	config.CheckNotEmpty(ac, "IPAddr", &c.IPAddr, DefaultTCPConfigIPAddr)
 
 	config.CheckNotNegative(ac, "WriteTimeout", &c.WriteTimeout, DefaultTCPConfigWriteTimeout)
@@ -175,7 +169,7 @@ type TCPStage[T msgSer] struct {
 // NewTCPStage returns a new TCP egress stage.
 func NewTCPStage[T msgSer](inputConnector msgConn[T], cfg *TCPConfig) *TCPStage[T] {
 	return &TCPStage[T]{
-		stage: newStage("tcp", inputConnector, newTCPWorkerInstMaker[T](), cfg),
+		stage: newStageSingle("tcp", inputConnector, newTCPWorkerInstMaker[T](), cfg),
 	}
 }
 
