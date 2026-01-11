@@ -61,12 +61,18 @@ type Config struct {
 	// needed for flushing the primary buffer.
 	FlushTreshold float64
 
-	// BaseAlpha is the base value for the alpha parameter for the EMA.
-	BaseAlpha float64
+	// TimeSmootherEnabled states whether the time smoother is enabled or not.
+	TimeSmootherEnabled bool
 
-	// JumpThreshold is the threshold used by the time smoother (EMA)
-	// for adjusting the alpha parameter when there is a jump in the sequence.
-	JumpThreshold uint64
+	// EstimatorAlpha is the value for the alpha parameter for
+	// the double exponential estimator (data smoothing factor).
+	// It must be between 0 and 1.
+	EstimatorAlpha float64
+
+	// EstimatorBeta is the value for the beta parameter for
+	// the double exponential estimator (trend smoothing factor).
+	// It must be between 0 and 1.
+	EstimatorBeta float64
 }
 
 type robItem interface {
@@ -88,7 +94,8 @@ type ROB[T robItem] struct {
 
 	flushTreshold float64
 
-	timeSmoother *timeSmoother[T]
+	timeSmootherEnabled bool
+	timeSmoother        *timeSmoother[T]
 
 	isInitialized bool
 }
@@ -103,12 +110,15 @@ func NewROB[T robItem](outputConnector connector.Connector[T], cfg *Config) *ROB
 
 		flushTreshold: cfg.FlushTreshold,
 
-		timeSmoother: newTimeSmoother[T](cfg.BaseAlpha, cfg.JumpThreshold, cfg.MaxSeqNum),
+		timeSmootherEnabled: cfg.TimeSmootherEnabled,
+		timeSmoother:        newTimeSmoother[T](cfg.EstimatorAlpha, cfg.EstimatorBeta, cfg.MaxSeqNum),
 
 		isInitialized: false,
 	}
 }
 
+// tryDequeueFromPrimary tries to dequeue consecutive items
+// from the primary buffer.
 func (rob *ROB[T]) tryDequeueFromPrimary() {
 	deqItems := rob.primaryBuf.dequeueConsecutives()
 	deqItemCount := uint64(len(deqItems))
@@ -204,7 +214,10 @@ func (rob *ROB[T]) enqueueAuxiliary(item T) error {
 }
 
 func (rob *ROB[T]) deliver(item T) {
-	rob.timeSmoother.adjust(item)
+	if rob.timeSmootherEnabled {
+		rob.timeSmoother.adjust(item)
+	}
+
 	rob.outputConnector.Write(item)
 }
 
@@ -249,7 +262,11 @@ func (rob *ROB[T]) Enqueue(item T) (EnqueueStatus, error) {
 func (rob *ROB[T]) reset() {
 	rob.primaryBuf.reset()
 	rob.auxiliaryBuf.reset()
-	rob.timeSmoother.reset()
+
+	if rob.timeSmootherEnabled {
+		rob.timeSmoother.reset()
+	}
+
 	rob.isInitialized = false
 }
 

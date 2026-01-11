@@ -1,6 +1,8 @@
 package rob
 
-import "time"
+import (
+	"time"
+)
 
 type timeSmootherItem interface {
 	GetSequenceNumber() uint64
@@ -9,74 +11,115 @@ type timeSmootherItem interface {
 }
 
 type timeSmoother[T timeSmootherItem] struct {
-	baseAlpha float64
-	maxAlpha  float64
+	estimator *doubleExponentialEstimator
 
-	jumpThreshold uint64
+	prevTimestamp time.Time
 
-	lastAdjTime time.Time
-	lastSeqNum  uint64
-
-	maxSeqNum uint64
+	prevSeqNum uint64
+	maxSeqNum  uint64
 }
 
-func newTimeSmoother[T timeSmootherItem](baseAlpha float64, jumpThreshold, maxSeqNum uint64) *timeSmoother[T] {
+func newTimeSmoother[T timeSmootherItem](alpha, beta float64, maxSeqNum uint64) *timeSmoother[T] {
 	return &timeSmoother[T]{
-		baseAlpha: baseAlpha,
-		maxAlpha:  1.0,
+		estimator: newDoubleExponentialEstimator(alpha, beta),
 
-		jumpThreshold: jumpThreshold,
+		prevTimestamp: time.Time{},
 
-		lastAdjTime: time.Time{},
-		lastSeqNum:  0,
-
-		maxSeqNum: maxSeqNum,
+		prevSeqNum: 0,
+		maxSeqNum:  maxSeqNum,
 	}
-}
-
-func (ts *timeSmoother[T]) getAlpha(distance uint64) float64 {
-	if distance <= ts.jumpThreshold {
-		return ts.baseAlpha
-	}
-
-	scale := min(float64(distance)/float64(ts.jumpThreshold), 1.0)
-	return ts.baseAlpha + (ts.maxAlpha-ts.baseAlpha)*scale
 }
 
 func (ts *timeSmoother[T]) adjust(item T) {
-	seqNum := item.GetSequenceNumber()
+	// Extract the current receive time
 	recvTime := item.GetReceiveTime()
+	currValue := float64(recvTime.UnixNano())
 
-	if ts.lastAdjTime.IsZero() {
-		item.SetTimestamp(recvTime)
+	// Extract the current sequence number
+	// and the distance to the previous one
+	seqNum := item.GetSequenceNumber()
+	ts.prevSeqNum = seqNum
+	distance := getSeqNumDistance(seqNum, ts.prevSeqNum, ts.maxSeqNum)
 
-		ts.lastAdjTime = recvTime
-		ts.lastSeqNum = seqNum
-
-		return
+	// Force the distance to be at least 1
+	if distance == 0 {
+		distance = 1
 	}
 
-	distance := getSeqNumDistance(seqNum, ts.lastSeqNum, ts.maxSeqNum)
-	alpha := ts.getAlpha(distance)
+	// Estimate the timestamp value and convert to a timestamp
+	estimatedValue := ts.estimator.estimate(currValue, distance)
+	currTimestamp := time.Unix(0, int64(estimatedValue))
 
-	recvTimeNs := recvTime.UnixNano()
-	lastAdjTimeNs := ts.lastAdjTime.UnixNano()
-
-	adjTimeNs := alpha*float64(recvTimeNs) + (1-alpha)*float64(lastAdjTimeNs)
-	adjTime := time.Unix(0, int64(adjTimeNs))
-
-	// Enforce monotonicity, adjusted time cannot go backwards
-	if adjTime.Before(ts.lastAdjTime) {
-		adjTime = ts.lastAdjTime
+	// Enforce monotonicity
+	if currTimestamp.Before(ts.prevTimestamp) {
+		currTimestamp = ts.prevTimestamp
+	} else {
+		ts.prevTimestamp = currTimestamp
 	}
 
-	item.SetTimestamp(adjTime)
-
-	ts.lastAdjTime = adjTime
-	ts.lastSeqNum = seqNum
+	item.SetTimestamp(currTimestamp)
 }
 
 func (ts *timeSmoother[T]) reset() {
-	ts.lastAdjTime = time.Time{}
-	ts.lastSeqNum = 0
+	ts.estimator.reset()
+
+	ts.prevSeqNum = 0
+	ts.prevTimestamp = time.Time{}
+}
+
+// doubleExponentialEstimator is a double exponential estimator
+// used to smooth and adjust the time associated with an item.
+// The theory behind this estimator can be found here:
+type doubleExponentialEstimator struct {
+	alpha float64
+	beta  float64
+
+	prevLevel float64
+	prevTrend float64
+
+	estimateCount int
+}
+
+func newDoubleExponentialEstimator(alpha, beta float64) *doubleExponentialEstimator {
+	return &doubleExponentialEstimator{
+		alpha: alpha,
+		beta:  beta,
+	}
+}
+
+func (dee *doubleExponentialEstimator) estimate(value float64, n uint64) float64 {
+	// Check if the value is the first in the dataset
+	if dee.estimateCount == 0 {
+		dee.prevLevel = value
+		dee.prevTrend = 0
+
+		dee.estimateCount++
+		return value
+	}
+
+	// If it is the second, calculate the previous trend
+	// by using the formula: (value - prevLevel) / n
+	if dee.estimateCount == 1 {
+		dee.prevTrend = (value - dee.prevLevel) / float64(n)
+	}
+
+	// Get the forecasted value based on the previous level and trend
+	prevForecasted := dee.prevLevel + dee.prevTrend*float64(n)
+
+	// Calculate the current level and trend to be used
+	// by the next item
+	currLevel := dee.alpha*value + (1-dee.alpha)*(prevForecasted)
+	currTrend := dee.beta*(currLevel-dee.prevLevel) + (1-dee.beta)*dee.prevTrend
+
+	dee.prevLevel = currLevel
+	dee.prevTrend = currTrend
+
+	dee.estimateCount++
+	return prevForecasted
+}
+
+func (dee *doubleExponentialEstimator) reset() {
+	dee.prevLevel = 0
+	dee.prevTrend = 0
+	dee.estimateCount = 0
 }

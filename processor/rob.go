@@ -24,8 +24,9 @@ const (
 	DefaultROBConfigPrimaryBufferSize   = 128
 	DefaultROBConfigAuxiliaryBufferSize = 128
 	DefaultROBConfigFlushTreshold       = 0.3
-	DefaultROBConfigBaseAlpha           = 0.2
-	DefaultROBConfigJumpThreshold       = 8
+	DefaultROBConfigTimeSmootherEnabled = true
+	DefaultROBConfigEstimatorAlpha      = 0.8
+	DefaultROBConfigEstimatorBeta       = 0.5
 	DefaultROBConfigResetTimeout        = 100 * time.Millisecond
 )
 
@@ -44,12 +45,18 @@ type ROBConfig struct {
 	// needed for flushing the primary buffer.
 	FlushTreshold float64
 
-	// BaseAlpha is the base value for the alpha parameter for the EMA.
-	BaseAlpha float64
+	// TimeSmootherEnabled states whether the time smoother is enabled or not.
+	TimeSmootherEnabled bool
 
-	// JumpThreshold is the threshold used by the time smoother (EMA)
-	// for adjusting the alpha parameter when there is a jump in the sequence.
-	JumpThreshold uint64
+	// EstimatorAlpha is the value for the alpha parameter for
+	// the double exponential estimator (data smoothing factor).
+	// It must be between 0 and 1.
+	EstimatorAlpha float64
+
+	// EstimatorBeta is the value for the beta parameter for
+	// the double exponential estimator (trend smoothing factor).
+	// It must be between 0 and 1.
+	EstimatorBeta float64
 
 	// ResetTimeout is the timeout for resetting the re-order buffer.
 	ResetTimeout time.Duration
@@ -62,8 +69,8 @@ func NewROBConfig() *ROBConfig {
 		PrimaryBufferSize:   DefaultROBConfigPrimaryBufferSize,
 		AuxiliaryBufferSize: DefaultROBConfigAuxiliaryBufferSize,
 		FlushTreshold:       DefaultROBConfigFlushTreshold,
-		BaseAlpha:           DefaultROBConfigBaseAlpha,
-		JumpThreshold:       DefaultROBConfigJumpThreshold,
+		EstimatorAlpha:      DefaultROBConfigEstimatorAlpha,
+		EstimatorBeta:       DefaultROBConfigEstimatorBeta,
 		ResetTimeout:        DefaultROBConfigResetTimeout,
 	}
 }
@@ -84,10 +91,13 @@ func (c *ROBConfig) Validate(ac *config.AnomalyCollector) {
 	config.CheckNotNegative(ac, "FlushTreshold", &c.FlushTreshold, DefaultROBConfigFlushTreshold)
 	config.CheckNotZero(ac, "FlushTreshold", &c.FlushTreshold, DefaultROBConfigFlushTreshold)
 
-	config.CheckNotNegative(ac, "BaseAlpha", &c.BaseAlpha, DefaultROBConfigBaseAlpha)
-	config.CheckNotZero(ac, "BaseAlpha", &c.BaseAlpha, DefaultROBConfigBaseAlpha)
+	config.CheckNotNegative(ac, "EstimatorAlpha", &c.EstimatorAlpha, DefaultROBConfigEstimatorAlpha)
+	config.CheckNotZero(ac, "EstimatorAlpha", &c.EstimatorAlpha, DefaultROBConfigEstimatorAlpha)
+	config.CheckNotGreaterThan(ac, "EstimatorAlpha", "1", &c.EstimatorAlpha, 1.0)
 
-	config.CheckNotNegative(ac, "JumpThreshold", &c.JumpThreshold, DefaultROBConfigJumpThreshold)
+	config.CheckNotNegative(ac, "EstimatorBeta", &c.EstimatorBeta, DefaultROBConfigEstimatorBeta)
+	config.CheckNotZero(ac, "EstimatorBeta", &c.EstimatorBeta, DefaultROBConfigEstimatorBeta)
+	config.CheckNotGreaterThan(ac, "EstimatorBeta", "1", &c.EstimatorBeta, 1.0)
 
 	config.CheckNotNegative(ac, "ResetTimeout", &c.ResetTimeout, DefaultROBConfigResetTimeout)
 }
@@ -143,8 +153,9 @@ func (rs *ROBStage[T]) Init(_ context.Context) error {
 		PrimaryBufferSize:   rs.cfg.PrimaryBufferSize,
 		AuxiliaryBufferSize: rs.cfg.AuxiliaryBufferSize,
 		FlushTreshold:       rs.cfg.FlushTreshold,
-		BaseAlpha:           rs.cfg.BaseAlpha,
-		JumpThreshold:       rs.cfg.JumpThreshold,
+		TimeSmootherEnabled: rs.cfg.TimeSmootherEnabled,
+		EstimatorAlpha:      rs.cfg.EstimatorAlpha,
+		EstimatorBeta:       rs.cfg.EstimatorBeta,
 	})
 
 	rs.initMetrics()
@@ -215,7 +226,7 @@ func (rs *ROBStage[T]) Run(ctx context.Context) {
 }
 
 func (rs *ROBStage[T]) enqueue(ctx context.Context, msgIn *msg[T]) {
-	_, span := rs.tel.NewTrace(msgIn.LoadSpanContext(ctx), "enqueue message")
+	_, span := rs.tel.NewTrace(msgIn.LoadSpanContext(ctx), "enqueue message into re-order buffer")
 	defer span.End()
 
 	status, err := rs.rob.Enqueue(msgIn)
