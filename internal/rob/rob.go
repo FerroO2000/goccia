@@ -233,10 +233,12 @@ func (rob *ROB[T]) deliver(item T) {
 func (rob *ROB[T]) Enqueue(item T) (EnqueueStatus, error) {
 	seqNum := item.GetSequenceNumber()
 
+	// Check the sequence number validity
 	if !rob.primaryBuf.isValidSize(seqNum) {
 		return EnqueueStatusErr, ErrSeqNumTooBig
 	}
 
+	// Initialize the ROB if Enqueue is called for the first time
 	if !rob.isInitialized {
 		rob.primaryBuf.setStartSeqNum(seqNum)
 
@@ -246,6 +248,7 @@ func (rob *ROB[T]) Enqueue(item T) (EnqueueStatus, error) {
 		rob.isInitialized = true
 	}
 
+	// Try to enqueue the item in the primary buffer
 	status, err := rob.enqueuePrimary(item)
 	if err == nil {
 		return status, nil
@@ -255,6 +258,7 @@ func (rob *ROB[T]) Enqueue(item T) (EnqueueStatus, error) {
 		return EnqueueStatusErr, err
 	}
 
+	// Enqueue the item in the auxiliary buffer
 	err = rob.enqueueAuxiliary(item)
 	return EnqueueStatusAuxiliary, err
 }
