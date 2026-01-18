@@ -20,43 +20,21 @@ import (
 
 // Default configuration values for the re-order buffer stage.
 const (
-	DefaultROBConfigMaxSeqNum           = 255
-	DefaultROBConfigPrimaryBufferSize   = 128
-	DefaultROBConfigAuxiliaryBufferSize = 128
-	DefaultROBConfigFlushTreshold       = 0.3
-	DefaultROBConfigTimeSmootherEnabled = true
-	DefaultROBConfigEstimatorAlpha      = 0.8
-	DefaultROBConfigEstimatorBeta       = 0.5
+	DefaultROBConfigMaxSeqNum           = rob.DefaultMaxSeqNum
+	DefaultROBConfigPrimaryBufferSize   = rob.DefaultPrimaryBufferSize
+	DefaultROBConfigAuxiliaryBufferSize = rob.DefaultAuxiliaryBufferSize
+	DefaultROBConfigFlushTreshold       = rob.DefaultFlushTreshold
+	DefaultROBConfigTimeSmootherEnabled = rob.DefaultTimeSmootherEnabled
+	DefaultROBConfigEstimatorAlpha      = rob.DefaultEstimatorAlpha
+	DefaultROBConfigEstimatorBeta       = rob.DefaultEstimatorBeta
 	DefaultROBConfigResetTimeout        = 100 * time.Millisecond
 )
 
+type robConfig = rob.Config
+
 // ROBConfig structs contains the configuration for the re-order buffer stage.
 type ROBConfig struct {
-	// MaxSeqNum is the maximum possible sequence number.
-	MaxSeqNum uint64
-
-	// PrimaryBufferSize is the size of the primary buffer.
-	PrimaryBufferSize uint64
-
-	// AuxiliaryBufferSize is the size of the auxiliary buffer.
-	AuxiliaryBufferSize uint64
-
-	// FlushTreshold is the value of the fullness of the auxiliary buffer
-	// needed for flushing the primary buffer.
-	FlushTreshold float64
-
-	// TimeSmootherEnabled states whether the time smoother is enabled or not.
-	TimeSmootherEnabled bool
-
-	// EstimatorAlpha is the value for the alpha parameter for
-	// the double exponential estimator (data smoothing factor).
-	// It must be between 0 and 1.
-	EstimatorAlpha float64
-
-	// EstimatorBeta is the value for the beta parameter for
-	// the double exponential estimator (trend smoothing factor).
-	// It must be between 0 and 1.
-	EstimatorBeta float64
+	*robConfig
 
 	// ResetTimeout is the timeout for resetting the re-order buffer.
 	ResetTimeout time.Duration
@@ -65,39 +43,15 @@ type ROBConfig struct {
 // NewROBConfig returns the default configuration for the re-order buffer stage.
 func NewROBConfig() *ROBConfig {
 	return &ROBConfig{
-		MaxSeqNum:           DefaultROBConfigMaxSeqNum,
-		PrimaryBufferSize:   DefaultROBConfigPrimaryBufferSize,
-		AuxiliaryBufferSize: DefaultROBConfigAuxiliaryBufferSize,
-		FlushTreshold:       DefaultROBConfigFlushTreshold,
-		EstimatorAlpha:      DefaultROBConfigEstimatorAlpha,
-		EstimatorBeta:       DefaultROBConfigEstimatorBeta,
-		ResetTimeout:        DefaultROBConfigResetTimeout,
+		robConfig: rob.NewConfig(),
+
+		ResetTimeout: DefaultROBConfigResetTimeout,
 	}
 }
 
 // Validate checks the configuration.
 func (c *ROBConfig) Validate(ac *config.AnomalyCollector) {
-	config.CheckNotZero(ac, "MaxSeqNum", &c.MaxSeqNum, DefaultROBConfigMaxSeqNum)
-
-	config.CheckNotZero(ac, "PrimaryBufferSize", &c.PrimaryBufferSize, DefaultROBConfigPrimaryBufferSize)
-	config.CheckNotGreaterThan(ac, "PrimaryBufferSize", "MaxSeqNum", &c.PrimaryBufferSize, c.MaxSeqNum+1)
-
-	config.CheckNotZero(ac, "AuxiliaryBufferSize", &c.AuxiliaryBufferSize, DefaultROBConfigAuxiliaryBufferSize)
-	config.CheckNotGreaterThan(ac,
-		"AuxiliaryBufferSize", "MaxSeqNum - PrimaryBufferSize",
-		&c.AuxiliaryBufferSize, c.MaxSeqNum+1-c.PrimaryBufferSize,
-	)
-
-	config.CheckNotNegative(ac, "FlushTreshold", &c.FlushTreshold, DefaultROBConfigFlushTreshold)
-	config.CheckNotZero(ac, "FlushTreshold", &c.FlushTreshold, DefaultROBConfigFlushTreshold)
-
-	config.CheckNotNegative(ac, "EstimatorAlpha", &c.EstimatorAlpha, DefaultROBConfigEstimatorAlpha)
-	config.CheckNotZero(ac, "EstimatorAlpha", &c.EstimatorAlpha, DefaultROBConfigEstimatorAlpha)
-	config.CheckNotGreaterThan(ac, "EstimatorAlpha", "1", &c.EstimatorAlpha, 1.0)
-
-	config.CheckNotNegative(ac, "EstimatorBeta", &c.EstimatorBeta, DefaultROBConfigEstimatorBeta)
-	config.CheckNotZero(ac, "EstimatorBeta", &c.EstimatorBeta, DefaultROBConfigEstimatorBeta)
-	config.CheckNotGreaterThan(ac, "EstimatorBeta", "1", &c.EstimatorBeta, 1.0)
+	c.robConfig.Validate(ac)
 
 	config.CheckNotNegative(ac, "ResetTimeout", &c.ResetTimeout, DefaultROBConfigResetTimeout)
 }

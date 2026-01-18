@@ -46,35 +46,6 @@ func (es EnqueueStatus) String() string {
 	}
 }
 
-// Config is the configuration for the re-order buffer structure [ROB].
-type Config struct {
-	// MaxSeqNum is the maximum possible sequence number.
-	MaxSeqNum uint64
-
-	// PrimaryBufferSize is the size of the primary buffer.
-	PrimaryBufferSize uint64
-
-	// AuxiliaryBufferSize is the size of the auxiliary buffer.
-	AuxiliaryBufferSize uint64
-
-	// FlushTreshold is the value of the fullness of the auxiliary buffer
-	// needed for flushing the primary buffer.
-	FlushTreshold float64
-
-	// TimeSmootherEnabled states whether the time smoother is enabled or not.
-	TimeSmootherEnabled bool
-
-	// EstimatorAlpha is the value for the alpha parameter for
-	// the double exponential estimator (data smoothing factor).
-	// It must be between 0 and 1.
-	EstimatorAlpha float64
-
-	// EstimatorBeta is the value for the beta parameter for
-	// the double exponential estimator (trend smoothing factor).
-	// It must be between 0 and 1.
-	EstimatorBeta float64
-}
-
 type robItem interface {
 	bufferItem
 	timeSmootherItem
