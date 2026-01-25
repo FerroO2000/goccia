@@ -11,6 +11,8 @@ import (
 	"golang.org/x/sys/cpu"
 )
 
+var maxSpins = runtime.NumCPU() * 32
+
 // ErrClosed is returned when the buffer is closed.
 var ErrClosed = errors.New("ring buffer: buffer is closed")
 
@@ -154,13 +156,15 @@ func (rb *RingBuffer[T]) Write(item T) error {
 		return ErrClosed
 	}
 
-	// Try to push the item
-	if rb.push(item) {
-		goto cleanup
-	}
+	for range maxSpins {
+		// Try to push the item
+		if rb.push(item) {
+			goto cleanup
+		}
 
-	// The buffer is full, yield to other goroutines
-	runtime.Gosched()
+		// The buffer is full, yield to other goroutines
+		runtime.Gosched()
+	}
 
 	// Try to push the item
 	for !rb.push(item) {
@@ -207,14 +211,16 @@ func (rb *RingBuffer[T]) Read(ctx context.Context) (T, error) {
 	var item T
 	var popOk bool
 
-	// Try to pop an item
-	item, popOk = rb.pop()
-	if popOk {
-		goto cleanup
-	}
+	for range maxSpins {
+		// Try to pop an item
+		item, popOk = rb.pop()
+		if popOk {
+			goto cleanup
+		}
 
-	// The buffer is empty, yield to other goroutines
-	runtime.Gosched()
+		// The buffer is empty, yield to other goroutines
+		runtime.Gosched()
+	}
 
 	// Try to pop an item
 	for {

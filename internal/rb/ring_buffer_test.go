@@ -1,6 +1,7 @@
 package rb
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"sync"
@@ -238,7 +239,7 @@ func Benchmark_RingBuffers(b *testing.B) {
 	b.ReportAllocs()
 
 	kinds := []BufferKind{BufferKindSPSC, BufferKindMPMC}
-	capacities := []int{512, 1024, 2048, 4096}
+	capacities := []int{512, 1024, 4096}
 	for _, kind := range kinds {
 		kindStr := kind.String()
 
@@ -252,7 +253,40 @@ func Benchmark_RingBuffers(b *testing.B) {
 			b.Run("WriteReadSteady-"+kindStr+"-"+capacityStr, func(b *testing.B) {
 				benchWriteReadSteady(b, kind, capacity)
 			})
+
+			b.Run("WriteReadSteady-"+kindStr+"-"+capacityStr, func(b *testing.B) {
+				benchWriteReadSteady(b, kind, capacity)
+			})
 		}
+	}
+}
+
+func Benchmark_RingBuffers_Contention(b *testing.B) {
+	capacity := 4096
+
+	// SPSC
+	kind := BufferKindSPSC
+	b.Run("Mixed-"+kind.String(), func(b *testing.B) {
+		benchContention(b, capacity, kind, 1, 1)
+	})
+
+	// MPMC
+	kind = BufferKindMPMC
+	b.Run("Mixed-"+kind.String(), func(b *testing.B) {
+		benchContention(b, capacity, kind, 1, 1)
+	})
+
+	contentions := []int{2, 4, 8, 16}
+	for _, cont := range contentions {
+		contStr := strconv.Itoa(cont)
+
+		b.Run("Read-"+kind.String()+"-"+contStr, func(b *testing.B) {
+			benchContention(b, capacity, kind, 1, cont)
+		})
+
+		b.Run("Write-"+kind.String()+"-"+contStr, func(b *testing.B) {
+			benchContention(b, capacity, kind, cont, 1)
+		})
 	}
 }
 
@@ -310,5 +344,75 @@ func benchWriteReadSteady(b *testing.B, kind BufferKind, capacity int) {
 		}
 
 		val++
+	}
+}
+
+func benchContention(b *testing.B, capacity int, bufferKind BufferKind, numWriters, numReaders int) {
+	rb := NewRingBuffer[int](uint32(capacity), bufferKind)
+
+	b.ResetTimer()
+
+	// Multiple writers
+	itemsPerWriter := b.N / numWriters
+	writerRemainder := b.N % numWriters
+
+	var written atomic.Uint64
+
+	for w := range numWriters {
+		items := itemsPerWriter
+		if w == 0 {
+			items += writerRemainder
+		}
+
+		go func(count int) {
+			for i := range count {
+				if err := rb.Write(i); err != nil {
+					b.Errorf("write error: %v", err)
+					return
+				}
+				written.Add(1)
+			}
+		}(items)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(numReaders)
+
+	ctx, cancelCtx := context.WithTimeout(b.Context(), 30*time.Second)
+	defer cancelCtx()
+
+	// Multiple readers
+	itemsPerReader := b.N / numReaders
+	readerRemainder := b.N % numReaders
+
+	var hasError atomic.Bool
+	hasError.Store(false)
+
+	for r := range numReaders {
+		items := itemsPerReader
+		if r == 0 {
+			items += readerRemainder
+		}
+
+		go func(target int) {
+			defer wg.Done()
+			count := 0
+
+			for count < target {
+				_, err := rb.Read(ctx)
+				if err != nil {
+					hasError.Store(true)
+					b.Errorf("read error: %v", err)
+					return
+				}
+				count++
+			}
+		}(items)
+	}
+
+	wg.Wait()
+
+	if hasError.Load() {
+		b.Logf("written %d over %d", written.Load(), b.N)
 	}
 }
