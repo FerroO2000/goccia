@@ -20,7 +20,7 @@ func Test_SinkStage(t *testing.T) {
 	assert := assert.New(t)
 
 	msgCount := 32
-	conn := connector.NewRingBuffer[*sinkTestMsg](uint32(msgCount))
+	conn := connector.NewRingBuffer[*sinkTestMsg](uint64(msgCount))
 
 	stopCh := make(chan struct{})
 

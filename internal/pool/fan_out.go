@@ -15,7 +15,7 @@ type FanOut[T any] struct {
 // NewFanOut returns a new fan-out struct.
 func NewFanOut[T any](bufferCapacity int) *FanOut[T] {
 	return &FanOut[T]{
-		buffer: rb.NewRingBuffer[T](uint32(bufferCapacity), rb.BufferKindMPMC),
+		buffer: rb.NewRingBuffer[T](uint64(bufferCapacity), rb.BufferKindSPMC),
 	}
 }
 

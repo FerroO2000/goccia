@@ -15,7 +15,7 @@ type FanIn[T any] struct {
 // NewFanIn returns a new fan-in struct.
 func NewFanIn[T any](bufferCapacity int) *FanIn[T] {
 	return &FanIn[T]{
-		buffer: rb.NewRingBuffer[T](uint32(bufferCapacity), rb.BufferKindMPMC),
+		buffer: rb.NewRingBuffer[T](uint64(bufferCapacity), rb.BufferKindMPSC),
 	}
 }
 

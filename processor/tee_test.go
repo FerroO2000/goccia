@@ -19,7 +19,7 @@ func (m *dummyMsg) Destroy() {}
 func Test_TeeStage(t *testing.T) {
 	assert := assert.New(t)
 
-	connSize := uint32(32)
+	connSize := uint64(32)
 	outConnCount := 3
 
 	inConn := connector.NewRingBuffer[*dummyMsg](connSize)

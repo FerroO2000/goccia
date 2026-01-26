@@ -29,10 +29,14 @@ func Test_bufferImplementations(t *testing.T) {
 		prodNum, consNum int
 	}{
 		{BufferKindSPSC, newSPSCBuffer[int](capacity), 1, 1},
-		{BufferKindMPMC, newMPMCBuffer[int](capacity), 1, 1},
-		{BufferKindMPMC, newMPMCBuffer[int](capacity), 1, 8},
-		{BufferKindMPMC, newMPMCBuffer[int](capacity), 8, 1},
-		{BufferKindMPMC, newMPMCBuffer[int](capacity), 8, 8},
+
+		{BufferKindSPMC, newSPMCBuffer[int](capacity), 1, 8},
+		{BufferKindSPMC, newSPMCBuffer[int](capacity), 1, 16},
+		{BufferKindSPMC, newSPMCBuffer[int](capacity), 1, 32},
+
+		{BufferKindMPSC, newMPSCBuffer[int](capacity), 8, 1},
+		{BufferKindMPSC, newMPSCBuffer[int](capacity), 16, 1},
+		{BufferKindMPSC, newMPSCBuffer[int](capacity), 32, 1},
 	}
 
 	for _, tCase := range suite {
@@ -133,10 +137,14 @@ func Test_RingBuffer(t *testing.T) {
 		prodNum, consNum int
 	}{
 		{BufferKindSPSC, capacity, 1, 1},
-		{BufferKindMPMC, capacity, 1, 1},
-		{BufferKindMPMC, capacity, 1, 4},
-		{BufferKindMPMC, capacity, 4, 1},
-		{BufferKindMPMC, capacity, 8, 8},
+
+		{BufferKindSPMC, capacity, 1, 8},
+		{BufferKindSPMC, capacity, 1, 16},
+		{BufferKindSPMC, capacity, 1, 32},
+
+		{BufferKindMPSC, capacity, 8, 1},
+		{BufferKindMPSC, capacity, 16, 1},
+		{BufferKindMPSC, capacity, 32, 1},
 	}
 
 	for _, tCase := range suite {
@@ -153,7 +161,7 @@ func testRingBuffer(t *testing.T, kind BufferKind, capacity, prodNum, consNum, t
 
 	itemsPerProd := totalItems / prodNum
 
-	rb := NewRingBuffer[int](uint32(capacity), kind)
+	rb := NewRingBuffer[int](uint64(capacity), kind)
 
 	// Used to track received items
 	var receivedItems sync.Map
@@ -238,60 +246,58 @@ func testRingBuffer(t *testing.T, kind BufferKind, capacity, prodNum, consNum, t
 func Benchmark_RingBuffers(b *testing.B) {
 	b.ReportAllocs()
 
-	kinds := []BufferKind{BufferKindSPSC, BufferKindMPMC}
-	capacities := []int{512, 1024, 4096}
+	capacity := 4096
+	capacityStr := strconv.Itoa(capacity)
+
+	kinds := []BufferKind{BufferKindSPSC, BufferKindSPMC, BufferKindMPSC}
 	for _, kind := range kinds {
 		kindStr := kind.String()
 
-		for _, capacity := range capacities {
-			capacityStr := strconv.Itoa(capacity)
+		b.Run("WriteReadCycle-"+kindStr+"-"+capacityStr, func(b *testing.B) {
+			benchWriteReadCycle(b, kind, capacity)
+		})
 
-			b.Run("WriteReadCycle-"+kindStr+"-"+capacityStr, func(b *testing.B) {
-				benchWriteReadCycle(b, kind, capacity)
-			})
-
-			b.Run("WriteReadSteady-"+kindStr+"-"+capacityStr, func(b *testing.B) {
-				benchWriteReadSteady(b, kind, capacity)
-			})
-
-			b.Run("WriteReadSteady-"+kindStr+"-"+capacityStr, func(b *testing.B) {
-				benchWriteReadSteady(b, kind, capacity)
-			})
-		}
+		b.Run("WriteReadSteady-"+kindStr+"-"+capacityStr, func(b *testing.B) {
+			benchWriteReadSteady(b, kind, capacity)
+		})
 	}
 }
 
 func Benchmark_RingBuffers_Contention(b *testing.B) {
 	capacity := 4096
+	capacityStr := strconv.Itoa(capacity)
 
 	// SPSC
 	kind := BufferKindSPSC
-	b.Run("Mixed-"+kind.String(), func(b *testing.B) {
-		benchContention(b, capacity, kind, 1, 1)
-	})
-
-	// MPMC
-	kind = BufferKindMPMC
-	b.Run("Mixed-"+kind.String(), func(b *testing.B) {
+	b.Run(kind.String()+"-"+capacityStr+"-P1-C1", func(b *testing.B) {
 		benchContention(b, capacity, kind, 1, 1)
 	})
 
 	contentions := []int{2, 4, 8, 16}
+
+	// SPMC
+	kind = BufferKindSPMC
 	for _, cont := range contentions {
 		contStr := strconv.Itoa(cont)
 
-		b.Run("Read-"+kind.String()+"-"+contStr, func(b *testing.B) {
+		b.Run(kind.String()+"-"+capacityStr+"-P1-C"+contStr, func(b *testing.B) {
 			benchContention(b, capacity, kind, 1, cont)
 		})
+	}
 
-		b.Run("Write-"+kind.String()+"-"+contStr, func(b *testing.B) {
+	// MPSC
+	kind = BufferKindMPSC
+	for _, cont := range contentions {
+		contStr := strconv.Itoa(cont)
+
+		b.Run(kind.String()+"-"+capacityStr+"-P"+contStr+"-C1", func(b *testing.B) {
 			benchContention(b, capacity, kind, cont, 1)
 		})
 	}
 }
 
 func benchWriteReadCycle(b *testing.B, kind BufferKind, capacity int) {
-	rb := NewRingBuffer[int](uint32(capacity), kind)
+	rb := NewRingBuffer[int](uint64(capacity), kind)
 
 	cycles := (b.N + capacity - 1) / capacity
 	remainder := b.N % capacity
@@ -328,7 +334,7 @@ func benchWriteReadCycle(b *testing.B, kind BufferKind, capacity int) {
 }
 
 func benchWriteReadSteady(b *testing.B, kind BufferKind, capacity int) {
-	rb := NewRingBuffer[int](uint32(capacity), kind)
+	rb := NewRingBuffer[int](uint64(capacity), kind)
 
 	val := 0
 	for b.Loop() {
@@ -348,7 +354,7 @@ func benchWriteReadSteady(b *testing.B, kind BufferKind, capacity int) {
 }
 
 func benchContention(b *testing.B, capacity int, bufferKind BufferKind, numWriters, numReaders int) {
-	rb := NewRingBuffer[int](uint32(capacity), bufferKind)
+	rb := NewRingBuffer[int](uint64(capacity), bufferKind)
 
 	b.ResetTimer()
 

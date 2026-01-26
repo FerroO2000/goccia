@@ -11,6 +11,19 @@ import (
 	"golang.org/x/sys/cpu"
 )
 
+func roundToPowerOf2(value uint64) uint64 {
+	value--
+	value |= value >> 1
+	value |= value >> 2
+	value |= value >> 4
+	value |= value >> 8
+	value |= value >> 16
+	value |= value >> 32
+	value++
+
+	return value
+}
+
 var maxSpins = runtime.NumCPU() * 32
 
 // ErrClosed is returned when the buffer is closed.
@@ -22,16 +35,20 @@ type BufferKind uint8
 const (
 	//BufferKindSPSC is the single producer/single consumer ring buffer implementation.
 	BufferKindSPSC BufferKind = iota
-	//BufferKindMPMC is the multiple producer/multiple consumer ring buffer implementation.
-	BufferKindMPMC
+	// BufferKindSPMC is the single producer/multiple consumer ring buffer implementation.
+	BufferKindSPMC
+	// BufferKindMPSC is the multiple producer/single consumer ring buffer implementation.
+	BufferKindMPSC
 )
 
 func (bk BufferKind) String() string {
 	switch bk {
 	case BufferKindSPSC:
 		return "SPSC"
-	case BufferKindMPMC:
-		return "MPMC"
+	case BufferKindSPMC:
+		return "SPMC"
+	case BufferKindMPSC:
+		return "MPSC"
 	default:
 		return "unknown"
 	}
@@ -47,8 +64,11 @@ type RingBuffer[T any] struct {
 	// spsc is the single producer/single consumer ring buffer implementation
 	spsc *spscBuffer[T]
 
-	// mpmc is the multiple producer/multiple consumer ring buffer implementation
-	mpmc *mpmcBuffer[T]
+	// spmc is the single producer/multiple consumer ring buffer implementation
+	spmc *spmcBuffer[T]
+
+	// mpsc is the multiple producer/single consumer ring buffer implementation
+	mpsc *mpscBuffer[T]
 
 	_ cpu.CacheLinePad
 
@@ -74,7 +94,7 @@ type RingBuffer[T any] struct {
 }
 
 // NewRingBuffer returns a new lock-free spsc/mpmc generic ring buffer.
-func NewRingBuffer[T any](capacity uint32, kind BufferKind) *RingBuffer[T] {
+func NewRingBuffer[T any](capacity uint64, kind BufferKind) *RingBuffer[T] {
 	mux := &sync.Mutex{}
 
 	rb := &RingBuffer[T]{
@@ -90,8 +110,10 @@ func NewRingBuffer[T any](capacity uint32, kind BufferKind) *RingBuffer[T] {
 	switch kind {
 	case BufferKindSPSC:
 		rb.spsc = newSPSCBuffer[T](parsedCapacity)
-	case BufferKindMPMC:
-		rb.mpmc = newMPMCBuffer[T](parsedCapacity)
+	case BufferKindSPMC:
+		rb.spmc = newSPMCBuffer[T](parsedCapacity)
+	case BufferKindMPSC:
+		rb.mpsc = newMPSCBuffer[T](parsedCapacity)
 	}
 
 	return rb
@@ -101,8 +123,10 @@ func (rb *RingBuffer[T]) push(item T) bool {
 	switch rb.kind {
 	case BufferKindSPSC:
 		return rb.spsc.push(item)
-	case BufferKindMPMC:
-		return rb.mpmc.push(item)
+	case BufferKindSPMC:
+		return rb.spmc.push(item)
+	case BufferKindMPSC:
+		return rb.mpsc.push(item)
 	default:
 		return false
 	}
@@ -112,19 +136,23 @@ func (rb *RingBuffer[T]) pop() (T, bool) {
 	switch rb.kind {
 	case BufferKindSPSC:
 		return rb.spsc.pop()
-	case BufferKindMPMC:
-		return rb.mpmc.pop()
+	case BufferKindSPMC:
+		return rb.spmc.pop()
+	case BufferKindMPSC:
+		return rb.mpsc.pop()
 	default:
 		return *new(T), false
 	}
 }
 
-func (rb *RingBuffer[T]) len() uint32 {
+func (rb *RingBuffer[T]) len() uint64 {
 	switch rb.kind {
 	case BufferKindSPSC:
 		return rb.spsc.len()
-	case BufferKindMPMC:
-		return rb.mpmc.len()
+	case BufferKindSPMC:
+		return rb.spmc.len()
+	case BufferKindMPSC:
+		return rb.mpsc.len()
 	default:
 		return 0
 	}
@@ -273,7 +301,7 @@ cleanup:
 }
 
 // Len returns the number of items in the buffer.
-func (rb *RingBuffer[T]) Len() uint32 {
+func (rb *RingBuffer[T]) Len() uint64 {
 	return rb.len()
 }
 

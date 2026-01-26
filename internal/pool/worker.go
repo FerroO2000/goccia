@@ -1,3 +1,4 @@
+// Package pool contains the structs used by the worker pools across the library.
 package pool
 
 import (
