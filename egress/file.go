@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -276,6 +277,14 @@ func (fs *FileStage[T]) Init(ctx context.Context) error {
 
 	path := cfg.Path
 	fs.path = path
+
+	// Get the directory path from the file path
+	dir := filepath.Dir(path)
+
+	// Create all parent directories if they don't exist
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
 
 	// Open the file as append only
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
