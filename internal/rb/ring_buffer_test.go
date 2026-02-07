@@ -243,6 +243,41 @@ func testRingBuffer(t *testing.T, kind BufferKind, capacity, prodNum, consNum, t
 	t.Logf("Processed %d items in %v (%d items/sec)", totalItems, duration, itemsPerSec)
 }
 
+///////////////
+// BENCHMARK //
+///////////////
+
+type benchmarkRingBuffer interface {
+	Write(int) error
+	Read(context.Context) (int, error)
+}
+
+func newBenchmarkRingBuffer(kind BufferKind, capacity int) benchmarkRingBuffer {
+	return NewRingBuffer[int](uint64(capacity), kind)
+}
+
+type baselineRingBuffer struct {
+	ch chan int
+}
+
+func newBaselineRingBuffer(capacity int) *baselineRingBuffer {
+	return &baselineRingBuffer{ch: make(chan int, capacity)}
+}
+
+func (b *baselineRingBuffer) Write(val int) error {
+	b.ch <- val
+	return nil
+}
+
+func (b *baselineRingBuffer) Read(ctx context.Context) (int, error) {
+	select {
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	case val := <-b.ch:
+		return val, nil
+	}
+}
+
 func Benchmark_RingBuffers(b *testing.B) {
 	b.ReportAllocs()
 
@@ -254,13 +289,26 @@ func Benchmark_RingBuffers(b *testing.B) {
 		kindStr := kind.String()
 
 		b.Run("WriteReadCycle-"+kindStr+"-"+capacityStr, func(b *testing.B) {
-			benchWriteReadCycle(b, kind, capacity)
+			benchWriteReadCycle(b, newBenchmarkRingBuffer(kind, capacity), capacity)
 		})
 
 		b.Run("WriteReadSteady-"+kindStr+"-"+capacityStr, func(b *testing.B) {
-			benchWriteReadSteady(b, kind, capacity)
+			benchWriteReadSteady(b, newBenchmarkRingBuffer(kind, capacity), capacity)
 		})
 	}
+}
+
+func Benchmark_RingBuffers_Baseline(b *testing.B) {
+	capacity := 4096
+	capacityStr := strconv.Itoa(capacity)
+
+	b.Run("WriteReadCycle-Baseline-"+capacityStr, func(b *testing.B) {
+		benchWriteReadSteady(b, newBaselineRingBuffer(capacity), capacity)
+	})
+
+	b.Run("WriteReadSteady-Baseline-"+capacityStr, func(b *testing.B) {
+		benchWriteReadSteady(b, newBaselineRingBuffer(capacity), capacity)
+	})
 }
 
 func Benchmark_RingBuffers_Contention(b *testing.B) {
@@ -270,7 +318,7 @@ func Benchmark_RingBuffers_Contention(b *testing.B) {
 	// SPSC
 	kind := BufferKindSPSC
 	b.Run(kind.String()+"-"+capacityStr+"-P1-C1", func(b *testing.B) {
-		benchContention(b, capacity, kind, 1, 1)
+		benchContention(b, newBenchmarkRingBuffer(kind, capacity), 1, 1)
 	})
 
 	contentions := []int{2, 4, 8, 16}
@@ -281,7 +329,7 @@ func Benchmark_RingBuffers_Contention(b *testing.B) {
 		contStr := strconv.Itoa(cont)
 
 		b.Run(kind.String()+"-"+capacityStr+"-P1-C"+contStr, func(b *testing.B) {
-			benchContention(b, capacity, kind, 1, cont)
+			benchContention(b, newBenchmarkRingBuffer(kind, capacity), 1, cont)
 		})
 	}
 
@@ -291,14 +339,39 @@ func Benchmark_RingBuffers_Contention(b *testing.B) {
 		contStr := strconv.Itoa(cont)
 
 		b.Run(kind.String()+"-"+capacityStr+"-P"+contStr+"-C1", func(b *testing.B) {
-			benchContention(b, capacity, kind, cont, 1)
+			benchContention(b, newBenchmarkRingBuffer(kind, capacity), cont, 1)
 		})
 	}
 }
 
-func benchWriteReadCycle(b *testing.B, kind BufferKind, capacity int) {
-	rb := NewRingBuffer[int](uint64(capacity), kind)
+func Benchmark_RingBuffers_Contention_Baseline(b *testing.B) {
+	capacity := 4096
+	capacityStr := strconv.Itoa(capacity)
 
+	b.Run("Baseline-"+capacityStr+"-P1-C1", func(b *testing.B) {
+		benchContention(b, newBaselineRingBuffer(capacity), 1, 1)
+	})
+
+	contentions := []int{2, 4, 8, 16}
+
+	for _, cont := range contentions {
+		contStr := strconv.Itoa(cont)
+
+		b.Run("Baseline-"+capacityStr+"-P1-C"+contStr, func(b *testing.B) {
+			benchContention(b, newBaselineRingBuffer(capacity), 1, cont)
+		})
+	}
+
+	for _, cont := range contentions {
+		contStr := strconv.Itoa(cont)
+
+		b.Run("Baseline-"+capacityStr+"-P"+contStr+"-C1", func(b *testing.B) {
+			benchContention(b, newBaselineRingBuffer(capacity), cont, 1)
+		})
+	}
+}
+
+func benchWriteReadCycle(b *testing.B, rb benchmarkRingBuffer, capacity int) {
 	cycles := (b.N + capacity - 1) / capacity
 	remainder := b.N % capacity
 	if remainder == 0 {
@@ -333,9 +406,7 @@ func benchWriteReadCycle(b *testing.B, kind BufferKind, capacity int) {
 	}
 }
 
-func benchWriteReadSteady(b *testing.B, kind BufferKind, capacity int) {
-	rb := NewRingBuffer[int](uint64(capacity), kind)
-
+func benchWriteReadSteady(b *testing.B, rb benchmarkRingBuffer, capacity int) {
 	val := 0
 	for b.Loop() {
 		if err := rb.Write(val); err != nil {
@@ -353,9 +424,7 @@ func benchWriteReadSteady(b *testing.B, kind BufferKind, capacity int) {
 	}
 }
 
-func benchContention(b *testing.B, capacity int, bufferKind BufferKind, numWriters, numReaders int) {
-	rb := NewRingBuffer[int](uint64(capacity), bufferKind)
-
+func benchContention(b *testing.B, rb benchmarkRingBuffer, numWriters, numReaders int) {
 	b.ResetTimer()
 
 	// Multiple writers
