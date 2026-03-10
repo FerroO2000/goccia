@@ -7,6 +7,7 @@ import (
 
 	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/internal/config"
+	"github.com/FerroO2000/goccia/internal/message"
 )
 
 // StageRunningMode represents the running mode of a stage.
@@ -99,4 +100,12 @@ func (p *Pipeline) Close() {
 	}
 
 	p.wg.Wait()
+}
+
+// MessageEnvelope is an untyped alias for a generic message envelope.
+type MessageEnvelope[T message.Body] = message.Message[T]
+
+// NewMessageEnvelope returns a new message envelope.
+func NewMessageEnvelope[T message.Body](body T) *MessageEnvelope[T] {
+	return message.NewMessage(body)
 }
