@@ -25,14 +25,14 @@ func main() {
 	kafkaToRaw := connector.NewRingBuffer[*ingress.KafkaMessage](connectorSize)
 	customToKafka := connector.NewRingBuffer[*egress.KafkaMessage](connectorSize)
 
-	kafkaIngressCfg := ingress.DefaultKafkaConfig("example-topic")
+	kafkaIngressCfg := ingress.NewKafkaConfig("example-topic")
 	kafkaIngressStage := ingress.NewKafkaStage(kafkaToRaw, kafkaIngressCfg)
 
 	customCfg := processor.NewCustomConfig(goccia.StageRunningModePool)
 	customCfg.Name = "ingress_to_egress"
 	customStage := processor.NewCustomStage(newIngressToEgressHandler(), kafkaToRaw, customToKafka, customCfg)
 
-	kafkaEgressCfg := egress.DefaultKafkaConfig(goccia.StageRunningModePool)
+	kafkaEgressCfg := egress.NewKafkaConfig(goccia.StageRunningModePool)
 	kafkaEgressStage := egress.NewKafkaStage(customToKafka, kafkaEgressCfg)
 
 	pipeline := goccia.NewPipeline()

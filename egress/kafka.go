@@ -100,8 +100,8 @@ type KafkaConfig struct {
 	AllowAutoTopicCreation bool
 }
 
-// DefaultKafkaConfig returns a default Kafka egress config.
-func DefaultKafkaConfig(runningMode config.StageRunningMode) *KafkaConfig {
+// NewKafkaConfig returns a default Kafka egress config.
+func NewKafkaConfig(runningMode config.StageRunningMode) *KafkaConfig {
 	return &KafkaConfig{
 		Base: config.NewBase(runningMode),
 

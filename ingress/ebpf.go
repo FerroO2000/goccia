@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"sync/atomic"
+	"time"
 	"unsafe"
 
 	"github.com/FerroO2000/goccia/internal"
@@ -237,6 +238,11 @@ func (es *ebpfSource[T]) handleRecord(ctx context.Context, record *ringbuf.Recor
 	// Make the message
 	ebpfMsg := newEBPFMessage(data)
 	msg := message.NewMessage(ebpfMsg)
+
+	// Set the receive time and the timestamp
+	recvTime := time.Now()
+	msg.SetReceiveTime(recvTime)
+	msg.SetTimestamp(recvTime)
 
 	// Save the span into the message
 	msg.SaveSpan(span)

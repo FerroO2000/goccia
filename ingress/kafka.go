@@ -168,9 +168,9 @@ type KafkaConfig struct {
 	MaxAttempts int
 }
 
-// DefaultKafkaConfig returns a default kafka config.
+// NewKafkaConfig returns a default kafka config.
 // There are NO default topics set.
-func DefaultKafkaConfig(topics ...string) *KafkaConfig {
+func NewKafkaConfig(topics ...string) *KafkaConfig {
 	return &KafkaConfig{
 		Brokers:                DefaultKafkaConfigBrokers,
 		GroupID:                DefaultKafkaConfigGroupID,

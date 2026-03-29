@@ -34,7 +34,7 @@ func main() {
 	customCfg.Name = "ticker_to_kafka"
 	customStage := processor.NewCustomStage(newTickerToKafkaHandler(), tickerToCustom, customToKafka, customCfg)
 
-	kafkaCfg := egress.DefaultKafkaConfig(goccia.StageRunningModePool)
+	kafkaCfg := egress.NewKafkaConfig(goccia.StageRunningModePool)
 	kafkaStage := egress.NewKafkaStage(customToKafka, kafkaCfg)
 
 	pipeline := goccia.NewPipeline()
