@@ -23,6 +23,7 @@ func main() {
 	defer cancelCtx()
 
 	telemetry.Init(ctx, "can-server-example")
+	defer telemetry.Close()
 
 	udpToCannelloni := connector.NewRingBuffer[*ingress.UDPMessage](connectorSize)
 	cannelloniToROB := connector.NewRingBuffer[*processor.CannelloniMessage](connectorSize)

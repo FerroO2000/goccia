@@ -22,6 +22,7 @@ func main() {
 	defer cancelCtx()
 
 	telemetry.Init(ctx, "kafka-producer-example")
+	defer telemetry.Close()
 
 	tickerToCustom := connector.NewRingBuffer[*ingress.TickerMessage](connectorSize)
 	customToKafka := connector.NewRingBuffer[*egress.KafkaMessage](connectorSize)

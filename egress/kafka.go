@@ -184,7 +184,7 @@ func (kw *kafkaWorker) Init(_ context.Context, args *kafkaWorkerArgs) error {
 }
 
 func (kw *kafkaWorker) Deliver(ctx context.Context, msgIn *msg[*KafkaMessage]) error {
-	ctx, span := kw.Tel.NewTrace(ctx, "deliver kafka message")
+	ctx, span := kw.Tel.StartTrace(ctx, "deliver kafka message")
 	defer span.End()
 
 	kafkaMsgIn := msgIn.GetBody()
@@ -262,6 +262,6 @@ func (ks *KafkaStage) Close() {
 	ks.stage.Close()
 
 	if err := ks.writer.Close(); err != nil {
-		ks.Tel().LogError("failed to close writer", err)
+		ks.Tel().LogError(context.TODO(), "failed to close writer", err)
 	}
 }

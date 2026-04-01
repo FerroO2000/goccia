@@ -9,9 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	qdb "github.com/questdb/go-questdb-client/v3"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -263,14 +263,14 @@ type questDBWorkerMetrics struct {
 
 var questDBWorkerMetricsInst = &questDBWorkerMetrics{}
 
-func (qwm *questDBWorkerMetrics) init(tel *internal.Telemetry) {
+func (qwm *questDBWorkerMetrics) init(tel *telemetry.Telemetry) {
 	qwm.once.Do(func() {
 		qwm.initMetrics(tel)
 	})
 }
 
-func (qwm *questDBWorkerMetrics) initMetrics(tel *internal.Telemetry) {
-	tel.NewCounter("inserted_rows", func() int64 { return qwm.insertedRows.Load() })
+func (qwm *questDBWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
+	tel.NewCouterMetric("inserted_rows", func() int64 { return qwm.insertedRows.Load() })
 }
 
 func (qwm *questDBWorkerMetrics) addInsertedRows(amount int) {
@@ -312,7 +312,7 @@ func (qw *questDBWorker) Init(ctx context.Context, args *questDBWorkerArgs) erro
 }
 
 func (qw *questDBWorker) Deliver(ctx context.Context, msgIn *msg[*QuestDBMessage]) error {
-	ctx, span := qw.Tel.NewTrace(ctx, "deliver QuestDB rows")
+	ctx, span := qw.Tel.StartTrace(ctx, "deliver QuestDB rows")
 	defer span.End()
 
 	qdbMsg := msgIn.GetBody()
@@ -409,6 +409,6 @@ func (qs *QuestDBStage) Close() {
 
 	// Close the sender pool
 	if err := qs.senderPool.Close(context.Background()); err != nil {
-		qs.Tel().LogError("failed to close sender pool", err)
+		qs.Tel().LogError(context.TODO(), "failed to close sender pool", err)
 	}
 }

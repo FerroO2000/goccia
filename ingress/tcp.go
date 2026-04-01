@@ -12,10 +12,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -209,7 +209,7 @@ type tcpSourceConfig struct {
 }
 
 type tcpSource struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	fanIn *pool.FanIn[*msg[*TCPMessage]]
 
@@ -279,7 +279,7 @@ func newTCPSource(cfg *tcpSourceConfig) *tcpSource {
 	}
 }
 
-func (ts *tcpSource) setTelemetry(tel *internal.Telemetry) {
+func (ts *tcpSource) setTelemetry(tel *telemetry.Telemetry) {
 	ts.tel = tel
 }
 
@@ -303,9 +303,9 @@ func (ts *tcpSource) init(ipAddr string, port uint16) error {
 }
 
 func (ts *tcpSource) initMetrics() {
-	ts.tel.NewUpDownCounter("open_connections", func() int64 { return ts.openConnections.Load() })
-	ts.tel.NewCounter("received_bytes", func() int64 { return ts.receivedBytes.Load() })
-	ts.tel.NewCounter("received_messages", func() int64 { return ts.receivedMessages.Load() })
+	ts.tel.NewUpDownCounterMetric("open_connections", func() int64 { return ts.openConnections.Load() })
+	ts.tel.NewCouterMetric("received_bytes", func() int64 { return ts.receivedBytes.Load() })
+	ts.tel.NewCouterMetric("received_messages", func() int64 { return ts.receivedMessages.Load() })
 }
 
 func (ts *tcpSource) run(ctx context.Context, outConnector msgConn[*TCPMessage]) {
@@ -326,7 +326,7 @@ func (ts *tcpSource) run(ctx context.Context, outConnector msgConn[*TCPMessage])
 				return
 
 			default:
-				ts.tel.LogError("failed to accept connection", err)
+				ts.tel.LogError(context.TODO(), "failed to accept connection", err)
 				continue
 			}
 		}
@@ -351,7 +351,7 @@ func (ts *tcpSource) runBridge(ctx context.Context, outConnector msgConn[*TCPMes
 
 		if err := outConnector.Write(msgOut); err != nil {
 			msgOut.Destroy()
-			ts.tel.LogError("failed to write into output connector", err)
+			ts.tel.LogError(context.TODO(), "failed to write into output connector", err)
 		}
 	}
 }
@@ -428,7 +428,7 @@ loop:
 
 			// For any other error, break the loop and close the server connection.
 			// This is likely be caused by the read deadline being exceeded.
-			ts.tel.LogError("failed to read connection", err)
+			ts.tel.LogError(context.TODO(), "failed to read connection", err)
 			return
 		}
 
@@ -437,7 +437,7 @@ loop:
 
 		// Prevent accumulator from growing too large
 		if len(acc) > ts.maxMsgSize {
-			ts.tel.LogWarn("message too large, closing connection")
+			ts.tel.LogWarn(context.TODO(), "message too large, closing connection")
 			return
 		}
 
@@ -478,7 +478,7 @@ loop:
 			outMsg.GetBody().RemoteAddr = conn.RemoteAddr().String()
 			if err := ts.fanIn.AddTask(outMsg); err != nil {
 				outMsg.Destroy()
-				ts.tel.LogError("failed to write message to fan in connector", err)
+				ts.tel.LogError(context.TODO(), "failed to write message to fan in connector", err)
 			}
 
 			// Remove the message from the accumulator
@@ -493,7 +493,7 @@ loop:
 
 		// Prevent accumulator from growing too large, as before
 		if len(acc) > ts.maxMsgSize {
-			ts.tel.LogWarn("message too large, closing connection")
+			ts.tel.LogWarn(context.TODO(), "message too large, closing connection")
 			return
 		}
 	}
@@ -561,7 +561,7 @@ func (ts *tcpSource) parseBigEndianMsgLen(buf []byte) int {
 
 func (ts *tcpSource) handleMessage(ctx context.Context, rawMsg []byte) *msg[*TCPMessage] {
 	// Create the trace for the incoming message
-	_, span := ts.tel.NewTrace(ctx, "receive TCP message")
+	_, span := ts.tel.StartTrace(ctx, "receive TCP message")
 	defer span.End()
 
 	// Create the TCP message

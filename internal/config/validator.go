@@ -1,18 +1,20 @@
 package config
 
 import (
-	"github.com/FerroO2000/goccia/internal"
+	"context"
+
+	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
 // Validator is an utility struct for validating a configuration.
 type Validator struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	anomalyCollector *AnomalyCollector
 }
 
 // NewValidator returns a new validator.
-func NewValidator(tel *internal.Telemetry) *Validator {
+func NewValidator(tel *telemetry.Telemetry) *Validator {
 	return &Validator{
 		tel: tel,
 
@@ -30,7 +32,7 @@ func (m *Validator) Validate(config Config) {
 }
 
 func (m *Validator) handleAnomaly(an *anomaly) {
-	m.tel.LogWarn("config anomaly",
+	m.tel.LogWarn(context.TODO(), "config anomaly",
 		"field", an.field, "reason", an.reason,
 		"actual", an.actual, "fallback", an.fallback)
 }

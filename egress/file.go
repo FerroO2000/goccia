@@ -9,9 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -101,16 +101,16 @@ type fileWorkerMetrics struct {
 
 var fileWorkerMetricsInst = &fileWorkerMetrics{}
 
-func (fwm *fileWorkerMetrics) init(tel *internal.Telemetry) {
+func (fwm *fileWorkerMetrics) init(tel *telemetry.Telemetry) {
 	fwm.once.Do(func() {
 		fwm.initMetrics(tel)
 	})
 }
 
-func (fwm *fileWorkerMetrics) initMetrics(tel *internal.Telemetry) {
-	tel.NewCounter("written_bytes", func() int64 { return fwm.writtenBytes.Load() })
-	tel.NewCounter("write_errors", func() int64 { return fwm.writeErrors.Load() })
-	tel.NewCounter("flush_errors", func() int64 { return fwm.flushErrors.Load() })
+func (fwm *fileWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
+	tel.NewCouterMetric("written_bytes", func() int64 { return fwm.writtenBytes.Load() })
+	tel.NewCouterMetric("write_errors", func() int64 { return fwm.writeErrors.Load() })
+	tel.NewCouterMetric("flush_errors", func() int64 { return fwm.flushErrors.Load() })
 }
 
 func (fwm *fileWorkerMetrics) addWrittenBytes(amount int64) {
@@ -187,21 +187,21 @@ func (fw *fileWorker[T]) runTicker(ctx context.Context) {
 
 		case <-fw.ticker.C:
 			if err := fw.flush(); err != nil {
-				fw.Tel.LogError("periodic flush failed", err, "path", fw.path)
+				fw.Tel.LogError(context.TODO(), "periodic flush failed", err, "path", fw.path)
 			}
 		}
 	}
 }
 
 func (fw *fileWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
-	ctx, span := fw.Tel.NewTrace(ctx, "writing file")
+	ctx, span := fw.Tel.StartTrace(ctx, "writing file")
 	defer span.End()
 
 	// Write message bytes to file
 	chunk := msgIn.GetBody().GetBytes()
 	n, err := fw.writer.Write(chunk)
 	if err != nil {
-		fw.Tel.LogError("failed to write to file", err, "path", fw.path)
+		fw.Tel.LogError(context.TODO(), "failed to write to file", err, "path", fw.path)
 		fw.metrics.incrementWriteErrors()
 
 		return err
@@ -235,7 +235,7 @@ func (fw *fileWorker[T]) flush() error {
 	}
 
 	if err := fw.writer.Flush(); err != nil {
-		fw.Tel.LogError("failed to flush writer", err, "path", fw.path)
+		fw.Tel.LogError(context.TODO(), "failed to flush writer", err, "path", fw.path)
 		fw.metrics.incrementFlushErrors()
 
 		return err
@@ -309,10 +309,10 @@ func (fs *FileStage[T]) Close() {
 
 	// Sync and close the file
 	if err := fs.file.Sync(); err != nil {
-		fs.Tel().LogError("failed to sync file", err, "path", fs.path)
+		fs.Tel().LogError(context.TODO(), "failed to sync file", err, "path", fs.path)
 	}
 
 	if err := fs.file.Close(); err != nil {
-		fs.Tel().LogError("failed to close file", err, "path", fs.path)
+		fs.Tel().LogError(context.TODO(), "failed to close file", err, "path", fs.path)
 	}
 }

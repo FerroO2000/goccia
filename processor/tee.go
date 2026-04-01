@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/FerroO2000/goccia/connector"
-	"github.com/FerroO2000/goccia/internal"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -14,7 +14,7 @@ import (
 // Under the hood, it does not perform an actual copy of the real message data (envelope).
 // It only copies the message's metadata and increments the reference counter of the enveloped message.
 type TeeStage[T msgBody] struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	inputConnector   msgConn[T]
 	outputConnectors []msgConn[T]
@@ -28,7 +28,7 @@ type TeeStage[T msgBody] struct {
 // NewTeeStage returns a new tee processor stage.
 func NewTeeStage[T msgBody](inputConnector msgConn[T], outputConnectors ...msgConn[T]) *TeeStage[T] {
 	return &TeeStage[T]{
-		tel: internal.NewTelemetry("processor", "tee"),
+		tel: telemetry.NewTelemetry("processor", "tee"),
 
 		inputConnector:   inputConnector,
 		outputConnectors: outputConnectors,
@@ -37,7 +37,7 @@ func NewTeeStage[T msgBody](inputConnector msgConn[T], outputConnectors ...msgCo
 
 // Init initializes the stage.
 func (ts *TeeStage[T]) Init(_ context.Context) error {
-	ts.tel.LogInfo("initializing")
+	ts.tel.LogInfo(context.TODO(), "initializing")
 
 	cloneCount := len(ts.outputConnectors)
 	if cloneCount == 0 {
@@ -51,12 +51,12 @@ func (ts *TeeStage[T]) Init(_ context.Context) error {
 }
 
 func (ts *TeeStage[T]) initMetrics() {
-	ts.tel.NewCounter("cloned_messages", func() int64 { return ts.clonedMessages.Load() })
+	ts.tel.NewCouterMetric("cloned_messages", func() int64 { return ts.clonedMessages.Load() })
 }
 
 // Run runs the stage.
 func (ts *TeeStage[T]) Run(ctx context.Context) {
-	ts.tel.LogInfo("running")
+	ts.tel.LogInfo(context.TODO(), "running")
 
 	for {
 		select {
@@ -68,7 +68,7 @@ func (ts *TeeStage[T]) Run(ctx context.Context) {
 		msgIn, err := ts.inputConnector.Read(ctx)
 		if err != nil {
 			if errors.Is(err, connector.ErrClosed) {
-				ts.tel.LogInfo("input connector is closed, stopping")
+				ts.tel.LogInfo(context.TODO(), "input connector is closed, stopping")
 				return
 			}
 
@@ -81,7 +81,7 @@ func (ts *TeeStage[T]) Run(ctx context.Context) {
 
 func (ts *TeeStage[T]) clone(ctx context.Context, msgIn *msg[T]) {
 	// Extract the span context from the input message
-	ctx, span := ts.tel.NewTrace(msgIn.LoadSpanContext(ctx), "clone message")
+	ctx, span := ts.tel.StartTrace(msgIn.LoadSpanContext(ctx), "clone message")
 	defer span.End()
 
 	span.SetAttributes(attribute.Int("clone_count", ts.cloneCount))
@@ -93,14 +93,14 @@ func (ts *TeeStage[T]) clone(ctx context.Context, msgIn *msg[T]) {
 		if err := outConn.Write(msgOut); err != nil {
 			// Destroy the cloned message, if the write fails
 			msgOut.Destroy()
-			ts.tel.LogError("failed to write into output connector", err)
+			ts.tel.LogError(context.TODO(), "failed to write into output connector", err)
 		}
 	}
 }
 
 // Close closes the stage.
 func (ts *TeeStage[T]) Close() {
-	ts.tel.LogInfo("closing")
+	ts.tel.LogInfo(context.TODO(), "closing")
 
 	for _, outConn := range ts.outputConnectors {
 		outConn.Close()

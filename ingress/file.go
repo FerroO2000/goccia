@@ -11,10 +11,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	"github.com/fsnotify/fsnotify"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -166,7 +166,7 @@ const (
 )
 
 type fileReader struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	fanIn *pool.FanIn[*msg[*FileMessage]]
 
@@ -186,7 +186,7 @@ type fileReader struct {
 }
 
 func newFileReader(
-	tel *internal.Telemetry, fanIn *pool.FanIn[*msg[*FileMessage]], sourceMetrics *fileSourceMetrics, cfg *fileReaderConfig,
+	tel *telemetry.Telemetry, fanIn *pool.FanIn[*msg[*FileMessage]], sourceMetrics *fileSourceMetrics, cfg *fileReaderConfig,
 ) (*fileReader, error) {
 
 	file, err := os.Open(cfg.filePath)
@@ -258,14 +258,14 @@ func (fr *fileReader) read(ctx context.Context) {
 	fr.wg.Add(1)
 	defer fr.wg.Done()
 
-	fr.tel.LogInfo("reading file", "path", fr.cfg.filePath)
+	fr.tel.LogInfo(context.TODO(), "reading file", "path", fr.cfg.filePath)
 
 	if fr.cfg.forceReRead {
 		fr.fileOffset = 0
 	} else if fr.fileOffset > 0 {
 		// Seek to the last read offset
 		if _, err := fr.file.Seek(fr.fileOffset, io.SeekStart); err != nil {
-			fr.tel.LogError("failed to seek file", err, "path", fr.cfg.filePath)
+			fr.tel.LogError(context.TODO(), "failed to seek file", err, "path", fr.cfg.filePath)
 			return
 		}
 	}
@@ -297,7 +297,7 @@ func (fr *fileReader) read(ctx context.Context) {
 		if err != nil {
 			// Check if the error is not EOF
 			if !errors.Is(err, io.EOF) {
-				fr.tel.LogError("failed to read file", err)
+				fr.tel.LogError(context.TODO(), "failed to read file", err)
 
 				return
 			}
@@ -310,7 +310,7 @@ func (fr *fileReader) read(ctx context.Context) {
 			continue
 		}
 
-		_, span := fr.tel.NewTrace(ctx, "read file chunk")
+		_, span := fr.tel.StartTrace(ctx, "read file chunk")
 
 		chunkSize := n
 
@@ -350,7 +350,7 @@ func (fr *fileReader) read(ctx context.Context) {
 				}
 
 				if !delimFound {
-					fr.tel.LogWarn("delimiter not found in appendix", "path", fr.cfg.filePath)
+					fr.tel.LogWarn(ctx, "delimiter not found in appendix", "path", fr.cfg.filePath)
 				}
 			}
 		}
@@ -384,7 +384,7 @@ func (fr *fileReader) read(ctx context.Context) {
 
 		if err := fr.fanIn.AddTask(msgOut); err != nil {
 			msgOut.Destroy()
-			fr.tel.LogError("failed to write into output connector", err)
+			fr.tel.LogError(context.TODO(), "failed to write into output connector", err)
 			return
 		}
 	}
@@ -420,7 +420,7 @@ func (fr *fileReader) close() {
 		// Wait for the reader to finish
 		fr.wg.Wait()
 
-		fr.tel.LogInfo("file closed", "path", fr.cfg.filePath)
+		fr.tel.LogInfo(context.TODO(), "file closed", "path", fr.cfg.filePath)
 
 		fr.sourceMetrics.decrementActiveReaders()
 	}
@@ -453,23 +453,23 @@ func (fr *fileReader) pause(ctx context.Context) bool {
 //////////////////////
 
 type fileSourceMetrics struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	readers       atomic.Int64
 	activeReaders atomic.Int64
 	readBytes     atomic.Int64
 }
 
-func newFileSourceMetrics(tel *internal.Telemetry) *fileSourceMetrics {
+func newFileSourceMetrics(tel *telemetry.Telemetry) *fileSourceMetrics {
 	return &fileSourceMetrics{
 		tel: tel,
 	}
 }
 
 func (fsm *fileSourceMetrics) init() {
-	fsm.tel.NewUpDownCounter("readers", func() int64 { return fsm.readers.Load() })
-	fsm.tel.NewUpDownCounter("active_readers", func() int64 { return fsm.activeReaders.Load() })
-	fsm.tel.NewCounter("read_bytes", func() int64 { return fsm.readBytes.Load() })
+	fsm.tel.NewUpDownCounterMetric("readers", func() int64 { return fsm.readers.Load() })
+	fsm.tel.NewUpDownCounterMetric("active_readers", func() int64 { return fsm.activeReaders.Load() })
+	fsm.tel.NewCouterMetric("read_bytes", func() int64 { return fsm.readBytes.Load() })
 }
 
 func (fsm *fileSourceMetrics) incrementReaders() {
@@ -499,7 +499,7 @@ func (fsm *fileSourceMetrics) addReadBytes(amount int64) {
 var _ source[*FileMessage] = (*fileSource)(nil)
 
 type fileSource struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	cfg *FileConfig
 
@@ -520,7 +520,7 @@ func newFileSource() *fileSource {
 	}
 }
 
-func (fs *fileSource) setTelemetry(tel *internal.Telemetry) {
+func (fs *fileSource) setTelemetry(tel *telemetry.Telemetry) {
 	fs.tel = tel
 }
 
@@ -554,7 +554,7 @@ func (fs *fileSource) readExistingFiles(ctx context.Context) {
 	for _, dirPath := range fs.cfg.WatchedDirs {
 		files, err := os.ReadDir(dirPath)
 		if err != nil {
-			fs.tel.LogError("failed to read directory", err)
+			fs.tel.LogError(context.TODO(), "failed to read directory", err)
 			continue
 		}
 
@@ -605,12 +605,12 @@ func (fs *fileSource) startReader(ctx context.Context, path string) error {
 
 func (fs *fileSource) addAndStartReader(ctx context.Context, path string) {
 	if err := fs.addReader(path); err != nil {
-		fs.tel.LogError("failed to add reader", err, "path", path)
+		fs.tel.LogError(context.TODO(), "failed to add reader", err, "path", path)
 		return
 	}
 
 	if err := fs.startReader(ctx, path); err != nil {
-		fs.tel.LogError("failed to start reader", err, "path", path)
+		fs.tel.LogError(context.TODO(), "failed to start reader", err, "path", path)
 	}
 }
 
@@ -630,7 +630,7 @@ func (fs *fileSource) runBridge(ctx context.Context, outConn msgConn[*FileMessag
 
 		if err := outConn.Write(msgOut); err != nil {
 			msgOut.Destroy()
-			fs.tel.LogError("failed to write into output connector", err)
+			fs.tel.LogError(context.TODO(), "failed to write into output connector", err)
 		}
 	}
 }
@@ -658,7 +658,7 @@ func (fs *fileSource) run(ctx context.Context, outConn msgConn[*FileMessage]) {
 				return
 			}
 
-			fs.tel.LogError("watcher error", err)
+			fs.tel.LogError(context.TODO(), "watcher error", err)
 		}
 	}
 }

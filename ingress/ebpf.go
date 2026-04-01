@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/ringbuf"
@@ -115,7 +115,7 @@ type ebpfSourceConfig struct {
 }
 
 type ebpfSourceMetrics struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	receivedRecords atomic.Int64
 	parsingErrors   atomic.Int64
@@ -123,16 +123,16 @@ type ebpfSourceMetrics struct {
 	receivedBytes atomic.Int64
 }
 
-func newEBPFSourceMetrics(tel *internal.Telemetry) *ebpfSourceMetrics {
+func newEBPFSourceMetrics(tel *telemetry.Telemetry) *ebpfSourceMetrics {
 	return &ebpfSourceMetrics{
 		tel: tel,
 	}
 }
 
 func (esm *ebpfSourceMetrics) init() {
-	esm.tel.NewCounter("received_records", func() int64 { return esm.receivedRecords.Load() })
-	esm.tel.NewCounter("parsing_errors", func() int64 { return esm.parsingErrors.Load() })
-	esm.tel.NewCounter("received_bytes", func() int64 { return esm.receivedBytes.Load() })
+	esm.tel.NewCouterMetric("received_records", func() int64 { return esm.receivedRecords.Load() })
+	esm.tel.NewCouterMetric("parsing_errors", func() int64 { return esm.parsingErrors.Load() })
+	esm.tel.NewCouterMetric("received_bytes", func() int64 { return esm.receivedBytes.Load() })
 }
 
 func (esm *ebpfSourceMetrics) incrementReceivedRecords() {
@@ -148,7 +148,7 @@ func (esm *ebpfSourceMetrics) addReceivedBytes(amount int64) {
 }
 
 type ebpfSource[T any] struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	cfg *ebpfSourceConfig
 
@@ -162,7 +162,7 @@ func newEBPFSource[T any]() *ebpfSource[T] {
 	return &ebpfSource[T]{}
 }
 
-func (es *ebpfSource[T]) setTelemetry(tel *internal.Telemetry) {
+func (es *ebpfSource[T]) setTelemetry(tel *telemetry.Telemetry) {
 	es.tel = tel
 }
 
@@ -170,7 +170,7 @@ func (es *ebpfSource[T]) init(cfg *ebpfSourceConfig) error {
 	// Open the ring buffer
 	rb, err := ringbuf.NewReader(cfg.ringBufferMap)
 	if err != nil {
-		es.tel.LogError("failed to create ring buffer", err)
+		es.tel.LogError(context.TODO(), "failed to create ring buffer", err)
 
 		return err
 	}
@@ -206,26 +206,26 @@ func (es *ebpfSource[T]) run(ctx context.Context, outConn msgConn[*EBPFMessage[T
 				return
 			}
 
-			es.tel.LogError("failed to read from ring buffer", err)
+			es.tel.LogError(context.TODO(), "failed to read from ring buffer", err)
 			continue
 		}
 
 		outMsg, err := es.handleRecord(ctx, &record)
 		if err != nil {
-			es.tel.LogError("failed to handle record", err)
+			es.tel.LogError(context.TODO(), "failed to handle record", err)
 			continue
 		}
 
 		if err := outConn.Write(outMsg); err != nil {
 			outMsg.Destroy()
-			es.tel.LogError("failed to write into output connector", err)
+			es.tel.LogError(context.TODO(), "failed to write into output connector", err)
 		}
 	}
 }
 
 func (es *ebpfSource[T]) handleRecord(ctx context.Context, record *ringbuf.Record) (*msg[*EBPFMessage[T]], error) {
 	// Create the trace for the incoming record
-	_, span := es.tel.NewTrace(ctx, "receive ebpf record")
+	_, span := es.tel.StartTrace(ctx, "receive ebpf record")
 	defer span.End()
 
 	data, err := es.parseData(record.RawSample)
@@ -304,14 +304,14 @@ func NewEBPFStage[T, O any, OPtr ebpfObjsPtr[O]](outputConnector msgConn[*EBPFMe
 func (es *EBPFStage[T, O, OPtr]) Init(ctx context.Context) error {
 	// Remove resource limits for locked memory
 	if err := rlimit.RemoveMemlock(); err != nil {
-		es.tel.LogError("failed to remove memlock limits", err)
+		es.tel.LogError(context.TODO(), "failed to remove memlock limits", err)
 		return err
 	}
 
 	// Load the compiled eBPF ELF file
 	spec, err := es.cfg.LoadFn()
 	if err != nil {
-		es.tel.LogError("failed to load eBPF spec", err)
+		es.tel.LogError(context.TODO(), "failed to load eBPF spec", err)
 		return err
 	}
 
@@ -319,7 +319,7 @@ func (es *EBPFStage[T, O, OPtr]) Init(ctx context.Context) error {
 	var dummyObjs O
 	objs := OPtr(&dummyObjs)
 	if err := spec.LoadAndAssign(objs, es.cfg.CollectionOptions); err != nil {
-		es.tel.LogError("failed to load eBPF objects", err)
+		es.tel.LogError(context.TODO(), "failed to load eBPF objects", err)
 		return err
 	}
 	es.objs = objs
@@ -327,7 +327,7 @@ func (es *EBPFStage[T, O, OPtr]) Init(ctx context.Context) error {
 	// Get the link
 	link, err := es.cfg.LinkFn(objs)
 	if err != nil {
-		es.tel.LogError("failed to attach eBPF program", err)
+		es.tel.LogError(context.TODO(), "failed to attach eBPF program", err)
 		return err
 	}
 	es.link = link

@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"github.com/FerroO2000/goccia/connector"
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
 type stage[WArgs any, In, Out msgBody, Cfg cfg] interface {
@@ -38,7 +38,7 @@ func newStage[WArgs any, In, Out msgBody, Cfg stageCfg](
 ////////////
 
 type stageBase[WArgs any, In, Out msgBody, Cfg cfg] struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	config Cfg
 
@@ -50,7 +50,7 @@ func newStageBase[WArgs any, In, Out msgBody, Cfg cfg](
 	name string, inConn msgConn[In], outConn msgConn[Out], cfg Cfg) *stageBase[WArgs, In, Out, Cfg] {
 
 	return &stageBase[WArgs, In, Out, Cfg]{
-		tel: internal.NewTelemetry("processor", name),
+		tel: telemetry.NewTelemetry("processor", name),
 
 		config: cfg,
 
@@ -60,18 +60,18 @@ func newStageBase[WArgs any, In, Out msgBody, Cfg cfg](
 }
 
 func (s *stageBase[WArgs, In, Out, Cfg]) init() {
-	s.tel.LogInfo("initializing")
+	s.tel.LogInfo(context.TODO(), "initializing")
 
 	configValidator := config.NewValidator(s.tel)
 	configValidator.Validate(s.config)
 }
 
 func (s *stageBase[WArgs, In, Out, Cfg]) run() {
-	s.tel.LogInfo("running")
+	s.tel.LogInfo(context.TODO(), "running")
 }
 
 func (s *stageBase[WArgs, In, Out, Cfg]) close() {
-	s.tel.LogInfo("closing")
+	s.tel.LogInfo(context.TODO(), "closing")
 
 	// Close the output connector
 	s.outputConnector.Close()
@@ -130,7 +130,7 @@ func (s *stageSingle[WArgs, In, Out, Cfg]) Run(ctx context.Context) {
 		if err != nil {
 			// Check if the input connector is closed, if so stop
 			if errors.Is(err, connector.ErrClosed) {
-				s.tel.LogInfo("input connector is closed, stopping")
+				s.tel.LogInfo(context.TODO(), "input connector is closed, stopping")
 				return
 			}
 
@@ -141,7 +141,7 @@ func (s *stageSingle[WArgs, In, Out, Cfg]) Run(ctx context.Context) {
 			// Write the message to the output connector
 			if err := s.outputConnector.Write(msgOut); err != nil {
 				msgOut.Destroy()
-				s.tel.LogError("failed to write into output connector", err)
+				s.tel.LogError(context.TODO(), "failed to write into output connector", err)
 			}
 		}
 	}
@@ -201,7 +201,7 @@ func (s *stagePool[WArgs, In, Out, Cfg]) runWriter(ctx context.Context) {
 		}
 
 		if err := s.outputConnector.Write(msgOut); err != nil {
-			s.tel.LogError("failed to write into output connector", err)
+			s.tel.LogError(context.TODO(), "failed to write into output connector", err)
 		}
 	}
 }
@@ -227,7 +227,7 @@ func (s *stagePool[WArgs, In, Out, Cfg]) Run(ctx context.Context) {
 		if err != nil {
 			// Check if the input connector is closed, if so stop
 			if errors.Is(err, connector.ErrClosed) {
-				s.tel.LogInfo("input connector is closed, stopping")
+				s.tel.LogInfo(context.TODO(), "input connector is closed, stopping")
 				return
 			}
 
@@ -236,7 +236,7 @@ func (s *stagePool[WArgs, In, Out, Cfg]) Run(ctx context.Context) {
 
 		// Push a new task to the worker pool
 		if err := s.workerPool.addMessage(ctx, msg); err != nil {
-			s.tel.LogError("failed to add message to worker pool", err)
+			s.tel.LogError(context.TODO(), "failed to add message to worker pool", err)
 			continue
 		}
 	}

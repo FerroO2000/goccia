@@ -220,7 +220,7 @@ func (w *csvDecoderWorker[T]) Init(_ context.Context, args *csvDecoderWorkerArgs
 }
 
 func (w *csvDecoderWorker[T]) Handle(ctx context.Context, msgIn *msg[T]) (*msg[*CSVMessage], error) {
-	_, span := w.Tel.NewTrace(ctx, "decode csv data")
+	_, span := w.Tel.StartTrace(ctx, "decode csv data")
 	defer span.End()
 
 	data := msgIn.GetBody().GetBytes()
@@ -229,7 +229,7 @@ func (w *csvDecoderWorker[T]) Handle(ctx context.Context, msgIn *msg[T]) (*msg[*
 	if err := w.decoder.decode(data, csvMsg); err != nil {
 		csvMsg.Destroy()
 
-		w.Tel.LogError("failed to decode CSV data", err)
+		w.Tel.LogError(ctx, "failed to decode CSV data", err)
 		return nil, err
 	}
 

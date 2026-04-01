@@ -5,9 +5,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -64,7 +64,7 @@ func (tm *TickerMessage) Destroy() {}
 var _ source[*TickerMessage] = (*tickerSource)(nil)
 
 type tickerSource struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	ticker *time.Ticker
 
@@ -76,7 +76,7 @@ func newTickerSource() *tickerSource {
 	return &tickerSource{}
 }
 
-func (ts *tickerSource) setTelemetry(tel *internal.Telemetry) {
+func (ts *tickerSource) setTelemetry(tel *telemetry.Telemetry) {
 	ts.tel = tel
 }
 
@@ -99,14 +99,14 @@ func (ts *tickerSource) run(ctx context.Context, outConnector msgConn[*TickerMes
 			msgOut := ts.handleTrigger(ctx, ticks)
 			if err := outConnector.Write(msgOut); err != nil {
 				msgOut.Destroy()
-				ts.tel.LogError("failed to write message to output connector", err)
+				ts.tel.LogError(context.TODO(), "failed to write message to output connector", err)
 			}
 		}
 	}
 }
 
 func (ts *tickerSource) handleTrigger(ctx context.Context, tick int) *msg[*TickerMessage] {
-	_, span := ts.tel.NewTrace(ctx, "triggered ticker message")
+	_, span := ts.tel.StartTrace(ctx, "triggered ticker message")
 	defer span.End()
 
 	tickerMsg := newTickerMessage()

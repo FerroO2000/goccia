@@ -24,8 +24,8 @@ import (
 const otelCollectorEndpoint = "localhost:4317"
 
 var (
-	tracerProvider *sdktrace.TracerProvider
-	meterProvider  *sdkmetric.MeterProvider
+	globalTracerProvider *sdktrace.TracerProvider
+	globalMeterProvider  *sdkmetric.MeterProvider
 
 	traceRatio = 0.05
 )
@@ -62,6 +62,7 @@ func Init(ctx context.Context, serviceName string) {
 	// Trace
 	traceExporter := newTraceExporter(ctx, grcpConn)
 	traceProvider := newTraceProvider(resource, traceExporter)
+	globalTracerProvider = traceProvider
 	otel.SetTracerProvider(traceProvider)
 
 	// Trace Propagator
@@ -70,6 +71,7 @@ func Init(ctx context.Context, serviceName string) {
 	// Meter
 	meterExporter := newMeterExporter(ctx, grcpConn)
 	meterProvider := newMeterProvider(resource, meterExporter)
+	globalMeterProvider = meterProvider
 	otel.SetMeterProvider(meterProvider)
 
 	// Runtime
@@ -82,11 +84,11 @@ func Init(ctx context.Context, serviceName string) {
 func Close() {
 	ctx := context.Background()
 
-	if err := tracerProvider.Shutdown(ctx); err != nil {
+	if err := globalTracerProvider.Shutdown(ctx); err != nil {
 		panic(err)
 	}
 
-	if err := meterProvider.Shutdown(ctx); err != nil {
+	if err := globalMeterProvider.Shutdown(ctx); err != nil {
 		panic(err)
 	}
 }

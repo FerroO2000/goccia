@@ -6,9 +6,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	"go.opentelemetry.io/otel/metric"
 )
 
@@ -19,7 +19,7 @@ import (
 type workerInstance[Args any, In msgBody] interface {
 	Init(ctx context.Context, args Args) error
 	Close(ctx context.Context) error
-	SetTelemetry(tel *internal.Telemetry)
+	SetTelemetry(tel *telemetry.Telemetry)
 	Deliver(ctx context.Context, task *msg[In]) error
 }
 
@@ -30,25 +30,29 @@ type workerInstanceMaker[Args any, In msgBody] func() workerInstance[Args, In]
 ///////////////
 
 type workerMetrics struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	deliveredMessages atomic.Int64
 	deliveringErrors  atomic.Int64
 
-	totMsgProcessingTime *internal.Histogram
+	totMsgProcessingTime *telemetry.Histogram
 }
 
-func newWorkerMetrics(tel *internal.Telemetry) *workerMetrics {
+func newWorkerMetrics(tel *telemetry.Telemetry) *workerMetrics {
 	return &workerMetrics{
 		tel: tel,
 	}
 }
 
 func (wm *workerMetrics) init() {
-	wm.tel.NewCounter("delivered_messages", func() int64 { return wm.deliveredMessages.Load() })
-	wm.tel.NewCounter("delivering_errors", func() int64 { return wm.deliveringErrors.Load() })
+	wm.tel.NewCouterMetric("delivered_messages", func() int64 { return wm.deliveredMessages.Load() })
+	wm.tel.NewCouterMetric("delivering_errors", func() int64 { return wm.deliveringErrors.Load() })
 
-	wm.totMsgProcessingTime = wm.tel.NewHistogram("total_message_processing_time", metric.WithUnit("ms"))
+	totMsgProcessingTime, err := wm.tel.NewHistogramMetric("total_message_processing_time", metric.WithUnit("ms"))
+	if err != nil {
+		wm.tel.LogError(context.Background(), "unable to create histogram metric", err)
+	}
+	wm.totMsgProcessingTime = totMsgProcessingTime
 }
 
 func (wm *workerMetrics) incrementDeliveredMessages() {
@@ -68,7 +72,7 @@ func (wm *workerMetrics) recordTotalMessageProcessingTime(ctx context.Context, r
 //////////////
 
 type worker[Args any, In msgBody] struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	id   int
 	inst workerInstance[Args, In]
@@ -77,7 +81,7 @@ type worker[Args any, In msgBody] struct {
 }
 
 func newWorker[Args any, In msgBody](
-	tel *internal.Telemetry, id int, inst workerInstance[Args, In], metrics *workerMetrics,
+	tel *telemetry.Telemetry, id int, inst workerInstance[Args, In], metrics *workerMetrics,
 ) *worker[Args, In] {
 
 	return &worker[Args, In]{
@@ -91,12 +95,12 @@ func newWorker[Args any, In msgBody](
 }
 
 func (w *worker[Args, In]) init(ctx context.Context, args Args) error {
-	w.tel.LogInfo("initializing worker", "worker_id", w.id)
+	w.tel.LogInfo(context.TODO(), "initializing worker", "worker_id", w.id)
 
 	w.inst.SetTelemetry(w.tel)
 
 	if err := w.inst.Init(ctx, args); err != nil {
-		w.tel.LogError("failed to init worker", err, "worker_id", w.id)
+		w.tel.LogError(context.TODO(), "failed to init worker", err, "worker_id", w.id)
 		return err
 	}
 
@@ -110,7 +114,7 @@ func (w *worker[Args, In]) deliver(ctx context.Context, msgIn *msg[In]) {
 	ctx = msgIn.LoadSpanContext(ctx)
 
 	if err := w.inst.Deliver(ctx, msgIn); err != nil {
-		w.tel.LogError("failed to deliver message", err, "worker_id", w.id)
+		w.tel.LogError(context.TODO(), "failed to deliver message", err, "worker_id", w.id)
 		w.metrics.incrementDeliveringErrors()
 	}
 
@@ -119,10 +123,10 @@ func (w *worker[Args, In]) deliver(ctx context.Context, msgIn *msg[In]) {
 }
 
 func (w *worker[Args, In]) close(ctx context.Context) {
-	w.tel.LogInfo("closing worker", "worker_id", w.id)
+	w.tel.LogInfo(context.TODO(), "closing worker", "worker_id", w.id)
 
 	if err := w.inst.Close(ctx); err != nil {
-		w.tel.LogError("failed to close worker", err, "worker_id", w.id)
+		w.tel.LogError(context.TODO(), "failed to close worker", err, "worker_id", w.id)
 	}
 }
 
@@ -131,7 +135,7 @@ func (w *worker[Args, In]) close(ctx context.Context) {
 ////////////
 
 type workerPool[Args any, In msgBody] struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	cfg *config.Pool
 
@@ -148,7 +152,7 @@ type workerPool[Args any, In msgBody] struct {
 }
 
 func newWorkerPool[Args any, In msgBody](
-	tel *internal.Telemetry, workerInstMaker workerInstanceMaker[Args, In], cfg *config.Pool,
+	tel *telemetry.Telemetry, workerInstMaker workerInstanceMaker[Args, In], cfg *config.Pool,
 ) *workerPool[Args, In] {
 
 	return &workerPool[Args, In]{
@@ -239,7 +243,7 @@ func (wp *workerPool[Args, In]) runWorker(ctx context.Context) {
 }
 
 func (wp *workerPool[Args, In]) close() {
-	wp.tel.LogInfo("closing worker pool")
+	wp.tel.LogInfo(context.TODO(), "closing worker pool")
 
 	wp.fanOut.Close()
 

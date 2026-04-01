@@ -161,7 +161,7 @@ func (w *csvEncoderWorker) Init(_ context.Context, args *csvEncoderWorkerArgs) e
 }
 
 func (w *csvEncoderWorker) Handle(ctx context.Context, msgIn *msg[*CSVMessage]) (*msg[*CSVEncodedMessage], error) {
-	_, span := w.Tel.NewTrace(ctx, "encode csv data")
+	_, span := w.Tel.StartTrace(ctx, "encode csv data")
 	defer span.End()
 
 	rows := msgIn.GetBody().Rows

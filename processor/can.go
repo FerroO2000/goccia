@@ -5,10 +5,10 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	"github.com/squadracorsepolito/acmelib"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -177,15 +177,15 @@ type canWorkerMetrics struct {
 
 var canWorkerMetricsInst = &canWorkerMetrics{}
 
-func (cwm *canWorkerMetrics) init(tel *internal.Telemetry) {
+func (cwm *canWorkerMetrics) init(tel *telemetry.Telemetry) {
 	cwm.once.Do(func() {
 		cwm.initMetrics(tel)
 	})
 }
 
-func (cwm *canWorkerMetrics) initMetrics(tel *internal.Telemetry) {
-	tel.NewCounter("can_messages", func() int64 { return cwm.canMessages.Load() })
-	tel.NewCounter("can_signals", func() int64 { return cwm.canSignals.Load() })
+func (cwm *canWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
+	tel.NewCouterMetric("can_messages", func() int64 { return cwm.canMessages.Load() })
+	tel.NewCouterMetric("can_signals", func() int64 { return cwm.canSignals.Load() })
 }
 
 func (cwm *canWorkerMetrics) addCANMessages(amount int) {
@@ -225,7 +225,7 @@ func (cw *canWorker[T]) Init(_ context.Context, args *canWorkerArgs) error {
 }
 
 func (cw *canWorker[T]) Handle(ctx context.Context, msgIn *msg[T]) (*msg[*CANMessage], error) {
-	ctx, span := cw.Tel.NewTrace(ctx, "handle CAN message batch")
+	ctx, span := cw.Tel.StartTrace(ctx, "handle CAN message batch")
 	defer span.End()
 
 	// Create the CAN message

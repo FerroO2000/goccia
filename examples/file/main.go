@@ -21,6 +21,7 @@ func main() {
 	defer cancelCtx()
 
 	telemetry.Init(ctx, "file-example")
+	defer telemetry.Close()
 
 	fileIngressToCustom := connector.NewRingBuffer[*ingress.FileMessage](connectorSize)
 	customToFileEgress := connector.NewRingBuffer[*ingress.FileMessage](connectorSize)

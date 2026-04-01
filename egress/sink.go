@@ -54,7 +54,7 @@ func (ss *SinkStage[T]) Run(ctx context.Context) {
 		if err != nil {
 			// Check if the input connector is closed, if so stop
 			if errors.Is(err, connector.ErrClosed) {
-				ss.tel.LogInfo("input connector is closed, stopping")
+				ss.tel.LogInfo(context.TODO(), "input connector is closed, stopping")
 				return
 			}
 

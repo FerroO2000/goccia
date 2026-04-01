@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
 type scalerConfig struct {
@@ -35,7 +35,7 @@ func newScalerConfig(poolCfg *config.Pool) *scalerConfig {
 // Scaler is an utility struct for a worker pool
 // that implements worker auto-scaling.
 type Scaler struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	cfg *scalerConfig
 
@@ -52,7 +52,7 @@ type Scaler struct {
 }
 
 // NewScaler returns a new auto-scaler instance.
-func NewScaler(tel *internal.Telemetry, poolCfg *config.Pool) *Scaler {
+func NewScaler(tel *telemetry.Telemetry, poolCfg *config.Pool) *Scaler {
 	cfg := newScalerConfig(poolCfg)
 
 	return &Scaler{
@@ -69,11 +69,11 @@ func NewScaler(tel *internal.Telemetry, poolCfg *config.Pool) *Scaler {
 }
 
 func (s *Scaler) initMetrics() {
-	s.tel.NewUpDownCounter("worker_pool_pending_tasks", func() int64 {
+	s.tel.NewUpDownCounterMetric("worker_pool_pending_tasks", func() int64 {
 		return s.pendingTasks.Load()
 	})
 
-	s.tel.NewUpDownCounter("worker_pool_active_workers", func() int64 {
+	s.tel.NewUpDownCounterMetric("worker_pool_active_workers", func() int64 {
 		return int64(s.activeWorkers.Load())
 	})
 }
@@ -121,7 +121,7 @@ func (s *Scaler) evaluateAndScale(ctx context.Context) {
 	// Calculate queue depth per worker
 	queueDepthPerWorker := float64(pendingTasks) / float64(currWorkers)
 
-	s.tel.LogInfo("auto-scaling metrics",
+	s.tel.LogInfo(context.TODO(), "auto-scaling metrics",
 		"current_workers", currWorkers,
 		"active_workers", activeWorkers,
 		"pending_tasks", pendingTasks,
@@ -135,7 +135,7 @@ func (s *Scaler) evaluateAndScale(ctx context.Context) {
 		targetWorkers := min(currWorkers+workersToAdd, s.cfg.maxWorkers)
 
 		if targetWorkers > currWorkers {
-			s.tel.LogInfo("scaling up", "from", currWorkers, "to", targetWorkers)
+			s.tel.LogInfo(context.TODO(), "scaling up", "from", currWorkers, "to", targetWorkers)
 			s.scaleWorkers(ctx, int(targetWorkers))
 		}
 
@@ -156,7 +156,7 @@ func (s *Scaler) evaluateAndScale(ctx context.Context) {
 		targetWorkers := max(currWorkers-workersToRemove, s.cfg.minWorkers)
 
 		if targetWorkers < currWorkers {
-			s.tel.LogInfo("scaling down", "from", currWorkers, "to", targetWorkers)
+			s.tel.LogInfo(context.TODO(), "scaling down", "from", currWorkers, "to", targetWorkers)
 			s.scaleWorkers(ctx, int(targetWorkers))
 		}
 	}
