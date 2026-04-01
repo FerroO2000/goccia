@@ -469,7 +469,7 @@ func newFileSourceMetrics(tel *telemetry.Telemetry) *fileSourceMetrics {
 func (fsm *fileSourceMetrics) init() {
 	fsm.tel.NewUpDownCounterMetric("readers", func() int64 { return fsm.readers.Load() })
 	fsm.tel.NewUpDownCounterMetric("active_readers", func() int64 { return fsm.activeReaders.Load() })
-	fsm.tel.NewCouterMetric("read_bytes", func() int64 { return fsm.readBytes.Load() })
+	fsm.tel.NewCounterMetric("read_bytes", func() int64 { return fsm.readBytes.Load() })
 }
 
 func (fsm *fileSourceMetrics) incrementReaders() {

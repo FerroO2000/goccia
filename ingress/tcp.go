@@ -304,8 +304,8 @@ func (ts *tcpSource) init(ipAddr string, port uint16) error {
 
 func (ts *tcpSource) initMetrics() {
 	ts.tel.NewUpDownCounterMetric("open_connections", func() int64 { return ts.openConnections.Load() })
-	ts.tel.NewCouterMetric("received_bytes", func() int64 { return ts.receivedBytes.Load() })
-	ts.tel.NewCouterMetric("received_messages", func() int64 { return ts.receivedMessages.Load() })
+	ts.tel.NewCounterMetric("received_bytes", func() int64 { return ts.receivedBytes.Load() })
+	ts.tel.NewCounterMetric("received_messages", func() int64 { return ts.receivedMessages.Load() })
 }
 
 func (ts *tcpSource) run(ctx context.Context, outConnector msgConn[*TCPMessage]) {

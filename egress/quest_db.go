@@ -270,7 +270,7 @@ func (qwm *questDBWorkerMetrics) init(tel *telemetry.Telemetry) {
 }
 
 func (qwm *questDBWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
-	tel.NewCouterMetric("inserted_rows", func() int64 { return qwm.insertedRows.Load() })
+	tel.NewCounterMetric("inserted_rows", func() int64 { return qwm.insertedRows.Load() })
 }
 
 func (qwm *questDBWorkerMetrics) addInsertedRows(amount int) {

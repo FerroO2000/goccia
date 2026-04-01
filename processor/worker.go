@@ -42,9 +42,9 @@ func newWorkerMetrics(tel *telemetry.Telemetry) *workerMetrics {
 }
 
 func (wm *workerMetrics) init() {
-	wm.tel.NewCouterMetric("processed_messages", func() int64 { return wm.processedMessages.Load() })
-	wm.tel.NewCouterMetric("dropped_messages", func() int64 { return wm.droppedMessages.Load() })
-	wm.tel.NewCouterMetric("processing_errors", func() int64 { return wm.processingErrors.Load() })
+	wm.tel.NewCounterMetric("processed_messages", func() int64 { return wm.processedMessages.Load() })
+	wm.tel.NewCounterMetric("dropped_messages", func() int64 { return wm.droppedMessages.Load() })
+	wm.tel.NewCounterMetric("processing_errors", func() int64 { return wm.processingErrors.Load() })
 }
 
 func (wm *workerMetrics) incrementProcessedMessages() {

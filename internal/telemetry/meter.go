@@ -48,8 +48,8 @@ func newMeter(attributes []attribute.KeyValue) *meter {
 	}
 }
 
-// NewCouterMetric creates a new counter metric.
-func (m *meter) NewCouterMetric(name string, getter func() int64, opts ...metric.Int64ObservableCounterOption) error {
+// NewCounterMetric creates a new counter metric.
+func (m *meter) NewCounterMetric(name string, getter func() int64, opts ...metric.Int64ObservableCounterOption) error {
 	counter, err := m.m.Int64ObservableCounter(name, opts...)
 	if err != nil {
 		return err

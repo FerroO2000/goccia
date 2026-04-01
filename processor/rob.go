@@ -118,15 +118,15 @@ func (rs *ROBStage[T]) Init(_ context.Context) error {
 }
 
 func (rs *ROBStage[T]) initMetrics() {
-	rs.tel.NewCouterMetric("ordered_messages", func() int64 { return rs.orderedMsgs.Load() })
-	rs.tel.NewCouterMetric("primary_enqueued_messages", func() int64 { return rs.primayEnqueuedMsgs.Load() })
-	rs.tel.NewCouterMetric("auxiliary_enqueued_messages", func() int64 { return rs.auxiliaryEnqueuedMsgs.Load() })
+	rs.tel.NewCounterMetric("ordered_messages", func() int64 { return rs.orderedMsgs.Load() })
+	rs.tel.NewCounterMetric("primary_enqueued_messages", func() int64 { return rs.primayEnqueuedMsgs.Load() })
+	rs.tel.NewCounterMetric("auxiliary_enqueued_messages", func() int64 { return rs.auxiliaryEnqueuedMsgs.Load() })
 
-	rs.tel.NewCouterMetric("out_of_order_sequence_number", func() int64 { return rs.outOfOrderSeqNum.Load() })
-	rs.tel.NewCouterMetric("duplicated_sequence_number", func() int64 { return rs.duplicatedSeqNum.Load() })
-	rs.tel.NewCouterMetric("invalid_sequence_number", func() int64 { return rs.invalidSeqNum.Load() })
+	rs.tel.NewCounterMetric("out_of_order_sequence_number", func() int64 { return rs.outOfOrderSeqNum.Load() })
+	rs.tel.NewCounterMetric("duplicated_sequence_number", func() int64 { return rs.duplicatedSeqNum.Load() })
+	rs.tel.NewCounterMetric("invalid_sequence_number", func() int64 { return rs.invalidSeqNum.Load() })
 
-	rs.tel.NewCouterMetric("resets", func() int64 { return rs.resets.Load() })
+	rs.tel.NewCounterMetric("resets", func() int64 { return rs.resets.Load() })
 }
 
 // Run runs the re-order buffer stage.

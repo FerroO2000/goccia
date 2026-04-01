@@ -148,8 +148,8 @@ func (us *udpSource) init(ipAddr string, port, bufferSize uint16) error {
 }
 
 func (us *udpSource) initMetrics() {
-	us.tel.NewCouterMetric("received_messages", func() int64 { return us.receivedMessages.Load() })
-	us.tel.NewCouterMetric("received_bytes", func() int64 { return us.receivedBytes.Load() })
+	us.tel.NewCounterMetric("received_messages", func() int64 { return us.receivedMessages.Load() })
+	us.tel.NewCounterMetric("received_bytes", func() int64 { return us.receivedBytes.Load() })
 }
 
 func (us *udpSource) run(ctx context.Context, outConnector msgConn[*UDPMessage]) {

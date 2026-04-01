@@ -59,7 +59,7 @@ func (fwm *filterWorkerMetrics) init(tel *telemetry.Telemetry) {
 }
 
 func (fwm *filterWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
-	tel.NewCouterMetric("filtered_messages", func() int64 { return fwm.filteredMessages.Load() })
+	tel.NewCounterMetric("filtered_messages", func() int64 { return fwm.filteredMessages.Load() })
 }
 
 func (fwm *filterWorkerMetrics) incrementFilteredMessages() {

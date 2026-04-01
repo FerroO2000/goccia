@@ -45,8 +45,8 @@ func newWorkerMetrics(tel *telemetry.Telemetry) *workerMetrics {
 }
 
 func (wm *workerMetrics) init() {
-	wm.tel.NewCouterMetric("delivered_messages", func() int64 { return wm.deliveredMessages.Load() })
-	wm.tel.NewCouterMetric("delivering_errors", func() int64 { return wm.deliveringErrors.Load() })
+	wm.tel.NewCounterMetric("delivered_messages", func() int64 { return wm.deliveredMessages.Load() })
+	wm.tel.NewCounterMetric("delivering_errors", func() int64 { return wm.deliveringErrors.Load() })
 
 	totMsgProcessingTime, err := wm.tel.NewHistogramMetric("total_message_processing_time", metric.WithUnit("ms"))
 	if err != nil {

@@ -89,7 +89,7 @@ func (twm *tcpWorkerMetrics) init(tel *telemetry.Telemetry) {
 }
 
 func (twm *tcpWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
-	tel.NewCouterMetric("delivered_bytes", func() int64 { return twm.deliveredBytes.Load() })
+	tel.NewCounterMetric("delivered_bytes", func() int64 { return twm.deliveredBytes.Load() })
 }
 
 func (twm *tcpWorkerMetrics) addDeliveredBytes(amount int) {

@@ -51,7 +51,7 @@ func (ts *TeeStage[T]) Init(_ context.Context) error {
 }
 
 func (ts *TeeStage[T]) initMetrics() {
-	ts.tel.NewCouterMetric("cloned_messages", func() int64 { return ts.clonedMessages.Load() })
+	ts.tel.NewCounterMetric("cloned_messages", func() int64 { return ts.clonedMessages.Load() })
 }
 
 // Run runs the stage.

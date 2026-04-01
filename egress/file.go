@@ -108,9 +108,9 @@ func (fwm *fileWorkerMetrics) init(tel *telemetry.Telemetry) {
 }
 
 func (fwm *fileWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
-	tel.NewCouterMetric("written_bytes", func() int64 { return fwm.writtenBytes.Load() })
-	tel.NewCouterMetric("write_errors", func() int64 { return fwm.writeErrors.Load() })
-	tel.NewCouterMetric("flush_errors", func() int64 { return fwm.flushErrors.Load() })
+	tel.NewCounterMetric("written_bytes", func() int64 { return fwm.writtenBytes.Load() })
+	tel.NewCounterMetric("write_errors", func() int64 { return fwm.writeErrors.Load() })
+	tel.NewCounterMetric("flush_errors", func() int64 { return fwm.flushErrors.Load() })
 }
 
 func (fwm *fileWorkerMetrics) addWrittenBytes(amount int64) {

@@ -261,8 +261,8 @@ func (ks *kafkaSource) init(readerCfg kafka.ReaderConfig) {
 }
 
 func (ks *kafkaSource) initMetrics() {
-	ks.tel.NewCouterMetric("received_bytes", func() int64 { return ks.receivedBytes.Load() })
-	ks.tel.NewCouterMetric("received_messages", func() int64 { return ks.receivedMessages.Load() })
+	ks.tel.NewCounterMetric("received_bytes", func() int64 { return ks.receivedBytes.Load() })
+	ks.tel.NewCounterMetric("received_messages", func() int64 { return ks.receivedMessages.Load() })
 }
 
 func (ks *kafkaSource) run(ctx context.Context, outConnector msgConn[*KafkaMessage]) {

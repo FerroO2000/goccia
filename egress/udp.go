@@ -84,7 +84,7 @@ func (uwm *udpWorkerMetrics) init(tel *telemetry.Telemetry) {
 }
 
 func (uwm *udpWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
-	tel.NewCouterMetric("delivered_bytes", func() int64 { return uwm.deliveredBytes.Load() })
+	tel.NewCounterMetric("delivered_bytes", func() int64 { return uwm.deliveredBytes.Load() })
 }
 
 func (uwm *udpWorkerMetrics) addDeliveredBytes(amount int) {

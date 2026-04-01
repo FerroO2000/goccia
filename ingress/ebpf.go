@@ -130,9 +130,9 @@ func newEBPFSourceMetrics(tel *telemetry.Telemetry) *ebpfSourceMetrics {
 }
 
 func (esm *ebpfSourceMetrics) init() {
-	esm.tel.NewCouterMetric("received_records", func() int64 { return esm.receivedRecords.Load() })
-	esm.tel.NewCouterMetric("parsing_errors", func() int64 { return esm.parsingErrors.Load() })
-	esm.tel.NewCouterMetric("received_bytes", func() int64 { return esm.receivedBytes.Load() })
+	esm.tel.NewCounterMetric("received_records", func() int64 { return esm.receivedRecords.Load() })
+	esm.tel.NewCounterMetric("parsing_errors", func() int64 { return esm.parsingErrors.Load() })
+	esm.tel.NewCounterMetric("received_bytes", func() int64 { return esm.receivedBytes.Load() })
 }
 
 func (esm *ebpfSourceMetrics) incrementReceivedRecords() {

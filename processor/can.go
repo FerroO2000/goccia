@@ -184,8 +184,8 @@ func (cwm *canWorkerMetrics) init(tel *telemetry.Telemetry) {
 }
 
 func (cwm *canWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
-	tel.NewCouterMetric("can_messages", func() int64 { return cwm.canMessages.Load() })
-	tel.NewCouterMetric("can_signals", func() int64 { return cwm.canSignals.Load() })
+	tel.NewCounterMetric("can_messages", func() int64 { return cwm.canMessages.Load() })
+	tel.NewCounterMetric("can_signals", func() int64 { return cwm.canSignals.Load() })
 }
 
 func (cwm *canWorkerMetrics) addCANMessages(amount int) {
