@@ -12,11 +12,14 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
+	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
+	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -26,6 +29,7 @@ const otelCollectorEndpoint = "localhost:4317"
 var (
 	globalTracerProvider *sdktrace.TracerProvider
 	globalMeterProvider  *sdkmetric.MeterProvider
+	globalLoggerProvider *sdklog.LoggerProvider
 
 	traceRatio = 0.05
 )
@@ -59,7 +63,7 @@ func Init(ctx context.Context, serviceName string) {
 	// Resource
 	resource := newResource(serviceName)
 
-	// Trace
+	// Tracer
 	traceExporter := newTraceExporter(ctx, grcpConn)
 	traceProvider := newTraceProvider(resource, traceExporter)
 	globalTracerProvider = traceProvider
@@ -74,6 +78,11 @@ func Init(ctx context.Context, serviceName string) {
 	globalMeterProvider = meterProvider
 	otel.SetMeterProvider(meterProvider)
 
+	// Logger
+	loggerProvider := newLoggerProvider(resource)
+	globalLoggerProvider = loggerProvider
+	global.SetLoggerProvider(loggerProvider)
+
 	// Runtime
 	if err := runtime.Start(runtime.WithMinimumReadMemStatsInterval(time.Second)); err != nil {
 		panic(err)
@@ -84,12 +93,22 @@ func Init(ctx context.Context, serviceName string) {
 func Close() {
 	ctx := context.Background()
 
-	if err := globalTracerProvider.Shutdown(ctx); err != nil {
-		panic(err)
+	if globalTracerProvider != nil {
+		if err := globalTracerProvider.Shutdown(ctx); err != nil {
+			panic(err)
+		}
 	}
 
-	if err := globalMeterProvider.Shutdown(ctx); err != nil {
-		panic(err)
+	if globalMeterProvider != nil {
+		if err := globalMeterProvider.Shutdown(ctx); err != nil {
+			panic(err)
+		}
+	}
+
+	if globalLoggerProvider != nil {
+		if err := globalLoggerProvider.Shutdown(ctx); err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -145,5 +164,17 @@ func newMeterProvider(resource *resource.Resource, exporter sdkmetric.Exporter) 
 		sdkmetric.WithReader(
 			sdkmetric.NewPeriodicReader(exporter, sdkmetric.WithInterval(time.Second)),
 		),
+	)
+}
+
+func newLoggerProvider(resource *resource.Resource) *sdklog.LoggerProvider {
+	exporter, err := stdoutlog.New(stdoutlog.WithPrettyPrint())
+	if err != nil {
+		panic(err)
+	}
+
+	return sdklog.NewLoggerProvider(
+		sdklog.WithResource(resource),
+		sdklog.WithProcessor(sdklog.NewSimpleProcessor(exporter)),
 	)
 }
