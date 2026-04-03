@@ -9,10 +9,11 @@ import (
 
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
+	otellog "go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
@@ -31,7 +32,8 @@ var (
 	globalMeterProvider  *sdkmetric.MeterProvider
 	globalLoggerProvider *sdklog.LoggerProvider
 
-	traceRatio = 0.05
+	traceRatio     = 0.05
+	logMinSeverity = otellog.SeverityInfo
 )
 
 // isCollectorReachable checks if the OTLP collector port is reachable
@@ -47,9 +49,18 @@ func isCollectorReachable(endpoint string) bool {
 // Init initializes OpenTelemetry.
 // It prints out a warning if the connection to the OpenTelemetry collector fails.
 func Init(ctx context.Context, serviceName string) {
+	// Resource
+	resource := newResource(serviceName)
+
 	// Check if collector is healthy using gRPC health check
 	if !isCollectorReachable(otelCollectorEndpoint) {
 		log.Print("WARNING: OpenTelemetry collector is not healthy or not reachable")
+
+		// Use the console exporter for logging
+		loggerProvider := newLoggerProvider(resource, newConsoleExporter(), nil)
+		globalLoggerProvider = loggerProvider
+		global.SetLoggerProvider(loggerProvider)
+
 		return
 	}
 
@@ -59,9 +70,6 @@ func Init(ctx context.Context, serviceName string) {
 	if err != nil {
 		panic(err)
 	}
-
-	// Resource
-	resource := newResource(serviceName)
 
 	// Tracer
 	traceExporter := newTraceExporter(ctx, grcpConn)
@@ -79,7 +87,7 @@ func Init(ctx context.Context, serviceName string) {
 	otel.SetMeterProvider(meterProvider)
 
 	// Logger
-	loggerProvider := newLoggerProvider(resource)
+	loggerProvider := newLoggerProvider(resource, newConsoleExporter(), newLoggerExporter(ctx, grcpConn))
 	globalLoggerProvider = loggerProvider
 	global.SetLoggerProvider(loggerProvider)
 
@@ -115,6 +123,11 @@ func Close() {
 // SetTraceRatio sets the sampling ratio for traces.
 func SetTraceRatio(ratio float64) {
 	traceRatio = ratio
+}
+
+// SetLogMinSeverity sets the severity for logs.
+func SetLogMinSeverity(severity otellog.Severity) {
+	logMinSeverity = severity
 }
 
 func newResource(serviceName string) *resource.Resource {
@@ -167,14 +180,26 @@ func newMeterProvider(resource *resource.Resource, exporter sdkmetric.Exporter) 
 	)
 }
 
-func newLoggerProvider(resource *resource.Resource) *sdklog.LoggerProvider {
-	exporter, err := stdoutlog.New(stdoutlog.WithPrettyPrint())
+func newLoggerExporter(ctx context.Context, conn *grpc.ClientConn) *otlploggrpc.Exporter {
+	exporter, err := otlploggrpc.New(ctx, otlploggrpc.WithGRPCConn(conn))
 	if err != nil {
 		panic(err)
 	}
+	return exporter
+}
 
-	return sdklog.NewLoggerProvider(
+func newLoggerProvider(resource *resource.Resource, consoleExporter *consoleExporter, exporter sdklog.Exporter) *sdklog.LoggerProvider {
+	consoleProcessor := newSeverityProcessor(logMinSeverity, sdklog.NewSimpleProcessor(consoleExporter))
+
+	providerOpts := []sdklog.LoggerProviderOption{
 		sdklog.WithResource(resource),
-		sdklog.WithProcessor(sdklog.NewSimpleProcessor(exporter)),
-	)
+		sdklog.WithProcessor(consoleProcessor),
+	}
+
+	if exporter != nil {
+		processor := newSeverityProcessor(logMinSeverity, sdklog.NewBatchProcessor(exporter))
+		providerOpts = append(providerOpts, sdklog.WithProcessor(processor))
+	}
+
+	return sdklog.NewLoggerProvider(providerOpts...)
 }

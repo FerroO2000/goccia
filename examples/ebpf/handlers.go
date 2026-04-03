@@ -22,7 +22,7 @@ func (h *pingHandler) Handle(ctx context.Context, msgIn, _ *ingress.EBPFMessage[
 	srcIP := h.getIP(pingEvent.SrcIP)
 	dstIP := h.getIP(pingEvent.DstIP)
 
-	h.Telemetry.LogInfo(ctx, "ping packet", "src_ip", srcIP.String(), "dst_ip", dstIP.String(), "id", pingEvent.ID, "seq", pingEvent.Seq)
+	h.Telemetry.LogInfoCtx(ctx, "ping packet", "src_ip", srcIP.String(), "dst_ip", dstIP.String(), "id", pingEvent.ID, "seq", pingEvent.Seq)
 
 	return nil
 }
