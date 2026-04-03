@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/FerroO2000/goccia/connector"
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/rob"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -63,7 +63,7 @@ func (c *ROBConfig) Validate(ac *config.AnomalyCollector) {
 // ROBStage is the re-order buffer stage.
 // It can only be run in single-threaded mode.
 type ROBStage[T message.ReOrderable] struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	cfg *ROBConfig
 
@@ -86,7 +86,7 @@ type ROBStage[T message.ReOrderable] struct {
 
 // NewROBStage returns a new re-order buffer stage.
 func NewROBStage[T message.ReOrderable](inConnector, outConnector msgConn[T], cfg *ROBConfig) *ROBStage[T] {
-	tel := internal.NewTelemetry("processor", "rob")
+	tel := telemetry.NewTelemetry("processor", "rob")
 
 	return &ROBStage[T]{
 		tel: tel,
@@ -118,15 +118,15 @@ func (rs *ROBStage[T]) Init(_ context.Context) error {
 }
 
 func (rs *ROBStage[T]) initMetrics() {
-	rs.tel.NewCounter("ordered_messages", func() int64 { return rs.orderedMsgs.Load() })
-	rs.tel.NewCounter("primary_enqueued_messages", func() int64 { return rs.primayEnqueuedMsgs.Load() })
-	rs.tel.NewCounter("auxiliary_enqueued_messages", func() int64 { return rs.auxiliaryEnqueuedMsgs.Load() })
+	rs.tel.NewCounterMetric("ordered_messages", func() int64 { return rs.orderedMsgs.Load() })
+	rs.tel.NewCounterMetric("primary_enqueued_messages", func() int64 { return rs.primayEnqueuedMsgs.Load() })
+	rs.tel.NewCounterMetric("auxiliary_enqueued_messages", func() int64 { return rs.auxiliaryEnqueuedMsgs.Load() })
 
-	rs.tel.NewCounter("out_of_order_sequence_number", func() int64 { return rs.outOfOrderSeqNum.Load() })
-	rs.tel.NewCounter("duplicated_sequence_number", func() int64 { return rs.duplicatedSeqNum.Load() })
-	rs.tel.NewCounter("invalid_sequence_number", func() int64 { return rs.invalidSeqNum.Load() })
+	rs.tel.NewCounterMetric("out_of_order_sequence_number", func() int64 { return rs.outOfOrderSeqNum.Load() })
+	rs.tel.NewCounterMetric("duplicated_sequence_number", func() int64 { return rs.duplicatedSeqNum.Load() })
+	rs.tel.NewCounterMetric("invalid_sequence_number", func() int64 { return rs.invalidSeqNum.Load() })
 
-	rs.tel.NewCounter("resets", func() int64 { return rs.resets.Load() })
+	rs.tel.NewCounterMetric("resets", func() int64 { return rs.resets.Load() })
 }
 
 // Run runs the re-order buffer stage.
@@ -180,7 +180,7 @@ func (rs *ROBStage[T]) Run(ctx context.Context) {
 }
 
 func (rs *ROBStage[T]) enqueue(ctx context.Context, msgIn *msg[T]) {
-	_, span := rs.tel.NewTrace(msgIn.LoadSpanContext(ctx), "enqueue message into re-order buffer")
+	_, span := rs.tel.StartTrace(msgIn.LoadSpanContext(ctx), "enqueue message into re-order buffer")
 	defer span.End()
 
 	status, err := rs.rob.Enqueue(msgIn)

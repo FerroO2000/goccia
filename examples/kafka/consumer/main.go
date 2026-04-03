@@ -21,6 +21,7 @@ func main() {
 	defer cancelCtx()
 
 	telemetry.Init(ctx, "kafka-consumer-example")
+	defer telemetry.Close()
 
 	kafkaToRaw := connector.NewRingBuffer[*ingress.KafkaMessage](connectorSize)
 	customToKafka := connector.NewRingBuffer[*egress.KafkaMessage](connectorSize)

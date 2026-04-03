@@ -9,9 +9,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/ringbuf"
@@ -116,7 +116,7 @@ type ebpfSourceConfig struct {
 }
 
 type ebpfSourceMetrics struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	receivedRecords atomic.Int64
 	parsingErrors   atomic.Int64
@@ -124,16 +124,16 @@ type ebpfSourceMetrics struct {
 	receivedBytes atomic.Int64
 }
 
-func newEBPFSourceMetrics(tel *internal.Telemetry) *ebpfSourceMetrics {
+func newEBPFSourceMetrics(tel *telemetry.Telemetry) *ebpfSourceMetrics {
 	return &ebpfSourceMetrics{
 		tel: tel,
 	}
 }
 
 func (esm *ebpfSourceMetrics) init() {
-	esm.tel.NewCounter("received_records", func() int64 { return esm.receivedRecords.Load() })
-	esm.tel.NewCounter("parsing_errors", func() int64 { return esm.parsingErrors.Load() })
-	esm.tel.NewCounter("received_bytes", func() int64 { return esm.receivedBytes.Load() })
+	esm.tel.NewCounterMetric("received_records", func() int64 { return esm.receivedRecords.Load() })
+	esm.tel.NewCounterMetric("parsing_errors", func() int64 { return esm.parsingErrors.Load() })
+	esm.tel.NewCounterMetric("received_bytes", func() int64 { return esm.receivedBytes.Load() })
 }
 
 func (esm *ebpfSourceMetrics) incrementReceivedRecords() {
@@ -149,7 +149,7 @@ func (esm *ebpfSourceMetrics) addReceivedBytes(amount int64) {
 }
 
 type ebpfSource[T any] struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	cfg *ebpfSourceConfig
 
@@ -163,7 +163,7 @@ func newEBPFSource[T any]() *ebpfSource[T] {
 	return &ebpfSource[T]{}
 }
 
-func (es *ebpfSource[T]) setTelemetry(tel *internal.Telemetry) {
+func (es *ebpfSource[T]) setTelemetry(tel *telemetry.Telemetry) {
 	es.tel = tel
 }
 
@@ -226,7 +226,7 @@ func (es *ebpfSource[T]) run(ctx context.Context, outConn msgConn[*EBPFMessage[T
 
 func (es *ebpfSource[T]) handleRecord(ctx context.Context, record *ringbuf.Record) (*msg[*EBPFMessage[T]], error) {
 	// Create the trace for the incoming record
-	_, span := es.tel.NewTrace(ctx, "receive ebpf record")
+	_, span := es.tel.StartTrace(ctx, "receive ebpf record")
 	defer span.End()
 
 	data, err := es.parseData(record.RawSample)

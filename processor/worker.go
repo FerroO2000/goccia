@@ -5,9 +5,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
 ////////////////
@@ -17,7 +17,7 @@ import (
 type workerInstance[Args any, In, Out msgBody] interface {
 	Init(ctx context.Context, args Args) error
 	Close(ctx context.Context) error
-	SetTelemetry(tel *internal.Telemetry)
+	SetTelemetry(tel *telemetry.Telemetry)
 	Handle(ctx context.Context, task *msg[In]) (*msg[Out], error)
 }
 
@@ -28,23 +28,23 @@ type workerInstanceMaker[Args any, In, Out msgBody] func() workerInstance[Args, 
 ///////////////
 
 type workerMetrics struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	processedMessages atomic.Int64
 	droppedMessages   atomic.Int64
 	processingErrors  atomic.Int64
 }
 
-func newWorkerMetrics(tel *internal.Telemetry) *workerMetrics {
+func newWorkerMetrics(tel *telemetry.Telemetry) *workerMetrics {
 	return &workerMetrics{
 		tel: tel,
 	}
 }
 
 func (wm *workerMetrics) init() {
-	wm.tel.NewCounter("processed_messages", func() int64 { return wm.processedMessages.Load() })
-	wm.tel.NewCounter("dropped_messages", func() int64 { return wm.droppedMessages.Load() })
-	wm.tel.NewCounter("processing_errors", func() int64 { return wm.processingErrors.Load() })
+	wm.tel.NewCounterMetric("processed_messages", func() int64 { return wm.processedMessages.Load() })
+	wm.tel.NewCounterMetric("dropped_messages", func() int64 { return wm.droppedMessages.Load() })
+	wm.tel.NewCounterMetric("processing_errors", func() int64 { return wm.processingErrors.Load() })
 }
 
 func (wm *workerMetrics) incrementProcessedMessages() {
@@ -64,7 +64,7 @@ func (wm *workerMetrics) incrementProcessingErrors() {
 //////////////
 
 type worker[Args any, In, Out msgBody] struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	id   int
 	inst workerInstance[Args, In, Out]
@@ -73,7 +73,7 @@ type worker[Args any, In, Out msgBody] struct {
 }
 
 func newWorker[Args any, In, Out msgBody](
-	tel *internal.Telemetry, id int, inst workerInstance[Args, In, Out], metrics *workerMetrics,
+	tel *telemetry.Telemetry, id int, inst workerInstance[Args, In, Out], metrics *workerMetrics,
 ) *worker[Args, In, Out] {
 	return &worker[Args, In, Out]{
 		tel: tel,
@@ -141,7 +141,7 @@ func (w *worker[Args, In, Out]) close(ctx context.Context) {
 ////////////
 
 type workerPool[WArgs any, In, Out msgBody] struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	cfg *config.Pool
 
@@ -159,7 +159,7 @@ type workerPool[WArgs any, In, Out msgBody] struct {
 }
 
 func newWorkerPool[WArgs any, In, Out msgBody](
-	tel *internal.Telemetry, workerInstMaker workerInstanceMaker[WArgs, In, Out], cfg *config.Pool,
+	tel *telemetry.Telemetry, workerInstMaker workerInstanceMaker[WArgs, In, Out], cfg *config.Pool,
 ) *workerPool[WArgs, In, Out] {
 
 	return &workerPool[WArgs, In, Out]{

@@ -9,9 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -105,7 +105,7 @@ func (um *UDPMessage) GetBytes() []byte {
 var _ source[*UDPMessage] = (*udpSource)(nil)
 
 type udpSource struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	// Config
 	bufferSize uint16
@@ -121,7 +121,7 @@ func newUDPSource() *udpSource {
 	return &udpSource{}
 }
 
-func (us *udpSource) setTelemetry(tel *internal.Telemetry) {
+func (us *udpSource) setTelemetry(tel *telemetry.Telemetry) {
 	us.tel = tel
 }
 
@@ -148,8 +148,8 @@ func (us *udpSource) init(ipAddr string, port, bufferSize uint16) error {
 }
 
 func (us *udpSource) initMetrics() {
-	us.tel.NewCounter("received_messages", func() int64 { return us.receivedMessages.Load() })
-	us.tel.NewCounter("received_bytes", func() int64 { return us.receivedBytes.Load() })
+	us.tel.NewCounterMetric("received_messages", func() int64 { return us.receivedMessages.Load() })
+	us.tel.NewCounterMetric("received_bytes", func() int64 { return us.receivedBytes.Load() })
 }
 
 func (us *udpSource) run(ctx context.Context, outConnector msgConn[*UDPMessage]) {
@@ -196,7 +196,7 @@ func (us *udpSource) run(ctx context.Context, outConnector msgConn[*UDPMessage])
 
 func (us *udpSource) handleBuf(ctx context.Context, buf []byte) *msg[*UDPMessage] {
 	// Create the trace for the incoming datagram
-	_, span := us.tel.NewTrace(ctx, "receive UDP datagram")
+	_, span := us.tel.StartTrace(ctx, "receive UDP datagram")
 	defer span.End()
 
 	// Create the UDP message

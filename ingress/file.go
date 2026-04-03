@@ -11,10 +11,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	"github.com/fsnotify/fsnotify"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -166,7 +166,7 @@ const (
 )
 
 type fileReader struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	fanIn *pool.FanIn[*msg[*FileMessage]]
 
@@ -186,7 +186,7 @@ type fileReader struct {
 }
 
 func newFileReader(
-	tel *internal.Telemetry, fanIn *pool.FanIn[*msg[*FileMessage]], sourceMetrics *fileSourceMetrics, cfg *fileReaderConfig,
+	tel *telemetry.Telemetry, fanIn *pool.FanIn[*msg[*FileMessage]], sourceMetrics *fileSourceMetrics, cfg *fileReaderConfig,
 ) (*fileReader, error) {
 
 	file, err := os.Open(cfg.filePath)
@@ -310,7 +310,7 @@ func (fr *fileReader) read(ctx context.Context) {
 			continue
 		}
 
-		_, span := fr.tel.NewTrace(ctx, "read file chunk")
+		_, span := fr.tel.StartTrace(ctx, "read file chunk")
 
 		chunkSize := n
 
@@ -350,7 +350,7 @@ func (fr *fileReader) read(ctx context.Context) {
 				}
 
 				if !delimFound {
-					fr.tel.LogWarn("delimiter not found in appendix", "path", fr.cfg.filePath)
+					fr.tel.LogWarnCtx(ctx, "delimiter not found in appendix", "path", fr.cfg.filePath)
 				}
 			}
 		}
@@ -453,23 +453,23 @@ func (fr *fileReader) pause(ctx context.Context) bool {
 //////////////////////
 
 type fileSourceMetrics struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	readers       atomic.Int64
 	activeReaders atomic.Int64
 	readBytes     atomic.Int64
 }
 
-func newFileSourceMetrics(tel *internal.Telemetry) *fileSourceMetrics {
+func newFileSourceMetrics(tel *telemetry.Telemetry) *fileSourceMetrics {
 	return &fileSourceMetrics{
 		tel: tel,
 	}
 }
 
 func (fsm *fileSourceMetrics) init() {
-	fsm.tel.NewUpDownCounter("readers", func() int64 { return fsm.readers.Load() })
-	fsm.tel.NewUpDownCounter("active_readers", func() int64 { return fsm.activeReaders.Load() })
-	fsm.tel.NewCounter("read_bytes", func() int64 { return fsm.readBytes.Load() })
+	fsm.tel.NewUpDownCounterMetric("readers", func() int64 { return fsm.readers.Load() })
+	fsm.tel.NewUpDownCounterMetric("active_readers", func() int64 { return fsm.activeReaders.Load() })
+	fsm.tel.NewCounterMetric("read_bytes", func() int64 { return fsm.readBytes.Load() })
 }
 
 func (fsm *fileSourceMetrics) incrementReaders() {
@@ -499,7 +499,7 @@ func (fsm *fileSourceMetrics) addReadBytes(amount int64) {
 var _ source[*FileMessage] = (*fileSource)(nil)
 
 type fileSource struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	cfg *FileConfig
 
@@ -520,7 +520,7 @@ func newFileSource() *fileSource {
 	}
 }
 
-func (fs *fileSource) setTelemetry(tel *internal.Telemetry) {
+func (fs *fileSource) setTelemetry(tel *telemetry.Telemetry) {
 	fs.tel = tel
 }
 

@@ -9,9 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -101,16 +101,16 @@ type fileWorkerMetrics struct {
 
 var fileWorkerMetricsInst = &fileWorkerMetrics{}
 
-func (fwm *fileWorkerMetrics) init(tel *internal.Telemetry) {
+func (fwm *fileWorkerMetrics) init(tel *telemetry.Telemetry) {
 	fwm.once.Do(func() {
 		fwm.initMetrics(tel)
 	})
 }
 
-func (fwm *fileWorkerMetrics) initMetrics(tel *internal.Telemetry) {
-	tel.NewCounter("written_bytes", func() int64 { return fwm.writtenBytes.Load() })
-	tel.NewCounter("write_errors", func() int64 { return fwm.writeErrors.Load() })
-	tel.NewCounter("flush_errors", func() int64 { return fwm.flushErrors.Load() })
+func (fwm *fileWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
+	tel.NewCounterMetric("written_bytes", func() int64 { return fwm.writtenBytes.Load() })
+	tel.NewCounterMetric("write_errors", func() int64 { return fwm.writeErrors.Load() })
+	tel.NewCounterMetric("flush_errors", func() int64 { return fwm.flushErrors.Load() })
 }
 
 func (fwm *fileWorkerMetrics) addWrittenBytes(amount int64) {
@@ -194,7 +194,7 @@ func (fw *fileWorker[T]) runTicker(ctx context.Context) {
 }
 
 func (fw *fileWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
-	ctx, span := fw.Tel.NewTrace(ctx, "writing file")
+	ctx, span := fw.Tel.StartTrace(ctx, "writing file")
 	defer span.End()
 
 	// Write message bytes to file

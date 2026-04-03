@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
 //////////////
@@ -64,7 +64,7 @@ type CustomHandler[In msgBody, T any, Out msgBodyPtr[T]] interface {
 	// SetTelemetry sets the telemetry for the custom handler.
 	// It can be used to add traces, logs, and metrics to the
 	// user defined handler.
-	SetTelemetry(tel *internal.Telemetry)
+	SetTelemetry(tel *telemetry.Telemetry)
 }
 
 // CustomHandlerBase is a base implementation of the CustomHandler interface.
@@ -73,7 +73,7 @@ type CustomHandler[In msgBody, T any, Out msgBodyPtr[T]] interface {
 // It also provides a default implementation for the Init and Close methods,
 // but not for the Handle method.
 type CustomHandlerBase struct {
-	Telemetry *internal.Telemetry
+	Telemetry *telemetry.Telemetry
 }
 
 // Init is a no-op implementation of the custom handler Init method.
@@ -85,7 +85,7 @@ func (chb *CustomHandlerBase) Init(_ context.Context) error {
 func (chb *CustomHandlerBase) Close() {}
 
 // SetTelemetry sets the telemetry for the custom handler.
-func (chb *CustomHandlerBase) SetTelemetry(tel *internal.Telemetry) {
+func (chb *CustomHandlerBase) SetTelemetry(tel *telemetry.Telemetry) {
 	chb.Telemetry = tel
 }
 
@@ -129,7 +129,7 @@ func (cw *customWorker[In, T, Out]) Init(_ context.Context, args *customWorkerAr
 }
 
 func (cw *customWorker[In, T, Out]) Handle(ctx context.Context, msgIn *msg[In]) (*msg[Out], error) {
-	ctx, span := cw.Tel.NewTrace(ctx, cw.traceString)
+	ctx, span := cw.Tel.StartTrace(ctx, cw.traceString)
 	defer span.End()
 
 	// Create the generic output message

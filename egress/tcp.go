@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -82,14 +82,14 @@ type tcpWorkerMetrics struct {
 
 var tcpWorkerMetricsInst = &tcpWorkerMetrics{}
 
-func (twm *tcpWorkerMetrics) init(tel *internal.Telemetry) {
+func (twm *tcpWorkerMetrics) init(tel *telemetry.Telemetry) {
 	twm.once.Do(func() {
 		twm.initMetrics(tel)
 	})
 }
 
-func (twm *tcpWorkerMetrics) initMetrics(tel *internal.Telemetry) {
-	tel.NewCounter("delivered_bytes", func() int64 { return twm.deliveredBytes.Load() })
+func (twm *tcpWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
+	tel.NewCounterMetric("delivered_bytes", func() int64 { return twm.deliveredBytes.Load() })
 }
 
 func (twm *tcpWorkerMetrics) addDeliveredBytes(amount int) {
@@ -127,7 +127,7 @@ func (tw *tcpWorker[T]) Init(_ context.Context, args *tcpWorkerArgs) error {
 }
 
 func (tw *tcpWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
-	_, span := tw.Tel.NewTrace(ctx, "deliver TCP message")
+	_, span := tw.Tel.StartTrace(ctx, "deliver TCP message")
 	defer span.End()
 
 	// Set the write timeout

@@ -6,9 +6,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	"go.opentelemetry.io/otel/metric"
 )
 
@@ -19,7 +19,7 @@ import (
 type workerInstance[Args any, In msgBody] interface {
 	Init(ctx context.Context, args Args) error
 	Close(ctx context.Context) error
-	SetTelemetry(tel *internal.Telemetry)
+	SetTelemetry(tel *telemetry.Telemetry)
 	Deliver(ctx context.Context, task *msg[In]) error
 }
 
@@ -30,25 +30,29 @@ type workerInstanceMaker[Args any, In msgBody] func() workerInstance[Args, In]
 ///////////////
 
 type workerMetrics struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	deliveredMessages atomic.Int64
 	deliveringErrors  atomic.Int64
 
-	totMsgProcessingTime *internal.Histogram
+	totMsgProcessingTime *telemetry.Histogram
 }
 
-func newWorkerMetrics(tel *internal.Telemetry) *workerMetrics {
+func newWorkerMetrics(tel *telemetry.Telemetry) *workerMetrics {
 	return &workerMetrics{
 		tel: tel,
 	}
 }
 
 func (wm *workerMetrics) init() {
-	wm.tel.NewCounter("delivered_messages", func() int64 { return wm.deliveredMessages.Load() })
-	wm.tel.NewCounter("delivering_errors", func() int64 { return wm.deliveringErrors.Load() })
+	wm.tel.NewCounterMetric("delivered_messages", func() int64 { return wm.deliveredMessages.Load() })
+	wm.tel.NewCounterMetric("delivering_errors", func() int64 { return wm.deliveringErrors.Load() })
 
-	wm.totMsgProcessingTime = wm.tel.NewHistogram("total_message_processing_time", metric.WithUnit("ms"))
+	totMsgProcessingTime, err := wm.tel.NewHistogramMetric("total_message_processing_time", metric.WithUnit("ms"))
+	if err != nil {
+		wm.tel.LogErrorCtx(context.Background(), "unable to create histogram metric", err)
+	}
+	wm.totMsgProcessingTime = totMsgProcessingTime
 }
 
 func (wm *workerMetrics) incrementDeliveredMessages() {
@@ -68,7 +72,7 @@ func (wm *workerMetrics) recordTotalMessageProcessingTime(ctx context.Context, r
 //////////////
 
 type worker[Args any, In msgBody] struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	id   int
 	inst workerInstance[Args, In]
@@ -77,7 +81,7 @@ type worker[Args any, In msgBody] struct {
 }
 
 func newWorker[Args any, In msgBody](
-	tel *internal.Telemetry, id int, inst workerInstance[Args, In], metrics *workerMetrics,
+	tel *telemetry.Telemetry, id int, inst workerInstance[Args, In], metrics *workerMetrics,
 ) *worker[Args, In] {
 
 	return &worker[Args, In]{
@@ -131,7 +135,7 @@ func (w *worker[Args, In]) close(ctx context.Context) {
 ////////////
 
 type workerPool[Args any, In msgBody] struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	cfg *config.Pool
 
@@ -148,7 +152,7 @@ type workerPool[Args any, In msgBody] struct {
 }
 
 func newWorkerPool[Args any, In msgBody](
-	tel *internal.Telemetry, workerInstMaker workerInstanceMaker[Args, In], cfg *config.Pool,
+	tel *telemetry.Telemetry, workerInstMaker workerInstanceMaker[Args, In], cfg *config.Pool,
 ) *workerPool[Args, In] {
 
 	return &workerPool[Args, In]{

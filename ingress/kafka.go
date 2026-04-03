@@ -6,7 +6,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/telemetry"
@@ -238,7 +237,7 @@ func (km *KafkaMessage) GetBytes() []byte {
 var _ source[*KafkaMessage] = (*kafkaSource)(nil)
 
 type kafkaSource struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	reader *kafka.Reader
 
@@ -251,7 +250,7 @@ func newKafkaSource() *kafkaSource {
 	return &kafkaSource{}
 }
 
-func (ks *kafkaSource) setTelemetry(tel *internal.Telemetry) {
+func (ks *kafkaSource) setTelemetry(tel *telemetry.Telemetry) {
 	ks.tel = tel
 }
 
@@ -262,8 +261,8 @@ func (ks *kafkaSource) init(readerCfg kafka.ReaderConfig) {
 }
 
 func (ks *kafkaSource) initMetrics() {
-	ks.tel.NewCounter("received_bytes", func() int64 { return ks.receivedBytes.Load() })
-	ks.tel.NewCounter("received_messages", func() int64 { return ks.receivedMessages.Load() })
+	ks.tel.NewCounterMetric("received_bytes", func() int64 { return ks.receivedBytes.Load() })
+	ks.tel.NewCounterMetric("received_messages", func() int64 { return ks.receivedMessages.Load() })
 }
 
 func (ks *kafkaSource) run(ctx context.Context, outConnector msgConn[*KafkaMessage]) {
@@ -300,7 +299,7 @@ func (ks *kafkaSource) handleMessage(ctx context.Context, msg *kafka.Message) *m
 		ctx = ks.tel.ExtractTraceContext(ctx, headerCarrier)
 	}
 
-	_, span := ks.tel.NewTrace(ctx, "handle kafka message")
+	_, span := ks.tel.StartTrace(ctx, "handle kafka message")
 	defer span.End()
 
 	kafkaMsg := newKafkaMessage()

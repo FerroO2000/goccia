@@ -5,15 +5,15 @@ import (
 	"errors"
 
 	"github.com/FerroO2000/goccia/connector"
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
 type stage[WArgs any, In msgBody, Cfg cfg] interface {
 	Init(ctx context.Context, workerArgs WArgs) error
 	Run(ctx context.Context)
 	Close()
-	Tel() *internal.Telemetry
+	Tel() *telemetry.Telemetry
 	Config() Cfg
 }
 
@@ -38,7 +38,7 @@ func newStage[WArgs any, In msgBody, Cfg stageCfg](
 ////////////
 
 type stageBase[WArgs any, In msgBody, Cfg cfg] struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	config Cfg
 
@@ -47,7 +47,7 @@ type stageBase[WArgs any, In msgBody, Cfg cfg] struct {
 
 func newStageBase[WArgs any, In msgBody, Cfg cfg](name string, inConn msgConn[In], cfg Cfg) *stageBase[WArgs, In, Cfg] {
 	return &stageBase[WArgs, In, Cfg]{
-		tel: internal.NewTelemetry("egress", name),
+		tel: telemetry.NewTelemetry("egress", name),
 
 		config: cfg,
 
@@ -70,7 +70,7 @@ func (s *stageBase[WArgs, In, Cfg]) close() {
 	s.tel.LogInfo("closing")
 }
 
-func (s *stageBase[WArgs, In, Cfg]) Tel() *internal.Telemetry {
+func (s *stageBase[WArgs, In, Cfg]) Tel() *telemetry.Telemetry {
 	return s.tel
 }
 

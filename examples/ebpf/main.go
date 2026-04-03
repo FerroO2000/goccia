@@ -37,6 +37,7 @@ func main() {
 	}
 
 	telemetry.Init(ctx, "ebpf-example")
+	defer telemetry.Close()
 
 	ebpfToHandler := connector.NewRingBuffer[*ingress.EBPFMessage[PingEvent]](connectorSize)
 	handlerToSink := connector.NewRingBuffer[*ingress.EBPFMessage[PingEvent]](connectorSize)

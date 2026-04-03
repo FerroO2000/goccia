@@ -7,9 +7,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -77,14 +77,14 @@ type udpWorkerMetrics struct {
 
 var udpWorkerMetricsInst = &udpWorkerMetrics{}
 
-func (uwm *udpWorkerMetrics) init(tel *internal.Telemetry) {
+func (uwm *udpWorkerMetrics) init(tel *telemetry.Telemetry) {
 	uwm.once.Do(func() {
 		uwm.initMetrics(tel)
 	})
 }
 
-func (uwm *udpWorkerMetrics) initMetrics(tel *internal.Telemetry) {
-	tel.NewCounter("delivered_bytes", func() int64 { return uwm.deliveredBytes.Load() })
+func (uwm *udpWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
+	tel.NewCounterMetric("delivered_bytes", func() int64 { return uwm.deliveredBytes.Load() })
 }
 
 func (uwm *udpWorkerMetrics) addDeliveredBytes(amount int) {
@@ -120,7 +120,7 @@ func (uw *udpWorker[T]) Init(_ context.Context, args *udpWorkerArgs) error {
 }
 
 func (uw *udpWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
-	_, span := uw.Tel.NewTrace(ctx, "deliver UDP message")
+	_, span := uw.Tel.StartTrace(ctx, "deliver UDP message")
 	defer span.End()
 
 	udpMsg := msgIn.GetBody()

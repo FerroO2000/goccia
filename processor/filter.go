@@ -5,9 +5,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
 //////////////
@@ -52,14 +52,14 @@ type filterWorkerMetrics struct {
 
 var filterWorkerMetricsInst = &filterWorkerMetrics{}
 
-func (fwm *filterWorkerMetrics) init(tel *internal.Telemetry) {
+func (fwm *filterWorkerMetrics) init(tel *telemetry.Telemetry) {
 	fwm.once.Do(func() {
 		fwm.initMetrics(tel)
 	})
 }
 
-func (fwm *filterWorkerMetrics) initMetrics(tel *internal.Telemetry) {
-	tel.NewCounter("filtered_messages", func() int64 { return fwm.filteredMessages.Load() })
+func (fwm *filterWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
+	tel.NewCounterMetric("filtered_messages", func() int64 { return fwm.filteredMessages.Load() })
 }
 
 func (fwm *filterWorkerMetrics) incrementFilteredMessages() {
@@ -96,7 +96,7 @@ func (fw *filterWorker[T]) Init(_ context.Context, args *filterWorkerArgs[T]) er
 
 func (fw *filterWorker[T]) Handle(ctx context.Context, msgIn *msg[T]) (*msg[T], error) {
 	// Extract the span context from the input message
-	_, span := fw.Tel.NewTrace(msgIn.LoadSpanContext(ctx), "filter message")
+	_, span := fw.Tel.StartTrace(msgIn.LoadSpanContext(ctx), "filter message")
 	defer span.End()
 
 	if !fw.filterFn(msgIn.GetBody()) {

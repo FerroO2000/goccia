@@ -21,6 +21,7 @@ func main() {
 	defer cancelCtx()
 
 	telemetry.Init(ctx, "csv-example")
+	defer telemetry.Close()
 
 	fileIngressToCsv := connector.NewRingBuffer[*ingress.FileMessage](connectorSize)
 	decoderToEncoder := connector.NewRingBuffer[*processor.CSVMessage](connectorSize)

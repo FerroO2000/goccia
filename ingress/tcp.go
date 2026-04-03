@@ -12,10 +12,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -209,7 +209,7 @@ type tcpSourceConfig struct {
 }
 
 type tcpSource struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	fanIn *pool.FanIn[*msg[*TCPMessage]]
 
@@ -279,7 +279,7 @@ func newTCPSource(cfg *tcpSourceConfig) *tcpSource {
 	}
 }
 
-func (ts *tcpSource) setTelemetry(tel *internal.Telemetry) {
+func (ts *tcpSource) setTelemetry(tel *telemetry.Telemetry) {
 	ts.tel = tel
 }
 
@@ -303,9 +303,9 @@ func (ts *tcpSource) init(ipAddr string, port uint16) error {
 }
 
 func (ts *tcpSource) initMetrics() {
-	ts.tel.NewUpDownCounter("open_connections", func() int64 { return ts.openConnections.Load() })
-	ts.tel.NewCounter("received_bytes", func() int64 { return ts.receivedBytes.Load() })
-	ts.tel.NewCounter("received_messages", func() int64 { return ts.receivedMessages.Load() })
+	ts.tel.NewUpDownCounterMetric("open_connections", func() int64 { return ts.openConnections.Load() })
+	ts.tel.NewCounterMetric("received_bytes", func() int64 { return ts.receivedBytes.Load() })
+	ts.tel.NewCounterMetric("received_messages", func() int64 { return ts.receivedMessages.Load() })
 }
 
 func (ts *tcpSource) run(ctx context.Context, outConnector msgConn[*TCPMessage]) {
@@ -561,7 +561,7 @@ func (ts *tcpSource) parseBigEndianMsgLen(buf []byte) int {
 
 func (ts *tcpSource) handleMessage(ctx context.Context, rawMsg []byte) *msg[*TCPMessage] {
 	// Create the trace for the incoming message
-	_, span := ts.tel.NewTrace(ctx, "receive TCP message")
+	_, span := ts.tel.StartTrace(ctx, "receive TCP message")
 	defer span.End()
 
 	// Create the TCP message

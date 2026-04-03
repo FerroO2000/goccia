@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"github.com/FerroO2000/goccia/connector"
-	"github.com/FerroO2000/goccia/internal"
 	"github.com/FerroO2000/goccia/internal/config"
+	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
 type stage[WArgs any, In, Out msgBody, Cfg cfg] interface {
@@ -38,7 +38,7 @@ func newStage[WArgs any, In, Out msgBody, Cfg stageCfg](
 ////////////
 
 type stageBase[WArgs any, In, Out msgBody, Cfg cfg] struct {
-	tel *internal.Telemetry
+	tel *telemetry.Telemetry
 
 	config Cfg
 
@@ -50,7 +50,7 @@ func newStageBase[WArgs any, In, Out msgBody, Cfg cfg](
 	name string, inConn msgConn[In], outConn msgConn[Out], cfg Cfg) *stageBase[WArgs, In, Out, Cfg] {
 
 	return &stageBase[WArgs, In, Out, Cfg]{
-		tel: internal.NewTelemetry("processor", name),
+		tel: telemetry.NewTelemetry("processor", name),
 
 		config: cfg,
 

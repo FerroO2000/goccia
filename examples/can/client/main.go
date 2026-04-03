@@ -22,6 +22,7 @@ func main() {
 	defer cancelCtx()
 
 	telemetry.Init(ctx, "can-client-example")
+	defer telemetry.Close()
 
 	tickerToCustom := connector.NewRingBuffer[*ingress.TickerMessage](connectorSize)
 	customToCannelloni := connector.NewRingBuffer[*processor.CannelloniMessage](connectorSize)
