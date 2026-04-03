@@ -121,7 +121,7 @@ func (s *Scaler) evaluateAndScale(ctx context.Context) {
 	// Calculate queue depth per worker
 	queueDepthPerWorker := float64(pendingTasks) / float64(currWorkers)
 
-	s.tel.LogInfo(context.TODO(), "auto-scaling metrics",
+	s.tel.LogInfo("auto-scaling metrics",
 		"current_workers", currWorkers,
 		"active_workers", activeWorkers,
 		"pending_tasks", pendingTasks,
@@ -135,7 +135,7 @@ func (s *Scaler) evaluateAndScale(ctx context.Context) {
 		targetWorkers := min(currWorkers+workersToAdd, s.cfg.maxWorkers)
 
 		if targetWorkers > currWorkers {
-			s.tel.LogInfo(context.TODO(), "scaling up", "from", currWorkers, "to", targetWorkers)
+			s.tel.LogInfo("scaling up", "from", currWorkers, "to", targetWorkers)
 			s.scaleWorkers(ctx, int(targetWorkers))
 		}
 
@@ -156,7 +156,7 @@ func (s *Scaler) evaluateAndScale(ctx context.Context) {
 		targetWorkers := max(currWorkers-workersToRemove, s.cfg.minWorkers)
 
 		if targetWorkers < currWorkers {
-			s.tel.LogInfo(context.TODO(), "scaling down", "from", currWorkers, "to", targetWorkers)
+			s.tel.LogInfo("scaling down", "from", currWorkers, "to", targetWorkers)
 			s.scaleWorkers(ctx, int(targetWorkers))
 		}
 	}

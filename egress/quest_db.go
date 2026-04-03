@@ -409,6 +409,6 @@ func (qs *QuestDBStage) Close() {
 
 	// Close the sender pool
 	if err := qs.senderPool.Close(context.Background()); err != nil {
-		qs.Tel().LogError(context.TODO(), "failed to close sender pool", err)
+		qs.Tel().LogError("failed to close sender pool", err)
 	}
 }

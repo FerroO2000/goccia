@@ -50,7 +50,7 @@ func (wm *workerMetrics) init() {
 
 	totMsgProcessingTime, err := wm.tel.NewHistogramMetric("total_message_processing_time", metric.WithUnit("ms"))
 	if err != nil {
-		wm.tel.LogError(context.Background(), "unable to create histogram metric", err)
+		wm.tel.LogErrorCtx(context.Background(), "unable to create histogram metric", err)
 	}
 	wm.totMsgProcessingTime = totMsgProcessingTime
 }
@@ -95,12 +95,12 @@ func newWorker[Args any, In msgBody](
 }
 
 func (w *worker[Args, In]) init(ctx context.Context, args Args) error {
-	w.tel.LogInfo(context.TODO(), "initializing worker", "worker_id", w.id)
+	w.tel.LogInfo("initializing worker", "worker_id", w.id)
 
 	w.inst.SetTelemetry(w.tel)
 
 	if err := w.inst.Init(ctx, args); err != nil {
-		w.tel.LogError(context.TODO(), "failed to init worker", err, "worker_id", w.id)
+		w.tel.LogError("failed to init worker", err, "worker_id", w.id)
 		return err
 	}
 
@@ -114,7 +114,7 @@ func (w *worker[Args, In]) deliver(ctx context.Context, msgIn *msg[In]) {
 	ctx = msgIn.LoadSpanContext(ctx)
 
 	if err := w.inst.Deliver(ctx, msgIn); err != nil {
-		w.tel.LogError(context.TODO(), "failed to deliver message", err, "worker_id", w.id)
+		w.tel.LogError("failed to deliver message", err, "worker_id", w.id)
 		w.metrics.incrementDeliveringErrors()
 	}
 
@@ -123,10 +123,10 @@ func (w *worker[Args, In]) deliver(ctx context.Context, msgIn *msg[In]) {
 }
 
 func (w *worker[Args, In]) close(ctx context.Context) {
-	w.tel.LogInfo(context.TODO(), "closing worker", "worker_id", w.id)
+	w.tel.LogInfo("closing worker", "worker_id", w.id)
 
 	if err := w.inst.Close(ctx); err != nil {
-		w.tel.LogError(context.TODO(), "failed to close worker", err, "worker_id", w.id)
+		w.tel.LogError("failed to close worker", err, "worker_id", w.id)
 	}
 }
 
@@ -243,7 +243,7 @@ func (wp *workerPool[Args, In]) runWorker(ctx context.Context) {
 }
 
 func (wp *workerPool[Args, In]) close() {
-	wp.tel.LogInfo(context.TODO(), "closing worker pool")
+	wp.tel.LogInfo("closing worker pool")
 
 	wp.fanOut.Close()
 

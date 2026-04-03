@@ -181,7 +181,7 @@ func (us *udpSource) run(ctx context.Context, outConnector msgConn[*UDPMessage])
 				}
 			}
 
-			us.tel.LogError(context.TODO(), "failed to read connection", err)
+			us.tel.LogError("failed to read connection", err)
 			return
 		}
 
@@ -189,7 +189,7 @@ func (us *udpSource) run(ctx context.Context, outConnector msgConn[*UDPMessage])
 		msgOut := us.handleBuf(ctx, buf[:n])
 		if err := outConnector.Write(msgOut); err != nil {
 			msgOut.Destroy()
-			us.tel.LogError(context.TODO(), "failed to write message to output connector", err)
+			us.tel.LogError("failed to write message to output connector", err)
 		}
 	}
 }

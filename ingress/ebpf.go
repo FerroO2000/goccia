@@ -170,7 +170,7 @@ func (es *ebpfSource[T]) init(cfg *ebpfSourceConfig) error {
 	// Open the ring buffer
 	rb, err := ringbuf.NewReader(cfg.ringBufferMap)
 	if err != nil {
-		es.tel.LogError(context.TODO(), "failed to create ring buffer", err)
+		es.tel.LogError("failed to create ring buffer", err)
 
 		return err
 	}
@@ -206,19 +206,19 @@ func (es *ebpfSource[T]) run(ctx context.Context, outConn msgConn[*EBPFMessage[T
 				return
 			}
 
-			es.tel.LogError(context.TODO(), "failed to read from ring buffer", err)
+			es.tel.LogError("failed to read from ring buffer", err)
 			continue
 		}
 
 		outMsg, err := es.handleRecord(ctx, &record)
 		if err != nil {
-			es.tel.LogError(context.TODO(), "failed to handle record", err)
+			es.tel.LogError("failed to handle record", err)
 			continue
 		}
 
 		if err := outConn.Write(outMsg); err != nil {
 			outMsg.Destroy()
-			es.tel.LogError(context.TODO(), "failed to write into output connector", err)
+			es.tel.LogError("failed to write into output connector", err)
 		}
 	}
 }
@@ -304,14 +304,14 @@ func NewEBPFStage[T, O any, OPtr ebpfObjsPtr[O]](outputConnector msgConn[*EBPFMe
 func (es *EBPFStage[T, O, OPtr]) Init(ctx context.Context) error {
 	// Remove resource limits for locked memory
 	if err := rlimit.RemoveMemlock(); err != nil {
-		es.tel.LogError(context.TODO(), "failed to remove memlock limits", err)
+		es.tel.LogError("failed to remove memlock limits", err)
 		return err
 	}
 
 	// Load the compiled eBPF ELF file
 	spec, err := es.cfg.LoadFn()
 	if err != nil {
-		es.tel.LogError(context.TODO(), "failed to load eBPF spec", err)
+		es.tel.LogError("failed to load eBPF spec", err)
 		return err
 	}
 
@@ -319,7 +319,7 @@ func (es *EBPFStage[T, O, OPtr]) Init(ctx context.Context) error {
 	var dummyObjs O
 	objs := OPtr(&dummyObjs)
 	if err := spec.LoadAndAssign(objs, es.cfg.CollectionOptions); err != nil {
-		es.tel.LogError(context.TODO(), "failed to load eBPF objects", err)
+		es.tel.LogError("failed to load eBPF objects", err)
 		return err
 	}
 	es.objs = objs
@@ -327,7 +327,7 @@ func (es *EBPFStage[T, O, OPtr]) Init(ctx context.Context) error {
 	// Get the link
 	link, err := es.cfg.LinkFn(objs)
 	if err != nil {
-		es.tel.LogError(context.TODO(), "failed to attach eBPF program", err)
+		es.tel.LogError("failed to attach eBPF program", err)
 		return err
 	}
 	es.link = link

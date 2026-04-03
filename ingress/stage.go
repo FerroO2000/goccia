@@ -38,7 +38,7 @@ func newStage[Out msgBody, Cfg cfg](name string, source source[Out], outConn msg
 }
 
 func (s *stage[Out, Cfg]) Init(_ context.Context) error {
-	s.tel.LogInfo(context.TODO(), "initializing")
+	s.tel.LogInfo("initializing")
 
 	configValidator := config.NewValidator(s.tel)
 	configValidator.Validate(s.cfg)
@@ -51,7 +51,7 @@ func (s *stage[Out, Cfg]) Run(ctx context.Context) {
 }
 
 func (s *stage[Out, Cfg]) Close() {
-	s.tel.LogInfo(context.TODO(), "closing")
+	s.tel.LogInfo("closing")
 
 	// Close the output connector
 	s.outputConnector.Close()

@@ -99,7 +99,7 @@ func (ts *tickerSource) run(ctx context.Context, outConnector msgConn[*TickerMes
 			msgOut := ts.handleTrigger(ctx, ticks)
 			if err := outConnector.Write(msgOut); err != nil {
 				msgOut.Destroy()
-				ts.tel.LogError(context.TODO(), "failed to write message to output connector", err)
+				ts.tel.LogError("failed to write message to output connector", err)
 			}
 		}
 	}

@@ -262,6 +262,6 @@ func (ks *KafkaStage) Close() {
 	ks.stage.Close()
 
 	if err := ks.writer.Close(); err != nil {
-		ks.Tel().LogError(context.TODO(), "failed to close writer", err)
+		ks.Tel().LogError("failed to close writer", err)
 	}
 }

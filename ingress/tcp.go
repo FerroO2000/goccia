@@ -326,7 +326,7 @@ func (ts *tcpSource) run(ctx context.Context, outConnector msgConn[*TCPMessage])
 				return
 
 			default:
-				ts.tel.LogError(context.TODO(), "failed to accept connection", err)
+				ts.tel.LogError("failed to accept connection", err)
 				continue
 			}
 		}
@@ -351,7 +351,7 @@ func (ts *tcpSource) runBridge(ctx context.Context, outConnector msgConn[*TCPMes
 
 		if err := outConnector.Write(msgOut); err != nil {
 			msgOut.Destroy()
-			ts.tel.LogError(context.TODO(), "failed to write into output connector", err)
+			ts.tel.LogError("failed to write into output connector", err)
 		}
 	}
 }
@@ -428,7 +428,7 @@ loop:
 
 			// For any other error, break the loop and close the server connection.
 			// This is likely be caused by the read deadline being exceeded.
-			ts.tel.LogError(context.TODO(), "failed to read connection", err)
+			ts.tel.LogError("failed to read connection", err)
 			return
 		}
 
@@ -437,7 +437,7 @@ loop:
 
 		// Prevent accumulator from growing too large
 		if len(acc) > ts.maxMsgSize {
-			ts.tel.LogWarn(context.TODO(), "message too large, closing connection")
+			ts.tel.LogWarn("message too large, closing connection")
 			return
 		}
 
@@ -478,7 +478,7 @@ loop:
 			outMsg.GetBody().RemoteAddr = conn.RemoteAddr().String()
 			if err := ts.fanIn.AddTask(outMsg); err != nil {
 				outMsg.Destroy()
-				ts.tel.LogError(context.TODO(), "failed to write message to fan in connector", err)
+				ts.tel.LogError("failed to write message to fan in connector", err)
 			}
 
 			// Remove the message from the accumulator
@@ -493,7 +493,7 @@ loop:
 
 		// Prevent accumulator from growing too large, as before
 		if len(acc) > ts.maxMsgSize {
-			ts.tel.LogWarn(context.TODO(), "message too large, closing connection")
+			ts.tel.LogWarn("message too large, closing connection")
 			return
 		}
 	}

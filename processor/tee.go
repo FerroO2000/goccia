@@ -37,7 +37,7 @@ func NewTeeStage[T msgBody](inputConnector msgConn[T], outputConnectors ...msgCo
 
 // Init initializes the stage.
 func (ts *TeeStage[T]) Init(_ context.Context) error {
-	ts.tel.LogInfo(context.TODO(), "initializing")
+	ts.tel.LogInfo("initializing")
 
 	cloneCount := len(ts.outputConnectors)
 	if cloneCount == 0 {
@@ -56,7 +56,7 @@ func (ts *TeeStage[T]) initMetrics() {
 
 // Run runs the stage.
 func (ts *TeeStage[T]) Run(ctx context.Context) {
-	ts.tel.LogInfo(context.TODO(), "running")
+	ts.tel.LogInfo("running")
 
 	for {
 		select {
@@ -68,7 +68,7 @@ func (ts *TeeStage[T]) Run(ctx context.Context) {
 		msgIn, err := ts.inputConnector.Read(ctx)
 		if err != nil {
 			if errors.Is(err, connector.ErrClosed) {
-				ts.tel.LogInfo(context.TODO(), "input connector is closed, stopping")
+				ts.tel.LogInfo("input connector is closed, stopping")
 				return
 			}
 
@@ -93,14 +93,14 @@ func (ts *TeeStage[T]) clone(ctx context.Context, msgIn *msg[T]) {
 		if err := outConn.Write(msgOut); err != nil {
 			// Destroy the cloned message, if the write fails
 			msgOut.Destroy()
-			ts.tel.LogError(context.TODO(), "failed to write into output connector", err)
+			ts.tel.LogError("failed to write into output connector", err)
 		}
 	}
 }
 
 // Close closes the stage.
 func (ts *TeeStage[T]) Close() {
-	ts.tel.LogInfo(context.TODO(), "closing")
+	ts.tel.LogInfo("closing")
 
 	for _, outConn := range ts.outputConnectors {
 		outConn.Close()

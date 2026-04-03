@@ -1,8 +1,6 @@
 package config
 
 import (
-	"context"
-
 	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
@@ -32,7 +30,7 @@ func (m *Validator) Validate(config Config) {
 }
 
 func (m *Validator) handleAnomaly(an *anomaly) {
-	m.tel.LogWarn(context.TODO(), "config anomaly",
+	m.tel.LogWarn("config anomaly",
 		"field", an.field, "reason", an.reason,
 		"actual", an.actual, "fallback", an.fallback)
 }

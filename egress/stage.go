@@ -56,18 +56,18 @@ func newStageBase[WArgs any, In msgBody, Cfg cfg](name string, inConn msgConn[In
 }
 
 func (s *stageBase[WArgs, In, Cfg]) init() {
-	s.tel.LogInfo(context.TODO(), "initializing")
+	s.tel.LogInfo("initializing")
 
 	configValidator := config.NewValidator(s.tel)
 	configValidator.Validate(s.config)
 }
 
 func (s *stageBase[WArgs, In, Cfg]) run() {
-	s.tel.LogInfo(context.TODO(), "running")
+	s.tel.LogInfo("running")
 }
 
 func (s *stageBase[WArgs, In, Cfg]) close() {
-	s.tel.LogInfo(context.TODO(), "closing")
+	s.tel.LogInfo("closing")
 }
 
 func (s *stageBase[WArgs, In, Cfg]) Tel() *telemetry.Telemetry {
@@ -127,7 +127,7 @@ func (s *stageSingle[WArgs, In, Cfg]) Run(ctx context.Context) {
 		if err != nil {
 			// Check if the input connector is closed, if so stop
 			if errors.Is(err, connector.ErrClosed) {
-				s.tel.LogInfo(context.TODO(), "input connector is closed, stopping")
+				s.tel.LogInfo("input connector is closed, stopping")
 				return
 			}
 
@@ -191,7 +191,7 @@ func (s *stagePool[WArgs, In, Cfg]) Run(ctx context.Context) {
 		if err != nil {
 			// Check if the input connector is closed, if so stop
 			if errors.Is(err, connector.ErrClosed) {
-				s.tel.LogInfo(context.TODO(), "input connector is closed, stopping")
+				s.tel.LogInfo("input connector is closed, stopping")
 				return
 			}
 

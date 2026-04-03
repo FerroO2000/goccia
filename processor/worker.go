@@ -86,12 +86,12 @@ func newWorker[Args any, In, Out msgBody](
 }
 
 func (w *worker[Args, In, Out]) init(ctx context.Context, args Args) error {
-	w.tel.LogInfo(context.TODO(), "initializing worker", "worker_id", w.id)
+	w.tel.LogInfo("initializing worker", "worker_id", w.id)
 
 	w.inst.SetTelemetry(w.tel)
 
 	if err := w.inst.Init(ctx, args); err != nil {
-		w.tel.LogError(context.TODO(), "failed to init worker", err, "worker_id", w.id)
+		w.tel.LogError("failed to init worker", err, "worker_id", w.id)
 		return err
 	}
 
@@ -108,7 +108,7 @@ func (w *worker[Args, In, Out]) process(ctx context.Context, msgIn *msg[In]) (*m
 
 	msgOut, err := w.inst.Handle(ctx, msgIn)
 	if err != nil {
-		w.tel.LogError(context.TODO(), "failed to process message", err, "worker_id", w.id)
+		w.tel.LogError("failed to process message", err, "worker_id", w.id)
 		w.metrics.incrementProcessingErrors()
 
 		return msgOut, false
@@ -129,10 +129,10 @@ func (w *worker[Args, In, Out]) process(ctx context.Context, msgIn *msg[In]) (*m
 }
 
 func (w *worker[Args, In, Out]) close(ctx context.Context) {
-	w.tel.LogInfo(context.TODO(), "closing worker", "worker_id", w.id)
+	w.tel.LogInfo("closing worker", "worker_id", w.id)
 
 	if err := w.inst.Close(ctx); err != nil {
-		w.tel.LogError(context.TODO(), "failed to close worker", err, "worker_id", w.id)
+		w.tel.LogError("failed to close worker", err, "worker_id", w.id)
 	}
 }
 
@@ -190,7 +190,7 @@ func (wp *workerPool[WArgs, In, Out]) init(ctx context.Context, workerArgs WArgs
 }
 
 func (wp *workerPool[WArgs, In, Out]) run(ctx context.Context) {
-	wp.tel.LogInfo(context.TODO(), "running worker pool")
+	wp.tel.LogInfo("running worker pool")
 
 	go wp.runStartWorkerListener(ctx)
 	go wp.scaler.Run(ctx)
@@ -247,7 +247,7 @@ func (wp *workerPool[WArgs, In, Out]) runWorker(ctx context.Context) {
 
 			if msgOut, valid := worker.process(ctx, msgIn); valid {
 				if err := wp.fanIn.AddTask(msgOut); err != nil {
-					wp.tel.LogError(context.TODO(), "failed to fan-in task", err)
+					wp.tel.LogError("failed to fan-in task", err)
 				}
 			}
 
@@ -257,7 +257,7 @@ func (wp *workerPool[WArgs, In, Out]) runWorker(ctx context.Context) {
 }
 
 func (wp *workerPool[WArgs, In, Out]) close() {
-	wp.tel.LogInfo(context.TODO(), "closing worker pool")
+	wp.tel.LogInfo("closing worker pool")
 
 	wp.fanOut.Close()
 

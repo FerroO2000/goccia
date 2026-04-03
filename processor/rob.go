@@ -100,7 +100,7 @@ func NewROBStage[T message.ReOrderable](inConnector, outConnector msgConn[T], cf
 
 // Init initializes the stage.
 func (rs *ROBStage[T]) Init(_ context.Context) error {
-	rs.tel.LogInfo(context.TODO(), "initializing")
+	rs.tel.LogInfo("initializing")
 
 	rs.rob = rob.NewROB(rs.outputConnector, &rob.Config{
 		MaxSeqNum:           rs.cfg.MaxSeqNum,
@@ -131,7 +131,7 @@ func (rs *ROBStage[T]) initMetrics() {
 
 // Run runs the re-order buffer stage.
 func (rs *ROBStage[T]) Run(ctx context.Context) {
-	rs.tel.LogInfo(context.TODO(), "running")
+	rs.tel.LogInfo("running")
 
 	resetNeeded := false
 	for {
@@ -162,7 +162,7 @@ func (rs *ROBStage[T]) Run(ctx context.Context) {
 				rs.resets.Add(1)
 				resetNeeded = false
 
-				rs.tel.LogInfo(context.TODO(), "resetting and flushing re-order buffer")
+				rs.tel.LogInfo("resetting and flushing re-order buffer")
 			}
 
 			continue
@@ -210,8 +210,8 @@ func (rs *ROBStage[T]) enqueue(ctx context.Context, msgIn *msg[T]) {
 
 // Close closes the stage.
 func (rs *ROBStage[T]) Close() {
-	rs.tel.LogInfo(context.TODO(), "closing")
-	defer rs.tel.LogInfo(context.TODO(), "closed")
+	rs.tel.LogInfo("closing")
+	defer rs.tel.LogInfo("closed")
 
 	rs.outputConnector.Close()
 }

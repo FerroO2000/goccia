@@ -187,7 +187,7 @@ func (fw *fileWorker[T]) runTicker(ctx context.Context) {
 
 		case <-fw.ticker.C:
 			if err := fw.flush(); err != nil {
-				fw.Tel.LogError(context.TODO(), "periodic flush failed", err, "path", fw.path)
+				fw.Tel.LogError("periodic flush failed", err, "path", fw.path)
 			}
 		}
 	}
@@ -201,7 +201,7 @@ func (fw *fileWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
 	chunk := msgIn.GetBody().GetBytes()
 	n, err := fw.writer.Write(chunk)
 	if err != nil {
-		fw.Tel.LogError(context.TODO(), "failed to write to file", err, "path", fw.path)
+		fw.Tel.LogError("failed to write to file", err, "path", fw.path)
 		fw.metrics.incrementWriteErrors()
 
 		return err
@@ -235,7 +235,7 @@ func (fw *fileWorker[T]) flush() error {
 	}
 
 	if err := fw.writer.Flush(); err != nil {
-		fw.Tel.LogError(context.TODO(), "failed to flush writer", err, "path", fw.path)
+		fw.Tel.LogError("failed to flush writer", err, "path", fw.path)
 		fw.metrics.incrementFlushErrors()
 
 		return err
@@ -309,10 +309,10 @@ func (fs *FileStage[T]) Close() {
 
 	// Sync and close the file
 	if err := fs.file.Sync(); err != nil {
-		fs.Tel().LogError(context.TODO(), "failed to sync file", err, "path", fs.path)
+		fs.Tel().LogError("failed to sync file", err, "path", fs.path)
 	}
 
 	if err := fs.file.Close(); err != nil {
-		fs.Tel().LogError(context.TODO(), "failed to close file", err, "path", fs.path)
+		fs.Tel().LogError("failed to close file", err, "path", fs.path)
 	}
 }

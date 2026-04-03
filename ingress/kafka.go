@@ -279,14 +279,14 @@ func (ks *kafkaSource) run(ctx context.Context, outConnector msgConn[*KafkaMessa
 				return
 			}
 
-			ks.tel.LogError(context.TODO(), "failed to read message", err)
+			ks.tel.LogError("failed to read message", err)
 			continue
 		}
 
 		msgOut := ks.handleMessage(ctx, &msg)
 		if err := outConnector.Write(msgOut); err != nil {
 			msgOut.Destroy()
-			ks.tel.LogError(context.TODO(), "failed to write message to output connector", err)
+			ks.tel.LogError("failed to write message to output connector", err)
 		}
 
 		ks.receivedMessages.Add(1)
@@ -327,7 +327,7 @@ func (ks *kafkaSource) handleMessage(ctx context.Context, msg *kafka.Message) *m
 
 func (ks *kafkaSource) close() {
 	if err := ks.reader.Close(); err != nil {
-		ks.tel.LogError(context.TODO(), "failed to close reader", err)
+		ks.tel.LogError("failed to close reader", err)
 	}
 }
 
