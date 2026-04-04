@@ -218,7 +218,8 @@ type KafkaMessage struct {
 	Headers []kafka.Header
 }
 
-func newKafkaMessage() *KafkaMessage {
+// NewKafkaMessage returns a new Kafka message.
+func NewKafkaMessage() *KafkaMessage {
 	return &KafkaMessage{}
 }
 
@@ -302,7 +303,7 @@ func (ks *kafkaSource) handleMessage(ctx context.Context, msg *kafka.Message) *m
 	_, span := ks.tel.StartTrace(ctx, "handle kafka message")
 	defer span.End()
 
-	kafkaMsg := newKafkaMessage()
+	kafkaMsg := NewKafkaMessage()
 
 	kafkaMsg.Topic = msg.Topic
 	kafkaMsg.Key = msg.Key

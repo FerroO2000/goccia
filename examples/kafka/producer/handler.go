@@ -21,7 +21,9 @@ func (h *tickerToKafkaHandler) Init(_ context.Context) error {
 	return nil
 }
 
-func (h *tickerToKafkaHandler) Handle(_ context.Context, tickerMsg *ingress.TickerMessage, kafkaMsg *egress.KafkaMessage) error {
+func (h *tickerToKafkaHandler) Handle(_ context.Context, tickerMsg *ingress.TickerMessage) (*egress.KafkaMessage, error) {
+	kafkaMsg := egress.NewKafkaMessage()
+
 	tick := tickerMsg.TickNumber
 	strTick := strconv.Itoa(tick)
 
@@ -29,7 +31,7 @@ func (h *tickerToKafkaHandler) Handle(_ context.Context, tickerMsg *ingress.Tick
 	kafkaMsg.Key = []byte(strTick)
 	kafkaMsg.Value = []byte(strTick)
 
-	return nil
+	return kafkaMsg, nil
 }
 
 func (h *tickerToKafkaHandler) Close() {}

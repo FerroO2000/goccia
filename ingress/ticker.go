@@ -50,7 +50,8 @@ type TickerMessage struct {
 	TickNumber int
 }
 
-func newTickerMessage() *TickerMessage {
+// NewTickerMessage returns a new Ticker message.
+func NewTickerMessage() *TickerMessage {
 	return &TickerMessage{}
 }
 
@@ -109,7 +110,7 @@ func (ts *tickerSource) handleTrigger(ctx context.Context, tick int) *msg[*Ticke
 	_, span := ts.tel.StartTrace(ctx, "triggered ticker message")
 	defer span.End()
 
-	tickerMsg := newTickerMessage()
+	tickerMsg := NewTickerMessage()
 	tickerMsg.TickNumber = tick
 
 	msg := message.NewMessage(tickerMsg)

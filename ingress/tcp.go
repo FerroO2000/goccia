@@ -173,7 +173,8 @@ type TCPMessage struct {
 	MessageSize int
 }
 
-func newTCPMessage() *TCPMessage {
+// NewTCPMessage returns a new TCPMessage.
+func NewTCPMessage() *TCPMessage {
 	return &TCPMessage{}
 }
 
@@ -565,7 +566,7 @@ func (ts *tcpSource) handleMessage(ctx context.Context, rawMsg []byte) *msg[*TCP
 	defer span.End()
 
 	// Create the TCP message
-	tcpMsg := newTCPMessage()
+	tcpMsg := NewTCPMessage()
 
 	// Extract the payload from the buffer
 	msgSize := len(rawMsg)

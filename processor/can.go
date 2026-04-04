@@ -105,7 +105,8 @@ type CANMessage struct {
 	SignalCount int
 }
 
-func newCANMessage() *CANMessage {
+// NewCANMessage returns a new CAN message.
+func NewCANMessage() *CANMessage {
 	return &CANMessage{
 		SignalCount: 0,
 		Signals:     []CANSignal{},
@@ -229,7 +230,7 @@ func (cw *canWorker[T]) Handle(ctx context.Context, msgIn *msg[T]) (*msg[*CANMes
 	defer span.End()
 
 	// Create the CAN message
-	canMsg := newCANMessage()
+	canMsg := NewCANMessage()
 
 	rawMessages := msgIn.GetBody().GetRawMessages()
 	rawMsgCount := len(rawMessages)

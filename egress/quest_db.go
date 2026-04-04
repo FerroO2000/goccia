@@ -62,6 +62,11 @@ type QuestDBMessage struct {
 	rows []*QuestDBRow
 }
 
+// NewQuestDBMessage returns a new QuestDB message.
+func NewQuestDBMessage() *QuestDBMessage {
+	return &QuestDBMessage{}
+}
+
 // Destroy cleans up the message.
 func (qm *QuestDBMessage) Destroy() {}
 

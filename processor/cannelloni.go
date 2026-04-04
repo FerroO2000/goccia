@@ -51,10 +51,11 @@ type CannelloniMessage struct {
 	MessageCount int
 }
 
-func newCannelloniMessage() *CannelloniMessage {
+// NewCannelloniMessage returns a new CannelloniMessage.
+func NewCannelloniMessage() *CannelloniMessage {
 	return &CannelloniMessage{
 		MessageCount: 0,
-		Messages:     make([]CANRawMessage, defaultCANMessageNum),
+		Messages:     make([]CANRawMessage, 0, defaultCANMessageNum),
 	}
 }
 
@@ -78,6 +79,12 @@ func (cm *CannelloniMessage) GetRawMessages() []CANRawMessage {
 
 // AddMessage adds a new CAN message to the cannelloni frame.
 func (cm *CannelloniMessage) AddMessage(msg CANRawMessage) {
+	if len(cm.Messages) == cap(cm.Messages) {
+		newMessages := make([]CANRawMessage, len(cm.Messages), cap(cm.Messages)+defaultCANMessageNum)
+		copy(newMessages, cm.Messages)
+		cm.Messages = newMessages
+	}
+
 	cm.Messages = append(cm.Messages, msg)
 	cm.MessageCount++
 }
@@ -89,7 +96,8 @@ type CannelloniEncodedMessage struct {
 	payload []byte
 }
 
-func newCannelloniEncodedMessage() *CannelloniEncodedMessage {
+// NewCannelloniEncodedMessage returns a new CannelloniEncodedMessage.
+func NewCannelloniEncodedMessage() *CannelloniEncodedMessage {
 	return &CannelloniEncodedMessage{}
 }
 
@@ -285,26 +293,21 @@ func (cdw *cannelloniDecoderWorker[T]) Handle(ctx context.Context, msgIn *msg[T]
 	}
 
 	// Create the cannelloni message with the decoded frame data
-	cannelloniMsg := newCannelloniMessage()
-
+	cannelloniMsg := NewCannelloniMessage()
 	cannelloniMsg.seqNum = f.sequenceNumber
 
-	messageCount := len(f.messages)
-	cannelloniMsg.MessageCount = messageCount
-	if messageCount > defaultCANMessageNum {
-		cannelloniMsg.Messages = make([]CANRawMessage, messageCount)
-	}
-
-	for idx, tmpMsg := range f.messages {
-		cannelloniMsg.Messages[idx] = CANRawMessage{
-			CANID:   tmpMsg.canID,
-			DataLen: int(tmpMsg.dataLen),
-			RawData: tmpMsg.data,
-		}
+	for _, tmpMsg := range f.messages {
+		cannelloniMsg.AddMessage(
+			CANRawMessage{
+				CANID:   tmpMsg.canID,
+				DataLen: int(tmpMsg.dataLen),
+				RawData: tmpMsg.data,
+			},
+		)
 	}
 
 	// Save the span into the message
-	span.SetAttributes(attribute.Int("message_count", messageCount))
+	span.SetAttributes(attribute.Int("message_count", cannelloniMsg.MessageCount))
 
 	msgOut := message.NewMessage(cannelloniMsg)
 	msgOut.SaveSpan(span)
@@ -358,7 +361,7 @@ func (cew *cannelloniEncoderWorker) Handle(ctx context.Context, msgIn *msg[*Cann
 	}
 
 	// Encode into a cannelloni message
-	encodedMsg := newCannelloniEncodedMessage()
+	encodedMsg := NewCannelloniEncodedMessage()
 	encodedMsg.payload = cew.encoder.encode(f)
 
 	msgOut := message.NewMessage(encodedMsg)

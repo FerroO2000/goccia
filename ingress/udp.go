@@ -84,7 +84,8 @@ type UDPMessage struct {
 	PayloadSize int
 }
 
-func newUDPMessage() *UDPMessage {
+// NewUDPMessage returns a new UDP message.
+func NewUDPMessage() *UDPMessage {
 	return udpMessagePool.Get().(*UDPMessage)
 }
 
@@ -200,7 +201,7 @@ func (us *udpSource) handleBuf(ctx context.Context, buf []byte) *msg[*UDPMessage
 	defer span.End()
 
 	// Create the UDP message
-	udpMsg := newUDPMessage()
+	udpMsg := NewUDPMessage()
 
 	// Extract the payload from the buffer
 	payloadSize := len(buf)

@@ -155,7 +155,7 @@
                },
                "expr": "worker_pool_active_workers{exported_job=\"$service\"}",
                "interval": "15s",
-               "legendFormat": "{{goccia_stage_kind}} - {{goccia_stage_name}}"
+               "legendFormat": "{{stage_kind}} - {{stage_name}}"
             }
          ],
          "title": "Active Workers",
@@ -232,7 +232,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "rate(received_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"ebpf\",exported_job=\"$service\"}[$__rate_interval])",
+                     "expr": "rate(received_bytes_total{stage_kind=\"ingress\",stage_name=\"ebpf\",exported_job=\"$service\"}[$__rate_interval])",
                      "interval": "15s"
                   }
                ],
@@ -272,7 +272,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "received_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"ebpf\",exported_job=\"$service\"}",
+                     "expr": "received_bytes_total{stage_kind=\"ingress\",stage_name=\"ebpf\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -312,7 +312,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "received_records_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"ebpf\",exported_job=\"$service\"}",
+                     "expr": "received_records_total{stage_kind=\"ingress\",stage_name=\"ebpf\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -352,7 +352,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "parsing_errors_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"ebpf\",exported_job=\"$service\"}",
+                     "expr": "parsing_errors_total{stage_kind=\"ingress\",stage_name=\"ebpf\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -406,7 +406,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "readers{goccia_stage_kind=\"ingress\",goccia_stage_name=\"file\",exported_job=\"$service\"}",
+                     "expr": "readers{stage_kind=\"ingress\",stage_name=\"file\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -446,7 +446,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "active_readers{goccia_stage_kind=\"ingress\",goccia_stage_name=\"file\",exported_job=\"$service\"}",
+                     "expr": "active_readers{stage_kind=\"ingress\",stage_name=\"file\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -486,7 +486,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "rate(read_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"file\",exported_job=\"$service\"}[$__rate_interval])",
+                     "expr": "rate(read_bytes_total{stage_kind=\"ingress\",stage_name=\"file\",exported_job=\"$service\"}[$__rate_interval])",
                      "interval": "15s"
                   }
                ],
@@ -526,7 +526,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "read_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"file\",exported_job=\"$service\"}",
+                     "expr": "read_bytes_total{stage_kind=\"ingress\",stage_name=\"file\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -580,7 +580,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "rate(received_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"kafka\",exported_job=\"$service\"}[$__rate_interval])",
+                     "expr": "rate(received_bytes_total{stage_kind=\"ingress\",stage_name=\"kafka\",exported_job=\"$service\"}[$__rate_interval])",
                      "interval": "15s"
                   }
                ],
@@ -620,7 +620,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "received_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"kafka\",exported_job=\"$service\"}",
+                     "expr": "received_bytes_total{stage_kind=\"ingress\",stage_name=\"kafka\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -660,7 +660,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "received_messages_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"kafka\",exported_job=\"$service\"}",
+                     "expr": "received_messages_total{stage_kind=\"ingress\",stage_name=\"kafka\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -714,7 +714,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "open_connections{goccia_stage_kind=\"ingress\",goccia_stage_name=\"tcp\",exported_job=\"$service\"}",
+                     "expr": "open_connections{stage_kind=\"ingress\",stage_name=\"tcp\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -754,7 +754,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "rate(received_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"tcp\",exported_job=\"$service\"}[$__rate_interval])",
+                     "expr": "rate(received_bytes_total{stage_kind=\"ingress\",stage_name=\"tcp\",exported_job=\"$service\"}[$__rate_interval])",
                      "interval": "15s"
                   }
                ],
@@ -794,7 +794,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "received_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"tcp\",exported_job=\"$service\"}",
+                     "expr": "received_bytes_total{stage_kind=\"ingress\",stage_name=\"tcp\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -834,7 +834,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "received_messages_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"tcp\",exported_job=\"$service\"}",
+                     "expr": "received_messages_total{stage_kind=\"ingress\",stage_name=\"tcp\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -888,7 +888,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "rate(received_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"udp\",exported_job=\"$service\"}[$__rate_interval])",
+                     "expr": "rate(received_bytes_total{stage_kind=\"ingress\",stage_name=\"udp\",exported_job=\"$service\"}[$__rate_interval])",
                      "interval": "15s"
                   }
                ],
@@ -928,7 +928,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "received_bytes_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"udp\",exported_job=\"$service\"}",
+                     "expr": "received_bytes_total{stage_kind=\"ingress\",stage_name=\"udp\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -968,7 +968,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "received_messages_total{goccia_stage_kind=\"ingress\",goccia_stage_name=\"udp\",exported_job=\"$service\"}",
+                     "expr": "received_messages_total{stage_kind=\"ingress\",stage_name=\"udp\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1022,7 +1022,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "processed_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"can\",exported_job=\"$service\"}",
+                     "expr": "processed_messages_total{stage_kind=\"processor\",stage_name=\"can\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1062,7 +1062,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "processing_errors_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"can\",exported_job=\"$service\"}",
+                     "expr": "processing_errors_total{stage_kind=\"processor\",stage_name=\"can\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1102,7 +1102,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "dropped_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"can\",exported_job=\"$service\"}",
+                     "expr": "dropped_messages_total{stage_kind=\"processor\",stage_name=\"can\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1142,7 +1142,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "can_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"can\",exported_job=\"$service\"}",
+                     "expr": "can_messages_total{stage_kind=\"processor\",stage_name=\"can\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1182,7 +1182,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "can_signals_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"can\",exported_job=\"$service\"}",
+                     "expr": "can_signals_total{stage_kind=\"processor\",stage_name=\"can\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1236,7 +1236,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "processed_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"cannelloni_decoder\",exported_job=\"$service\"}",
+                     "expr": "processed_messages_total{stage_kind=\"processor\",stage_name=\"cannelloni_decoder\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1276,7 +1276,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "processing_errors_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"cannelloni_decoder\",exported_job=\"$service\"}",
+                     "expr": "processing_errors_total{stage_kind=\"processor\",stage_name=\"cannelloni_decoder\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1316,7 +1316,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "dropped_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"cannelloni_decoder\",exported_job=\"$service\"}",
+                     "expr": "dropped_messages_total{stage_kind=\"processor\",stage_name=\"cannelloni_decoder\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1370,7 +1370,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "processed_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"cannelloni_encoder\",exported_job=\"$service\"}",
+                     "expr": "processed_messages_total{stage_kind=\"processor\",stage_name=\"cannelloni_encoder\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1410,7 +1410,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "processing_errors_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"cannelloni_encoder\",exported_job=\"$service\"}",
+                     "expr": "processing_errors_total{stage_kind=\"processor\",stage_name=\"cannelloni_encoder\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1450,7 +1450,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "dropped_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"cannelloni_encoder\",exported_job=\"$service\"}",
+                     "expr": "dropped_messages_total{stage_kind=\"processor\",stage_name=\"cannelloni_encoder\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1504,7 +1504,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "processed_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"csv_decoder\",exported_job=\"$service\"}",
+                     "expr": "processed_messages_total{stage_kind=\"processor\",stage_name=\"csv_decoder\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1544,7 +1544,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "processing_errors_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"csv_decoder\",exported_job=\"$service\"}",
+                     "expr": "processing_errors_total{stage_kind=\"processor\",stage_name=\"csv_decoder\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1584,7 +1584,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "dropped_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"csv_decoder\",exported_job=\"$service\"}",
+                     "expr": "dropped_messages_total{stage_kind=\"processor\",stage_name=\"csv_decoder\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1638,7 +1638,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "processed_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"csv_encoder\",exported_job=\"$service\"}",
+                     "expr": "processed_messages_total{stage_kind=\"processor\",stage_name=\"csv_encoder\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1678,7 +1678,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "processing_errors_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"csv_encoder\",exported_job=\"$service\"}",
+                     "expr": "processing_errors_total{stage_kind=\"processor\",stage_name=\"csv_encoder\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1718,7 +1718,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "dropped_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"csv_encoder\",exported_job=\"$service\"}",
+                     "expr": "dropped_messages_total{stage_kind=\"processor\",stage_name=\"csv_encoder\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1772,7 +1772,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "processed_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"custom\",exported_job=\"$service\"}",
+                     "expr": "processed_messages_total{stage_kind=\"processor\",stage_name=\"custom\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1812,7 +1812,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "processing_errors_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"custom\",exported_job=\"$service\"}",
+                     "expr": "processing_errors_total{stage_kind=\"processor\",stage_name=\"custom\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1852,7 +1852,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "dropped_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"custom\",exported_job=\"$service\"}",
+                     "expr": "dropped_messages_total{stage_kind=\"processor\",stage_name=\"custom\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1906,7 +1906,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "filtered_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"filter\",exported_job=\"$service\"}",
+                     "expr": "filtered_messages_total{stage_kind=\"processor\",stage_name=\"filter\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -1960,7 +1960,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "ordered_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"rob\",exported_job=\"$service\"}",
+                     "expr": "ordered_messages_total{stage_kind=\"processor\",stage_name=\"rob\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2000,7 +2000,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "primary_enqueued_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"rob\",exported_job=\"$service\"}",
+                     "expr": "primary_enqueued_messages_total{stage_kind=\"processor\",stage_name=\"rob\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2040,7 +2040,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "auxiliary_enqueued_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"rob\",exported_job=\"$service\"}",
+                     "expr": "auxiliary_enqueued_messages_total{stage_kind=\"processor\",stage_name=\"rob\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2080,7 +2080,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "out_of_order_sequence_number_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"rob\",exported_job=\"$service\"}",
+                     "expr": "out_of_order_sequence_number_total{stage_kind=\"processor\",stage_name=\"rob\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2120,7 +2120,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "duplicated_sequence_number_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"rob\",exported_job=\"$service\"}",
+                     "expr": "duplicated_sequence_number_total{stage_kind=\"processor\",stage_name=\"rob\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2160,7 +2160,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "invalid_sequence_number_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"rob\",exported_job=\"$service\"}",
+                     "expr": "invalid_sequence_number_total{stage_kind=\"processor\",stage_name=\"rob\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2200,7 +2200,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "resets_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"rob\",exported_job=\"$service\"}",
+                     "expr": "resets_total{stage_kind=\"processor\",stage_name=\"rob\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2254,7 +2254,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "cloned_messages_total{goccia_stage_kind=\"processor\",goccia_stage_name=\"tee\",exported_job=\"$service\"}",
+                     "expr": "cloned_messages_total{stage_kind=\"processor\",stage_name=\"tee\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2308,7 +2308,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "delivered_messages_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"file\",exported_job=\"$service\"}",
+                     "expr": "delivered_messages_total{stage_kind=\"egress\",stage_name=\"file\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2348,7 +2348,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "delivering_errors_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"file\",exported_job=\"$service\"}",
+                     "expr": "delivering_errors_total{stage_kind=\"egress\",stage_name=\"file\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2388,7 +2388,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "rate(written_bytes_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"file\",exported_job=\"$service\"}[$__rate_interval])",
+                     "expr": "rate(written_bytes_total{stage_kind=\"egress\",stage_name=\"file\",exported_job=\"$service\"}[$__rate_interval])",
                      "interval": "15s"
                   }
                ],
@@ -2428,7 +2428,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "written_bytes_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"file\",exported_job=\"$service\"}",
+                     "expr": "written_bytes_total{stage_kind=\"egress\",stage_name=\"file\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2468,7 +2468,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "write_errors_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"file\",exported_job=\"$service\"}",
+                     "expr": "write_errors_total{stage_kind=\"egress\",stage_name=\"file\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2508,7 +2508,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "flush_errors_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"file\",exported_job=\"$service\"}",
+                     "expr": "flush_errors_total{stage_kind=\"egress\",stage_name=\"file\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2562,7 +2562,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "delivered_messages_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"kafka\",exported_job=\"$service\"}",
+                     "expr": "delivered_messages_total{stage_kind=\"egress\",stage_name=\"kafka\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2602,7 +2602,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "delivering_errors_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"kafka\",exported_job=\"$service\"}",
+                     "expr": "delivering_errors_total{stage_kind=\"egress\",stage_name=\"kafka\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2656,7 +2656,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "delivered_messages_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"questdb\",exported_job=\"$service\"}",
+                     "expr": "delivered_messages_total{stage_kind=\"egress\",stage_name=\"questdb\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2696,7 +2696,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "delivering_errors_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"questdb\",exported_job=\"$service\"}",
+                     "expr": "delivering_errors_total{stage_kind=\"egress\",stage_name=\"questdb\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2736,7 +2736,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "inserted_rows_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"questdb\",exported_job=\"$service\"}",
+                     "expr": "inserted_rows_total{stage_kind=\"egress\",stage_name=\"questdb\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2790,7 +2790,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "delivered_messages_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"tcp\",exported_job=\"$service\"}",
+                     "expr": "delivered_messages_total{stage_kind=\"egress\",stage_name=\"tcp\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2830,7 +2830,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "delivering_errors_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"tcp\",exported_job=\"$service\"}",
+                     "expr": "delivering_errors_total{stage_kind=\"egress\",stage_name=\"tcp\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2870,7 +2870,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "rate(delivered_bytes_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"tcp\",exported_job=\"$service\"}[$__rate_interval])",
+                     "expr": "rate(delivered_bytes_total{stage_kind=\"egress\",stage_name=\"tcp\",exported_job=\"$service\"}[$__rate_interval])",
                      "interval": "15s"
                   }
                ],
@@ -2910,7 +2910,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "delivered_bytes_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"tcp\",exported_job=\"$service\"}",
+                     "expr": "delivered_bytes_total{stage_kind=\"egress\",stage_name=\"tcp\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -2964,7 +2964,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "delivered_messages_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"udp\",exported_job=\"$service\"}",
+                     "expr": "delivered_messages_total{stage_kind=\"egress\",stage_name=\"udp\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -3004,7 +3004,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "delivering_errors_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"udp\",exported_job=\"$service\"}",
+                     "expr": "delivering_errors_total{stage_kind=\"egress\",stage_name=\"udp\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],
@@ -3044,7 +3044,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "rate(delivered_bytes_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"udp\",exported_job=\"$service\"}[$__rate_interval])",
+                     "expr": "rate(delivered_bytes_total{stage_kind=\"egress\",stage_name=\"udp\",exported_job=\"$service\"}[$__rate_interval])",
                      "interval": "15s"
                   }
                ],
@@ -3084,7 +3084,7 @@
                         "type": "prometheus",
                         "uid": "$metrics"
                      },
-                     "expr": "delivered_bytes_total{goccia_stage_kind=\"egress\",goccia_stage_name=\"udp\",exported_job=\"$service\"}",
+                     "expr": "delivered_bytes_total{stage_kind=\"egress\",stage_name=\"udp\",exported_job=\"$service\"}",
                      "interval": "15s"
                   }
                ],

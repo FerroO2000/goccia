@@ -20,12 +20,14 @@ func (h *ingressToEgressHandler) Init(_ context.Context) error {
 	return nil
 }
 
-func (h *ingressToEgressHandler) Handle(_ context.Context, kafkaIngressMsg *ingress.KafkaMessage, kafkaEgressMsg *egress.KafkaMessage) error {
+func (h *ingressToEgressHandler) Handle(_ context.Context, kafkaIngressMsg *ingress.KafkaMessage) (*egress.KafkaMessage, error) {
+	kafkaEgressMsg := egress.NewKafkaMessage()
+
 	kafkaEgressMsg.Topic = "return-topic"
 	kafkaEgressMsg.Key = kafkaIngressMsg.Key
 	kafkaEgressMsg.Value = kafkaIngressMsg.Value
 
-	return nil
+	return kafkaEgressMsg, nil
 }
 
 func (h *ingressToEgressHandler) Close() {}

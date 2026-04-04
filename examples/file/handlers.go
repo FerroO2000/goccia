@@ -17,7 +17,7 @@ func newFileHandler() *fileHandler {
 
 // Handle adds the path of the input file to the beginning of each line to be
 // written to the output file.
-func (h *fileHandler) Handle(_ context.Context, msgIn, msgOut *ingress.FileMessage) error {
+func (h *fileHandler) Handle(_ context.Context, msgIn *ingress.FileMessage) (*ingress.FileMessage, error) {
 	outChunk := []byte{}
 	buf := make([]byte, 512)
 
@@ -38,8 +38,10 @@ func (h *fileHandler) Handle(_ context.Context, msgIn, msgOut *ingress.FileMessa
 		}
 	}
 
+	msgOut := ingress.NewFileMessage()
+
 	msgOut.Chunk = outChunk
 	msgOut.ChunkSize = len(outChunk)
 
-	return nil
+	return msgOut, nil
 }

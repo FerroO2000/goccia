@@ -14,6 +14,9 @@ import (
 	"github.com/FerroO2000/goccia/ingress"
 	"github.com/FerroO2000/goccia/processor"
 	"github.com/squadracorsepolito/acmelib"
+
+	"net/http"
+	_ "net/http/pprof"
 )
 
 const connectorSize = 2048
@@ -65,6 +68,10 @@ func main() {
 	if err := pipeline.Init(ctx); err != nil {
 		panic(err)
 	}
+
+	go func() {
+		http.ListenAndServe("localhost:6060", nil)
+	}()
 
 	go pipeline.Run(ctx)
 	defer pipeline.Close()

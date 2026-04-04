@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/log"
+	"go.opentelemetry.io/otel/sdk/instrumentation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	"golang.org/x/term"
 )
@@ -21,6 +23,7 @@ const (
 	ansiGreen   = "\033[32m"
 	ansiYellow  = "\033[33m"
 	ansiRed     = "\033[31m"
+	ansiPurple  = "\033[35m"
 	ansiBoldRed = "\033[1;31m"
 )
 
@@ -44,8 +47,14 @@ func newConsoleExporter() *consoleExporter {
 func (ce *consoleExporter) print(r *sdklog.Record) {
 	ce.printTimestamp(r.Timestamp())
 	ce.printSpace()
+
 	ce.printSeverity(r.Severity())
 	ce.printSpace()
+
+	scope := r.InstrumentationScope()
+	ce.printScope(&scope)
+	ce.printSpace()
+
 	ce.printBody(r.Body().String())
 
 	r.WalkAttributes(func(kv log.KeyValue) bool {
@@ -98,6 +107,44 @@ func (ce *consoleExporter) printSeverity(s log.Severity) {
 
 	ce.sb.WriteString(color)
 	ce.sb.WriteString(s.String())
+	ce.sb.WriteString(ansiReset)
+}
+
+func (ce *consoleExporter) printScope(scope *instrumentation.Scope) {
+	ce.sb.WriteRune('[')
+
+	attrIter := scope.Attributes.Iter()
+	hasNext := attrIter.Next()
+	for hasNext {
+		attr := attrIter.Attribute()
+		ce.printScopeAttribute(&attr)
+
+		hasNext = attrIter.Next()
+		if hasNext {
+			ce.printSpace()
+		}
+	}
+
+	ce.sb.WriteRune(']')
+}
+
+func (ce *consoleExporter) printScopeAttribute(attr *attribute.KeyValue) {
+	keyStr := string(attr.Key)
+	valueStr := attr.Value.AsString()
+
+	if !ce.colorEnabled {
+		ce.sb.WriteString(keyStr)
+		ce.sb.WriteRune('=')
+		ce.sb.WriteString(valueStr)
+		return
+	}
+
+	ce.sb.WriteString(ansiGray)
+	ce.sb.WriteString(keyStr)
+	ce.sb.WriteRune('=')
+	ce.sb.WriteString(ansiReset)
+	ce.sb.WriteString(ansiPurple)
+	ce.sb.WriteString(valueStr)
 	ce.sb.WriteString(ansiReset)
 }
 

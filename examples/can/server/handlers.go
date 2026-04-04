@@ -19,7 +19,8 @@ func (h *canToQuestDBHandler) Init(_ context.Context) error {
 	return nil
 }
 
-func (h *canToQuestDBHandler) Handle(_ context.Context, canMsg *processor.CANMessage, qdbMsg *egress.QuestDBMessage) error {
+func (h *canToQuestDBHandler) Handle(_ context.Context, canMsg *processor.CANMessage) (*egress.QuestDBMessage, error) {
+	qdbMsg := egress.NewQuestDBMessage()
 	rows := make([]*egress.QuestDBRow, 0, canMsg.SignalCount)
 
 	for _, sig := range canMsg.Signals {
@@ -57,7 +58,7 @@ func (h *canToQuestDBHandler) Handle(_ context.Context, canMsg *processor.CANMes
 
 	qdbMsg.AddRows(rows...)
 
-	return nil
+	return qdbMsg, nil
 }
 
 func (h *canToQuestDBHandler) Close() {}

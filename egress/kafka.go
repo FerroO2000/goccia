@@ -140,6 +140,11 @@ type KafkaMessage struct {
 	headers []kafka.Header
 }
 
+// NewKafkaMessage returns a new Kafka message.
+func NewKafkaMessage() *KafkaMessage {
+	return &KafkaMessage{}
+}
+
 // Destroy cleans up the message.
 func (km *KafkaMessage) Destroy() {}
 

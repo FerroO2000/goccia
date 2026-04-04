@@ -96,7 +96,8 @@ type EBPFMessage[T any] struct {
 	Data T
 }
 
-func newEBPFMessage[T any](data T) *EBPFMessage[T] {
+// NewEBPFMessage returns a new ebpf message.
+func NewEBPFMessage[T any](data T) *EBPFMessage[T] {
 	return &EBPFMessage[T]{
 		Data: data,
 	}
@@ -235,7 +236,7 @@ func (es *ebpfSource[T]) handleRecord(ctx context.Context, record *ringbuf.Recor
 	}
 
 	// Make the message
-	ebpfMsg := newEBPFMessage(data)
+	ebpfMsg := NewEBPFMessage(data)
 	msg := message.NewMessage(ebpfMsg)
 
 	// Save the span into the message

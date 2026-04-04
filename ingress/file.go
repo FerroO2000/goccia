@@ -130,7 +130,8 @@ type FileMessage struct {
 	DelimiterFound bool
 }
 
-func newFileMessage() *FileMessage {
+// NewFileMessage returns a new file message.
+func NewFileMessage() *FileMessage {
 	return &FileMessage{}
 }
 
@@ -391,7 +392,7 @@ func (fr *fileReader) read(ctx context.Context) {
 }
 
 func (fr *fileReader) handleChunk(chunk []byte, chunkSize int, delimFound bool) *msg[*FileMessage] {
-	fileMsg := newFileMessage()
+	fileMsg := NewFileMessage()
 	fileMsg.Path = fr.cfg.filePath
 	fileMsg.Chunk = chunk
 	fileMsg.ChunkSize = chunkSize

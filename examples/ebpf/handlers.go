@@ -16,7 +16,7 @@ func newPingHandler() *pingHandler {
 	return &pingHandler{}
 }
 
-func (h *pingHandler) Handle(ctx context.Context, msgIn, _ *ingress.EBPFMessage[PingEvent]) error {
+func (h *pingHandler) Handle(ctx context.Context, msgIn *ingress.EBPFMessage[PingEvent]) (*ingress.EBPFMessage[PingEvent], error) {
 	pingEvent := msgIn.Data
 
 	srcIP := h.getIP(pingEvent.SrcIP)
@@ -24,7 +24,7 @@ func (h *pingHandler) Handle(ctx context.Context, msgIn, _ *ingress.EBPFMessage[
 
 	h.Telemetry.LogInfoCtx(ctx, "ping packet", "src_ip", srcIP.String(), "dst_ip", dstIP.String(), "id", pingEvent.ID, "seq", pingEvent.Seq)
 
-	return nil
+	return msgIn, nil
 }
 
 func (h *pingHandler) getIP(ip uint32) net.IP {

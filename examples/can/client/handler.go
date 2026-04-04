@@ -23,7 +23,9 @@ func (h *tickerToCannelloniHandler) Init(_ context.Context) error {
 	return nil
 }
 
-func (h *tickerToCannelloniHandler) Handle(_ context.Context, tickerMsg *ingress.TickerMessage, cannelloniMsg *processor.CannelloniMessage) error {
+func (h *tickerToCannelloniHandler) Handle(_ context.Context, tickerMsg *ingress.TickerMessage) (*processor.CannelloniMessage, error) {
+	cannelloniMsg := processor.NewCannelloniMessage()
+
 	// Set the sequence number based on the tick number
 	seqNum := uint8(tickerMsg.TickNumber % 256)
 	cannelloniMsg.SetSequenceNumber(seqNum)
@@ -54,7 +56,7 @@ func (h *tickerToCannelloniHandler) Handle(_ context.Context, tickerMsg *ingress
 		cannelloniMsg.AddMessage(enumMsg)
 	}
 
-	return nil
+	return cannelloniMsg, nil
 }
 
 func (h *tickerToCannelloniHandler) Close() {}

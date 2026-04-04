@@ -50,13 +50,14 @@ func (c *CustomConfig) Validate(ac *config.AnomalyCollector) {
 
 // CustomHandler interface defines the methods that the handler for the
 // processor processor must implement.
-type CustomHandler[In msgBody, T any, Out msgBodyPtr[T]] interface {
+type CustomHandler[In, Out msgBody] interface {
 	// Init method is called once when the stage is initialized.
 	Init(ctx context.Context) error
 
 	// Handle method is called by one of the spawned workers
 	// for each message received by the stage.
-	Handle(ctx context.Context, msgIn In, msgOut Out) error
+	// It shall return the output message and any error.
+	Handle(ctx context.Context, msgIn In) (Out, error)
 
 	// Close is called once when the stage is closed.
 	Close()
@@ -93,33 +94,33 @@ func (chb *CustomHandlerBase) SetTelemetry(tel *telemetry.Telemetry) {
 //  WORKER  //
 //////////////
 
-type customWorkerArgs[In msgBody, T any, Out msgBodyPtr[T]] struct {
+type customWorkerArgs[In, Out msgBody] struct {
 	name    string
-	handler CustomHandler[In, T, Out]
+	handler CustomHandler[In, Out]
 }
 
-func newCustomWorkerArgs[In msgBody, T any, Out msgBodyPtr[T]](name string, handler CustomHandler[In, T, Out]) *customWorkerArgs[In, T, Out] {
-	return &customWorkerArgs[In, T, Out]{
+func newCustomWorkerArgs[In, Out msgBody](name string, handler CustomHandler[In, Out]) *customWorkerArgs[In, Out] {
+	return &customWorkerArgs[In, Out]{
 		name:    name,
 		handler: handler,
 	}
 }
 
-type customWorker[In msgBody, T any, Out msgBodyPtr[T]] struct {
+type customWorker[In, Out msgBody] struct {
 	pool.BaseWorker
 
-	handler CustomHandler[In, T, Out]
+	handler CustomHandler[In, Out]
 
 	traceString string
 }
 
-func newCustomWorkerInstMaker[In msgBody, T any, Out msgBodyPtr[T]]() workerInstanceMaker[*customWorkerArgs[In, T, Out], In, Out] {
-	return func() workerInstance[*customWorkerArgs[In, T, Out], In, Out] {
-		return &customWorker[In, T, Out]{}
+func newCustomWorkerInstMaker[In, Out msgBody]() workerInstanceMaker[*customWorkerArgs[In, Out], In, Out] {
+	return func() workerInstance[*customWorkerArgs[In, Out], In, Out] {
+		return &customWorker[In, Out]{}
 	}
 }
 
-func (cw *customWorker[In, T, Out]) Init(_ context.Context, args *customWorkerArgs[In, T, Out]) error {
+func (cw *customWorker[In, Out]) Init(_ context.Context, args *customWorkerArgs[In, Out]) error {
 	cw.handler = args.handler
 	cw.handler.SetTelemetry(cw.Tel)
 
@@ -128,26 +129,23 @@ func (cw *customWorker[In, T, Out]) Init(_ context.Context, args *customWorkerAr
 	return nil
 }
 
-func (cw *customWorker[In, T, Out]) Handle(ctx context.Context, msgIn *msg[In]) (*msg[Out], error) {
+func (cw *customWorker[In, Out]) Handle(ctx context.Context, msgIn *msg[In]) (*msg[Out], error) {
 	ctx, span := cw.Tel.StartTrace(ctx, cw.traceString)
 	defer span.End()
 
-	// Create the generic output message
-	var dummyMsgOutVal T
-	msgOutVal := Out(&dummyMsgOutVal)
-
 	// Call the provided handler
-	if err := cw.handler.Handle(ctx, msgIn.GetBody(), msgOutVal); err != nil {
+	msgoutBody, err := cw.handler.Handle(ctx, msgIn.GetBody())
+	if err != nil {
 		return &msg[Out]{}, err
 	}
 
-	msgOut := message.NewMessage(msgOutVal)
+	msgOut := message.NewMessage(msgoutBody)
 	msgOut.SaveSpan(span)
 
 	return msgOut, nil
 }
 
-func (cw *customWorker[In, T, Out]) Close(_ context.Context) error {
+func (cw *customWorker[In, Out]) Close(_ context.Context) error {
 	return nil
 }
 
@@ -156,20 +154,20 @@ func (cw *customWorker[In, T, Out]) Close(_ context.Context) error {
 /////////////
 
 // CustomStage is a processor stage that uses a custom handler to process messages.
-type CustomStage[In msgBody, T any, Out msgBodyPtr[T]] struct {
-	stage[*customWorkerArgs[In, T, Out], In, Out, *CustomConfig]
+type CustomStage[In, Out msgBody] struct {
+	stage[*customWorkerArgs[In, Out], In, Out, *CustomConfig]
 
-	handler CustomHandler[In, T, Out]
+	handler CustomHandler[In, Out]
 }
 
 // NewCustomStage returns a new custom processor stage.
-func NewCustomStage[In msgBody, T any, Out msgBodyPtr[T]](
-	handler CustomHandler[In, T, Out], inputConnector msgConn[In], outputConnector msgConn[Out], cfg *CustomConfig,
-) *CustomStage[In, T, Out] {
+func NewCustomStage[In, Out msgBody](
+	handler CustomHandler[In, Out], inputConnector msgConn[In], outputConnector msgConn[Out], cfg *CustomConfig,
+) *CustomStage[In, Out] {
 
-	return &CustomStage[In, T, Out]{
+	return &CustomStage[In, Out]{
 		stage: newStage(
-			cfg.Name, inputConnector, outputConnector, newCustomWorkerInstMaker[In, T, Out](), cfg,
+			cfg.Name, inputConnector, outputConnector, newCustomWorkerInstMaker[In, Out](), cfg,
 		),
 
 		handler: handler,
@@ -177,7 +175,7 @@ func NewCustomStage[In msgBody, T any, Out msgBodyPtr[T]](
 }
 
 // Init initializes the stage.
-func (cs *CustomStage[In, T, Out]) Init(ctx context.Context) error {
+func (cs *CustomStage[In, Out]) Init(ctx context.Context) error {
 	// Initialize the handler
 	if err := cs.handler.Init(ctx); err != nil {
 		return err
