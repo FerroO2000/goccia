@@ -96,6 +96,8 @@ func (ts *TeeStage[T]) clone(ctx context.Context, msgIn *msg[T]) {
 			ts.tel.LogError("failed to write into output connector", err)
 		}
 	}
+
+	ts.clonedMessages.Add(1)
 }
 
 // Close closes the stage.
