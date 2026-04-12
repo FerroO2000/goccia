@@ -155,7 +155,7 @@ func (cw *customWorker[In, Out]) Close(_ context.Context) error {
 
 // CustomStage is a processor stage that uses a custom handler to process messages.
 type CustomStage[In, Out msgBody] struct {
-	stage[*customWorkerArgs[In, Out], In, Out, *CustomConfig]
+	processorStage[*customWorkerArgs[In, Out], In, Out, *CustomConfig]
 
 	handler CustomHandler[In, Out]
 }
@@ -166,7 +166,7 @@ func NewCustomStage[In, Out msgBody](
 ) *CustomStage[In, Out] {
 
 	return &CustomStage[In, Out]{
-		stage: newStage(
+		processorStage: newStage(
 			cfg.Name, inputConnector, outputConnector, newCustomWorkerInstMaker[In, Out](), cfg,
 		),
 
@@ -181,5 +181,5 @@ func (cs *CustomStage[In, Out]) Init(ctx context.Context) error {
 		return err
 	}
 
-	return cs.stage.Init(ctx, newCustomWorkerArgs(cs.Config().Name, cs.handler))
+	return cs.processorStage.Init(ctx, newCustomWorkerArgs(cs.Config().Name, cs.handler))
 }

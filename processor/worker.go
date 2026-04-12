@@ -86,7 +86,7 @@ func newWorker[Args any, In, Out msgBody](
 }
 
 func (w *worker[Args, In, Out]) init(ctx context.Context, args Args) error {
-	w.tel.LogInfo("initializing worker", "worker_id", w.id)
+	w.tel.LogDebug("initializing worker", "worker_id", w.id)
 
 	w.inst.SetTelemetry(w.tel)
 
@@ -95,7 +95,7 @@ func (w *worker[Args, In, Out]) init(ctx context.Context, args Args) error {
 		return err
 	}
 
-	return w.inst.Init(ctx, args)
+	return nil
 }
 
 func (w *worker[Args, In, Out]) process(ctx context.Context, msgIn *msg[In]) (*msg[Out], bool) {
@@ -129,7 +129,7 @@ func (w *worker[Args, In, Out]) process(ctx context.Context, msgIn *msg[In]) (*m
 }
 
 func (w *worker[Args, In, Out]) close(ctx context.Context) {
-	w.tel.LogInfo("closing worker", "worker_id", w.id)
+	w.tel.LogDebug("closing worker", "worker_id", w.id)
 
 	if err := w.inst.Close(ctx); err != nil {
 		w.tel.LogError("failed to close worker", err, "worker_id", w.id)
@@ -150,7 +150,8 @@ type workerPool[WArgs any, In, Out msgBody] struct {
 	workerArgs      WArgs
 	workerInstMaker workerInstanceMaker[WArgs, In, Out]
 
-	wg *sync.WaitGroup
+	wg             *sync.WaitGroup
+	listenerDoneCh chan struct{}
 
 	fanOut *pool.FanOut[*msg[In]]
 	fanIn  *pool.FanIn[*msg[Out]]
@@ -171,7 +172,8 @@ func newWorkerPool[WArgs any, In, Out msgBody](
 
 		workerInstMaker: workerInstMaker,
 
-		wg: &sync.WaitGroup{},
+		wg:             &sync.WaitGroup{},
+		listenerDoneCh: make(chan struct{}),
 
 		fanOut: pool.NewFanOut[*msg[In]](cfg.InputQueueSize),
 		fanIn:  pool.NewFanIn[*msg[Out]](cfg.OutputQueueSize),
@@ -197,6 +199,8 @@ func (wp *workerPool[WArgs, In, Out]) run(ctx context.Context) {
 }
 
 func (wp *workerPool[WArgs, In, Out]) runStartWorkerListener(ctx context.Context) {
+	defer close(wp.listenerDoneCh)
+
 	startWorkerCh := wp.scaler.GetStartCh()
 
 	for {
@@ -205,13 +209,13 @@ func (wp *workerPool[WArgs, In, Out]) runStartWorkerListener(ctx context.Context
 			return
 
 		case <-startWorkerCh:
+			wp.wg.Add(1)
 			go wp.runWorker(ctx)
 		}
 	}
 }
 
 func (wp *workerPool[WArgs, In, Out]) runWorker(ctx context.Context) {
-	wp.wg.Add(1)
 	defer wp.wg.Done()
 
 	workerID := wp.scaler.NotifyWorkerStart()
@@ -257,9 +261,9 @@ func (wp *workerPool[WArgs, In, Out]) runWorker(ctx context.Context) {
 }
 
 func (wp *workerPool[WArgs, In, Out]) close() {
-	wp.tel.LogInfo("closing worker pool")
-
 	wp.fanOut.Close()
+
+	<-wp.listenerDoneCh
 
 	wp.wg.Wait()
 	wp.scaler.Close()

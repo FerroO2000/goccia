@@ -278,7 +278,7 @@ func (rb *RingBuffer[T]) Read(ctx context.Context) (T, error) {
 			return item, ErrClosed
 		}
 
-		// Wait for data, return an error if the timeout is reached
+		// Wait for data, return ctx.Err() if done
 		if err := rb.wait(ctx, rb.notEmpty); err != nil {
 			rb.mux.Unlock()
 			return item, err

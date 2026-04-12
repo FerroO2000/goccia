@@ -118,7 +118,7 @@ func (fw *filterWorker[T]) Close(_ context.Context) error {
 
 // FilterStage is a processor stage that filters messages based on a user-defined function.
 type FilterStage[T msgBody] struct {
-	stage[*filterWorkerArgs[T], T, T, *FilterConfig]
+	processorStage[*filterWorkerArgs[T], T, T, *FilterConfig]
 
 	filterFn func(T) bool
 }
@@ -126,7 +126,7 @@ type FilterStage[T msgBody] struct {
 // NewFilterStage returns a new filter processor stage.
 func NewFilterStage[T msgBody](filterFn func(T) bool, inputConnector, outputConnector msgConn[T], cfg *FilterConfig) *FilterStage[T] {
 	return &FilterStage[T]{
-		stage: newStage(
+		processorStage: newStage(
 			"filter", inputConnector, outputConnector, newFilterWorkerInstMaker[T](), cfg,
 		),
 
@@ -136,5 +136,5 @@ func NewFilterStage[T msgBody](filterFn func(T) bool, inputConnector, outputConn
 
 // Init initializes the stage.
 func (fs *FilterStage[T]) Init(ctx context.Context) error {
-	return fs.stage.Init(ctx, newFilterWorkerArgs(fs.filterFn))
+	return fs.processorStage.Init(ctx, newFilterWorkerArgs(fs.filterFn))
 }

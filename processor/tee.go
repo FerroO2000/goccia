@@ -108,3 +108,17 @@ func (ts *TeeStage[T]) Close() {
 		outConn.Close()
 	}
 }
+
+func (ts *TeeStage[T]) Inputs() []uintptr {
+	return []uintptr{connector.GetConnectorID(ts.inputConnector)}
+}
+
+func (ts *TeeStage[T]) Outputs() []uintptr {
+	outputs := make([]uintptr, 0, len(ts.outputConnectors))
+
+	for _, outConn := range ts.outputConnectors {
+		outputs = append(outputs, connector.GetConnectorID(outConn))
+	}
+
+	return outputs
+}

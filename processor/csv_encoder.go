@@ -185,7 +185,7 @@ func (w *csvEncoderWorker) Close(_ context.Context) error {
 
 // CSVEncoderStage is a processor stage that encodes CSV messages.
 type CSVEncoderStage struct {
-	stage[*csvEncoderWorkerArgs, *CSVMessage, *CSVEncodedMessage, *CSVConfig]
+	processorStage[*csvEncoderWorkerArgs, *CSVMessage, *CSVEncodedMessage, *CSVConfig]
 }
 
 // NewCSVEncoderStage returns a new CSV encoder stage.
@@ -193,7 +193,7 @@ func NewCSVEncoderStage(
 	inputConnector msgConn[*CSVMessage], outputConnector msgConn[*CSVEncodedMessage], cfg *CSVConfig,
 ) *CSVEncoderStage {
 	return &CSVEncoderStage{
-		stage: newStage("csv_encoder", inputConnector, outputConnector, newCSVEncoderWorkerInstMaker(), cfg),
+		processorStage: newStage("csv_encoder", inputConnector, outputConnector, newCSVEncoderWorkerInstMaker(), cfg),
 	}
 }
 
@@ -203,5 +203,5 @@ func (s *CSVEncoderStage) Init(ctx context.Context) error {
 		columns: s.Config().Columns,
 	})
 
-	return s.stage.Init(ctx, newCSVEncoderWorkerArgs(encoder))
+	return s.processorStage.Init(ctx, newCSVEncoderWorkerArgs(encoder))
 }

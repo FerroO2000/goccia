@@ -4,62 +4,51 @@ package goccia
 import (
 	"context"
 	"sync"
-
-	"github.com/FerroO2000/goccia/connector"
-	"github.com/FerroO2000/goccia/internal/config"
-	"github.com/FerroO2000/goccia/internal/message"
 )
 
-// StageRunningMode represents the running mode of a stage.
-type StageRunningMode = config.StageRunningMode
+type pipelineState = uint8
 
 const (
-	// StageRunningModeSingle enforces a single-threaded running mode.
-	StageRunningModeSingle = config.StageRunningModeSingle
-	// StageRunningModePool enforces a multi-threaded running mode (worker pool).
-	StageRunningModePool = config.StageRunningModePool
+	pipelineStateIdle pipelineState = iota
+	pipelineStateInitialized
+	pipelineStateRunning
+	pipelineStateClosed
 )
-
-// StageConfig represents the configuration for a stage.
-type StageConfig = config.Stage
-
-// Stage defines the interface for a generic stage.
-type Stage interface {
-	// Init initializes the stage.
-	Init(ctx context.Context) error
-	// Run runs the stage.
-	Run(ctx context.Context)
-	// Close closes (forever) the stage.
-	Close()
-}
-
-// Connector represents the interface for a generic connector
-// to be used for connecting the stages.
-type Connector[T any] = connector.Connector[T]
 
 // Pipeline represents a generic pipeline.
 // It is the entrypoint for the stages.
 type Pipeline struct {
-	stages []Stage
+	stages     []Stage
+	stageGraph *stageGraph
 
-	wg        *sync.WaitGroup
-	isRunning bool
+	state    pipelineState
+	stateMux *sync.Mutex
+
+	runWg            *sync.WaitGroup
+	cancelRunRootCtx context.CancelFunc
 }
 
-// NewPipeline returns a new pipeline.
+// NewPipeline returns a new Pipeline instance.
 func NewPipeline() *Pipeline {
 	return &Pipeline{
-		stages: []Stage{},
+		stages:     []Stage{},
+		stageGraph: newStageGraph(),
 
-		wg:        &sync.WaitGroup{},
-		isRunning: false,
+		state:    pipelineStateIdle,
+		stateMux: &sync.Mutex{},
+
+		runWg: &sync.WaitGroup{},
 	}
 }
 
 // AddStage adds a stage to the pipeline.
-// The order of the stages is important.
+// The order of the stages is not important,
+// since a stage graph is built during initialization.
 func (p *Pipeline) AddStage(stage Stage) {
-	if p.isRunning {
+	p.stateMux.Lock()
+	defer p.stateMux.Unlock()
+
+	if p.state != pipelineStateIdle {
 		return
 	}
 
@@ -68,44 +57,104 @@ func (p *Pipeline) AddStage(stage Stage) {
 
 // Init initializes all the stages.
 func (p *Pipeline) Init(ctx context.Context) error {
-	for _, stage := range p.stages {
-		if err := stage.Init(ctx); err != nil {
+	p.stateMux.Lock()
+	defer p.stateMux.Unlock()
+
+	if p.state != pipelineStateIdle {
+		return nil
+	}
+
+	// Build the stage graph and init all the stages in-order
+	if err := p.stageGraph.build(p.stages); err != nil {
+		return err
+	}
+
+	for nodeStage := range p.stageGraph.traverse() {
+		if err := nodeStage.stage.Init(ctx); err != nil {
 			return err
 		}
 	}
 
+	p.state = pipelineStateInitialized
+
 	return nil
 }
 
-// Run runs all the stages.
-// It will spawn a goroutine for each stage.
+// Run runs all the stages in at least one goroutine
+// (Processor and Egress stages has an additional one for cancellation).
+//
+// This function blocks until all stages Run goroutines exit.
 func (p *Pipeline) Run(ctx context.Context) {
-	p.isRunning = true
+	p.stateMux.Lock()
 
-	p.wg.Add(len(p.stages))
+	if p.state != pipelineStateInitialized {
+		p.stateMux.Unlock()
+		return
+	}
 
-	for _, stage := range p.stages {
+	runRootCtx, cancelRunRootCtx := context.WithCancel(ctx)
+	p.cancelRunRootCtx = cancelRunRootCtx
+
+	// Create a detached context to be able to cancel stages
+	// that are not of kind Ingress
+	detachedCtx := context.WithoutCancel(ctx)
+
+	p.runWg.Add(len(p.stages))
+	for stageNode := range p.stageGraph.traverse() {
+		runCtx := runRootCtx
+
+		if !stageNode.isIngress {
+			// All stages that are not of kind Ingress
+			// shall use the cancellable detached context
+			tmpRunCtx, cancelRunCtx := context.WithCancel(detachedCtx)
+			runCtx = tmpRunCtx
+			stageNode.cancelRunCtx = cancelRunCtx
+		}
+
+		go p.runStage(runCtx, stageNode)
+	}
+
+	p.state = pipelineStateRunning
+	p.stateMux.Unlock()
+
+	p.runWg.Wait()
+}
+
+func (p *Pipeline) runStage(ctx context.Context, stageNode *stageNode) {
+	defer p.runWg.Done()
+
+	if !stageNode.isIngress {
+		// Processor and Egress stages context should be canceled
+		// when the parent stages have exited the run loop
 		go func() {
-			stage.Run(ctx)
-			p.wg.Done()
+			for parentStageNode := range stageNode.parents() {
+				<-parentStageNode.runDoneCh
+			}
+			stageNode.cancelRun()
 		}()
 	}
+
+	stageNode.stage.Run(ctx)
+	stageNode.markRunDone()
 }
 
 // Close closes all the stages.
 // It blocks until all the stages are closed.
 func (p *Pipeline) Close() {
-	for _, stage := range p.stages {
-		stage.Close()
+	p.stateMux.Lock()
+	defer p.stateMux.Unlock()
+
+	if p.state != pipelineStateRunning {
+		return
 	}
 
-	p.wg.Wait()
-}
+	p.cancelRunRootCtx()
 
-// MessageEnvelope is an untyped alias for a generic message envelope.
-type MessageEnvelope[T message.Body] = message.Message[T]
+	for stageNode := range p.stageGraph.traverse() {
+		// Only close the stages when they exited the run loop
+		<-stageNode.runDoneCh
+		stageNode.stage.Close()
+	}
 
-// NewMessageEnvelope returns a new message envelope.
-func NewMessageEnvelope[T message.Body](body T) *MessageEnvelope[T] {
-	return message.NewMessage(body)
+	p.state = pipelineStateClosed
 }

@@ -15,6 +15,8 @@ type stage[WArgs any, In msgBody, Cfg cfg] interface {
 	Close()
 	Tel() *telemetry.Telemetry
 	Config() Cfg
+	Inputs() []uintptr
+	Outputs() []uintptr
 }
 
 func newStage[WArgs any, In msgBody, Cfg stageCfg](
@@ -78,6 +80,14 @@ func (s *stageBase[WArgs, In, Cfg]) Config() Cfg {
 	return s.config
 }
 
+func (s *stageBase[WArgs, In, Cfg]) Inputs() []uintptr {
+	return []uintptr{connector.GetConnectorID(s.inputConnector)}
+}
+
+func (s *stageBase[WArgs, In, Cfg]) Outputs() []uintptr {
+	return []uintptr{}
+}
+
 //////////////
 //  SINGLE  //
 //////////////
@@ -114,6 +124,7 @@ func (s *stageSingle[WArgs, In, Cfg]) Init(ctx context.Context, workerArgs WArgs
 }
 
 func (s *stageSingle[WArgs, In, Cfg]) Run(ctx context.Context) {
+	defer s.tel.LogInfo("closed")
 	s.stageBase.run()
 
 	for {
@@ -174,6 +185,7 @@ func (s *stagePool[WArgs, In, Cfg]) Init(ctx context.Context, workerArgs WArgs) 
 }
 
 func (s *stagePool[WArgs, In, Cfg]) Run(ctx context.Context) {
+	defer s.tel.LogInfo("closed")
 	s.stageBase.run()
 
 	// Run the worker pool

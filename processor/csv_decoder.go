@@ -250,7 +250,7 @@ func (w *csvDecoderWorker[T]) Close(_ context.Context) error {
 
 // CSVDecoderStage is a processor stage that decodes raw chunks of CSV data.
 type CSVDecoderStage[T msgSer] struct {
-	stage[*csvDecoderWorkerArgs, T, *CSVMessage, *CSVConfig]
+	processorStage[*csvDecoderWorkerArgs, T, *CSVMessage, *CSVConfig]
 }
 
 // NewCSVDecoderStage returns a new CSV decoder stage.
@@ -259,7 +259,7 @@ func NewCSVDecoderStage[T msgSer](
 ) *CSVDecoderStage[T] {
 
 	return &CSVDecoderStage[T]{
-		stage: newStage("csv_decoder", inputConnector, outputConnector, newCSVDecoderWorkerInstMaker[T](), cfg),
+		processorStage: newStage("csv_decoder", inputConnector, outputConnector, newCSVDecoderWorkerInstMaker[T](), cfg),
 	}
 }
 
@@ -269,5 +269,5 @@ func (s *CSVDecoderStage[T]) Init(ctx context.Context) error {
 		columns: s.Config().Columns,
 	})
 
-	return s.stage.Init(ctx, newCSVDecoderWorkerArgs(decoder))
+	return s.processorStage.Init(ctx, newCSVDecoderWorkerArgs(decoder))
 }

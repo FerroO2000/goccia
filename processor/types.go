@@ -12,11 +12,6 @@ import (
 
 type msgBody = message.Body
 
-type msgBodyPtr[T any] interface {
-	*T
-	msgBody
-}
-
 type msg[T msgBody] = message.Message[T]
 
 type msgSer = message.Serializable

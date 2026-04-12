@@ -296,13 +296,13 @@ func (cw *canWorker[T]) Close(_ context.Context) error {
 
 // CANStage is a processor stage that decodes CAN messages.
 type CANStage[T CANMessageCarrier] struct {
-	stage[*canWorkerArgs, T, *CANMessage, *CANConfig]
+	processorStage[*canWorkerArgs, T, *CANMessage, *CANConfig]
 }
 
 // NewCANStage returns a new CAN processor stage.
 func NewCANStage[T CANMessageCarrier](inputConnector msgConn[T], outputConnector msgConn[*CANMessage], cfg *CANConfig) *CANStage[T] {
 	return &CANStage[T]{
-		stage: newStage(
+		processorStage: newStage(
 			"can", inputConnector, outputConnector, newCANWorkerInstMaker[T](), cfg,
 		),
 	}
@@ -312,5 +312,5 @@ func NewCANStage[T CANMessageCarrier](inputConnector msgConn[T], outputConnector
 func (cs *CANStage[T]) Init(ctx context.Context) error {
 	decoder := newCANDecoder(cs.Config().Messages)
 
-	return cs.stage.Init(ctx, newCANWorkerArgs(decoder))
+	return cs.processorStage.Init(ctx, newCANWorkerArgs(decoder))
 }

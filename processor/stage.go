@@ -10,16 +10,18 @@ import (
 	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
-type stage[WArgs any, In, Out msgBody, Cfg cfg] interface {
+type processorStage[WArgs any, In, Out msgBody, Cfg cfg] interface {
 	Init(ctx context.Context, workerArgs WArgs) error
 	Run(ctx context.Context)
 	Close()
 	Config() Cfg
+	Inputs() []uintptr
+	Outputs() []uintptr
 }
 
 func newStage[WArgs any, In, Out msgBody, Cfg stageCfg](
 	name string, inConn msgConn[In], outConn msgConn[Out], workerInstMaker workerInstanceMaker[WArgs, In, Out], cfg Cfg,
-) stage[WArgs, In, Out, Cfg] {
+) processorStage[WArgs, In, Out, Cfg] {
 
 	stageCfg := cfg.GetStage()
 
@@ -81,6 +83,14 @@ func (s *stageBase[WArgs, In, Out, Cfg]) Config() Cfg {
 	return s.config
 }
 
+func (s *stageBase[WArgs, In, Out, Cfg]) Inputs() []uintptr {
+	return []uintptr{connector.GetConnectorID(s.inputConnector)}
+}
+
+func (s *stageBase[WArgs, In, Out, Cfg]) Outputs() []uintptr {
+	return []uintptr{connector.GetConnectorID(s.outputConnector)}
+}
+
 //////////////
 //  SINGLE  //
 //////////////
@@ -117,6 +127,7 @@ func (s *stageSingle[WArgs, In, Out, Cfg]) Init(ctx context.Context, workerArgs 
 }
 
 func (s *stageSingle[WArgs, In, Out, Cfg]) Run(ctx context.Context) {
+	defer s.tel.LogInfo("closed")
 	s.stageBase.run()
 
 	for {
@@ -207,6 +218,7 @@ func (s *stagePool[WArgs, In, Out, Cfg]) runWriter(ctx context.Context) {
 }
 
 func (s *stagePool[WArgs, In, Out, Cfg]) Run(ctx context.Context) {
+	defer s.tel.LogInfo("closed")
 	s.stageBase.run()
 
 	// Run the worker pool
@@ -243,6 +255,9 @@ func (s *stagePool[WArgs, In, Out, Cfg]) Run(ctx context.Context) {
 }
 
 func (s *stagePool[WArgs, In, Out, Cfg]) Close() {
+	s.tel.LogInfo("closing worker pool")
+	defer s.tel.LogInfo("worker pool closed")
+
 	s.stageBase.close()
 
 	// Close the writer goroutine

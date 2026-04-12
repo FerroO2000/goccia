@@ -30,6 +30,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0 // indirect
 	github.com/jaevor/go-nanoid v1.4.0 // indirect
 	github.com/klauspost/compress v1.17.0 // indirect
+	github.com/matoous/go-nanoid/v2 v2.1.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.15 // indirect
 	github.com/questdb/go-questdb-client/v3 v3.2.0 // indirect
 	github.com/segmentio/kafka-go v0.4.49 // indirect

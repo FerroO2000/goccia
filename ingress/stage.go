@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 
+	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/telemetry"
 )
@@ -47,6 +48,7 @@ func (s *stage[Out, Cfg]) Init(_ context.Context) error {
 }
 
 func (s *stage[Out, Cfg]) Run(ctx context.Context) {
+	defer s.tel.LogInfo("closed")
 	s.source.run(ctx, s.outputConnector)
 }
 
@@ -55,4 +57,12 @@ func (s *stage[Out, Cfg]) Close() {
 
 	// Close the output connector
 	s.outputConnector.Close()
+}
+
+func (s *stage[Out, Cfg]) Inputs() []uintptr {
+	return []uintptr{}
+}
+
+func (s *stage[Out, Cfg]) Outputs() []uintptr {
+	return []uintptr{connector.GetConnectorID(s.outputConnector)}
 }

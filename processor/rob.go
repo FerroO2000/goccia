@@ -131,6 +131,7 @@ func (rs *ROBStage[T]) initMetrics() {
 
 // Run runs the re-order buffer stage.
 func (rs *ROBStage[T]) Run(ctx context.Context) {
+	defer rs.tel.LogInfo("stopped")
 	rs.tel.LogInfo("running")
 
 	resetNeeded := false
@@ -214,4 +215,12 @@ func (rs *ROBStage[T]) Close() {
 	defer rs.tel.LogInfo("closed")
 
 	rs.outputConnector.Close()
+}
+
+func (rs *ROBStage[T]) Inputs() []uintptr {
+	return []uintptr{connector.GetConnectorID(rs.inputConnector)}
+}
+
+func (rs *ROBStage[T]) Outputs() []uintptr {
+	return []uintptr{connector.GetConnectorID(rs.outputConnector)}
 }

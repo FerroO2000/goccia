@@ -381,13 +381,13 @@ func (cew *cannelloniEncoderWorker) Close(_ context.Context) error {
 // CannelloniDecoderStage is a processor stage that decodes
 // cannelloni messages into CAN messages.
 type CannelloniDecoderStage[T msgSer] struct {
-	stage[any, T, *CannelloniMessage, *CannelloniConfig]
+	processorStage[any, T, *CannelloniMessage, *CannelloniConfig]
 }
 
 // NewCannelloniDecoderStage returns a new cannelloni decoder processor stage.
 func NewCannelloniDecoderStage[T msgSer](inputConnector msgConn[T], outputConnector msgConn[*CannelloniMessage], cfg *CannelloniConfig) *CannelloniDecoderStage[T] {
 	return &CannelloniDecoderStage[T]{
-		stage: newStage(
+		processorStage: newStage(
 			"cannelloni_decoder", inputConnector, outputConnector, newCannelloniDecoderWorkerInstMaker[T](), cfg,
 		),
 	}
@@ -395,13 +395,13 @@ func NewCannelloniDecoderStage[T msgSer](inputConnector msgConn[T], outputConnec
 
 // Init initializes the stage.
 func (cds *CannelloniDecoderStage[T]) Init(ctx context.Context) error {
-	return cds.stage.Init(ctx, nil)
+	return cds.processorStage.Init(ctx, nil)
 }
 
 // CannelloniEncoderStage is a processor stage that encodes
 // CAN messages into cannelloni messages.
 type CannelloniEncoderStage struct {
-	stage[any, *CannelloniMessage, *CannelloniEncodedMessage, *CannelloniConfig]
+	processorStage[any, *CannelloniMessage, *CannelloniEncodedMessage, *CannelloniConfig]
 }
 
 // NewCannelloniEncoderStage returns a new cannelloni encoder processor stage.
@@ -410,7 +410,7 @@ func NewCannelloniEncoderStage(
 ) *CannelloniEncoderStage {
 
 	return &CannelloniEncoderStage{
-		stage: newStage(
+		processorStage: newStage(
 			"cannelloni_encoder", inputConnector, outputConnector, newCannelloniEncoderWorkerInstMaker(), cfg,
 		),
 	}
@@ -418,5 +418,5 @@ func NewCannelloniEncoderStage(
 
 // Init initializes the stage.
 func (ces *CannelloniEncoderStage) Init(ctx context.Context) error {
-	return ces.stage.Init(ctx, nil)
+	return ces.processorStage.Init(ctx, nil)
 }

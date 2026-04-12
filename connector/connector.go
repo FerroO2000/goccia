@@ -4,6 +4,7 @@ package connector
 
 import (
 	"context"
+	"reflect"
 )
 
 // Connector is a generic connector interface.
@@ -23,4 +24,8 @@ type Connector[T any] interface {
 	// Close closes the connector.
 	// After Close is called, Read and Write will return ErrClosed.
 	Close()
+}
+
+func GetConnectorID[T any](c Connector[T]) uintptr {
+	return reflect.ValueOf(c).Pointer()
 }

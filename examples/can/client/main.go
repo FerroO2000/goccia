@@ -29,7 +29,8 @@ func main() {
 	cannelloniToUDP := connector.NewRingBuffer[*processor.CannelloniEncodedMessage](connectorSize)
 
 	tickerCfg := ingress.NewTickerConfig()
-	tickerCfg.Interval = time.Millisecond
+	// tickerCfg.Interval = time.Millisecond
+	tickerCfg.Interval = time.Nanosecond * 500
 	tickerStage := ingress.NewTickerStage(tickerToCustom, tickerCfg)
 
 	customCfg := processor.NewCustomConfig(goccia.StageRunningModeSingle)
