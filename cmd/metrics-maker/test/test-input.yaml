@@ -1,0 +1,9 @@
+package: output
+objects:
+  - name: stage
+    metrics:
+      - name: counted_items
+        type: counter
+        
+      - name: current_items
+        type: upDownCounter
