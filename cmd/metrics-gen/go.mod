@@ -1,4 +1,4 @@
-module github.com/FerroO2000/goccia/cmd/metrics-maker
+module github.com/FerroO2000/goccia/cmd/metrics-gen
 
 go 1.25.0
 

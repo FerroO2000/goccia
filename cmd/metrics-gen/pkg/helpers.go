@@ -1,4 +1,4 @@
-package generator
+package pkg
 
 import (
 	"strings"
@@ -33,4 +33,8 @@ func camelCase(s string, upper bool) string {
 	}
 
 	return b.String()
+}
+
+func toLowerSnakeCase(s string) string {
+	return strings.ToLower(s)
 }

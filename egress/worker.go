@@ -50,7 +50,7 @@ func (wm *workerMetrics) init() {
 
 	totMsgProcessingTime, err := wm.tel.NewHistogramMetric("total_message_processing_time", metric.WithUnit("ms"))
 	if err != nil {
-		wm.tel.LogErrorCtx(context.Background(), "unable to create histogram metric", err)
+		wm.tel.LogError("unable to create histogram metric", err)
 	}
 	wm.totMsgProcessingTime = totMsgProcessingTime
 }
