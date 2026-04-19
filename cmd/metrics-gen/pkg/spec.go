@@ -19,6 +19,7 @@ const (
 type Metric struct {
 	Name string     `yaml:"name"`
 	Type MetricType `yaml:"type"`
+	Unit string     `yaml:"unit"`
 }
 
 // Group defines a group of metrics.

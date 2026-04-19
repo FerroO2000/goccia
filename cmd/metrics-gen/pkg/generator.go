@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"go/format"
 	"html/template"
-	"maps"
 	"os"
 	"path"
 
@@ -43,30 +42,36 @@ func NewGenerator(basePath string) *Generator {
 	}
 }
 
-func (g *Generator) getImportPackage(metricType MetricType) string {
-	switch metricType {
+func (g *Generator) getImportPackages(metricType *Metric) []string {
+	imports := []string{}
+
+	switch metricType.Type {
 	case MetricTypeCounter, MetricTypeUpDownCounter:
-		return "sync/atomic"
+		imports = append(imports, "sync/atomic")
 
 	case MetricTypeHistogram:
-		return "context"
+		imports = append(imports, "context")
 
-	default:
-		return ""
 	}
+
+	if metricType.Unit != "" {
+		imports = append(imports, "go.opentelemetry.io/otel/metric")
+	}
+
+	return imports
 }
 
 func (g *Generator) getImports(metrics []*Metric) []string {
 	importsMap := make(map[string]struct{})
 	for _, metric := range metrics {
-		pkg := g.getImportPackage(metric.Type)
-		if len(pkg) > 0 {
+		packages := g.getImportPackages(metric)
+		for _, pkg := range packages {
 			importsMap[pkg] = struct{}{}
 		}
 	}
 
 	imports := make([]string, 0, len(importsMap)+len(defaultImports))
-	for pkg := range maps.Keys(importsMap) {
+	for pkg := range importsMap {
 		imports = append(imports, pkg)
 	}
 

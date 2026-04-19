@@ -2,14 +2,16 @@ package worker
 
 import (
 	"context"
+	"time"
 
 	"github.com/FerroO2000/goccia/connector"
+	"github.com/FerroO2000/goccia/internal/stage/metrics"
 	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
 type egressRunnerHandler[WArgs any, In msgBody] struct {
 	tel     *telemetry.Telemetry
-	metrics *egressMetrics
+	metrics *metrics.EgressStage
 
 	workerID int
 	worker   Egress[WArgs, In]
@@ -18,7 +20,7 @@ type egressRunnerHandler[WArgs any, In msgBody] struct {
 }
 
 func newEgressRunnerHandler[WArgs any, In msgBody](
-	tel *telemetry.Telemetry, metrics *egressMetrics,
+	tel *telemetry.Telemetry, metrics *metrics.EgressStage,
 	workerID int, worker Egress[WArgs, In],
 	messageReader connector.MessageConnector[In],
 ) *egressRunnerHandler[WArgs, In] {
@@ -47,9 +49,9 @@ func (erh *egressRunnerHandler[WArgs, In]) handle(ctx context.Context) {
 
 	if err := erh.worker.Deliver(ctx, msg); err != nil {
 		erh.tel.LogError("failed to deliver message", err, "worker_id", erh.workerID)
-		erh.metrics.incrementDeliveringErrors()
+		erh.metrics.IncrementDeliveringErrors()
 	}
 
-	erh.metrics.incrementDeliveredMessages()
-	erh.metrics.recordTotalMessageProcessingTime(ctx, msg.GetReceiveTime())
+	erh.metrics.IncrementDeliveredMessages()
+	erh.metrics.RecordTotalMessageProcessingTime(ctx, int(time.Since(msg.GetReceiveTime()).Milliseconds()))
 }

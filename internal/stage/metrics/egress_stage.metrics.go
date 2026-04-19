@@ -5,6 +5,7 @@ package metrics
 import (
 	"context"
 	"github.com/FerroO2000/goccia/internal/telemetry"
+	"go.opentelemetry.io/otel/metric"
 	"sync/atomic"
 )
 
@@ -35,7 +36,7 @@ func (m *EgressStage) InitMetrics(tel *telemetry.Telemetry) error {
 	}
 
 	// Initialize total_message_processing_time histogram metric
-	m.totalMessageProcessingTime, err = tel.NewHistogramMetric("total_message_processing_time")
+	m.totalMessageProcessingTime, err = tel.NewHistogramMetric("total_message_processing_time", metric.WithUnit("ms"))
 	if err != nil {
 		return err
 	}

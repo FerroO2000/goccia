@@ -26,13 +26,13 @@ func (m *{{ $structType }}) InitMetrics(tel *telemetry.Telemetry) error {
 {{ $metricField := .Name | toLowerCamelCase }}
 {{- if eq .Type "counter" }}
     // Initialize {{ .Name }} counter metric
-    err = tel.NewCounterMetric("{{ .Name }}", func() int64 { return m.{{ $metricField }}.Load() })
+    err = tel.NewCounterMetric("{{ .Name }}", func() int64 { return m.{{ $metricField }}.Load() }{{ if .Unit }}, metric.WithUnit("{{ .Unit }}"){{ end }})
 {{- else if eq .Type "upDownCounter" }}
     // Initialize {{ .Name }} up/down counter metric
-    err = tel.NewUpDownCounterMetric("{{ .Name }}", func() int64 { return m.{{ $metricField }}.Load() })
+    err = tel.NewUpDownCounterMetric("{{ .Name }}", func() int64 { return m.{{ $metricField }}.Load() }{{ if .Unit }}, metric.WithUnit("{{ .Unit }}"){{ end }})
 {{- else if eq .Type "histogram" }}
     // Initialize {{ .Name }} histogram metric
-    m.{{ $metricField }}, err = tel.NewHistogramMetric("{{ .Name }}")
+    m.{{ $metricField }}, err = tel.NewHistogramMetric("{{ .Name }}"{{ if .Unit }}, metric.WithUnit("{{ .Unit }}"){{ end }})
 {{- end }}
     if err != nil {
         return err

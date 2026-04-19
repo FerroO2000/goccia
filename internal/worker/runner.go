@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/FerroO2000/goccia/connector"
+	"github.com/FerroO2000/goccia/internal/stage/metrics"
 	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
@@ -40,7 +41,7 @@ func newRunner[WArgs any, W Worker[WArgs]](
 
 // NewProcessorRunner returns a new runner for a processor worker.
 func NewProcessorRunner[WArgs any, In, Out msgBody](
-	tel *telemetry.Telemetry, metrics *processorMetrics,
+	tel *telemetry.Telemetry, metrics *metrics.ProcessorStage,
 	workerID int, worker Processor[WArgs, In, Out],
 	messageReader connector.MessageConnector[In], messageWriter connector.MessageConnector[Out],
 ) *Runner[WArgs, Processor[WArgs, In, Out]] {
@@ -54,7 +55,7 @@ func NewProcessorRunner[WArgs any, In, Out msgBody](
 
 // NewEgressRunner returns a new runner for an egress worker.
 func NewEgressRunner[WArgs any, In msgBody](
-	tel *telemetry.Telemetry, metrics *egressMetrics,
+	tel *telemetry.Telemetry, metrics *metrics.EgressStage,
 	workerID int, worker Egress[WArgs, In],
 	messageReader connector.MessageConnector[In],
 ) *Runner[WArgs, Egress[WArgs, In]] {

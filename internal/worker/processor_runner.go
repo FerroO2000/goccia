@@ -4,12 +4,13 @@ import (
 	"context"
 
 	"github.com/FerroO2000/goccia/connector"
+	"github.com/FerroO2000/goccia/internal/stage/metrics"
 	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
 type processorRunnerHandler[WArgs any, In, Out msgBody] struct {
 	tel     *telemetry.Telemetry
-	metrics *processorMetrics
+	metrics *metrics.ProcessorStage
 
 	workerID int
 	worker   Processor[WArgs, In, Out]
@@ -19,7 +20,7 @@ type processorRunnerHandler[WArgs any, In, Out msgBody] struct {
 }
 
 func newProcessorRunnerHandler[WArgs any, In, Out msgBody](
-	tel *telemetry.Telemetry, metrics *processorMetrics,
+	tel *telemetry.Telemetry, metrics *metrics.ProcessorStage,
 	workerID int, worker Processor[WArgs, In, Out],
 	messageReader connector.MessageConnector[In], messageWriter connector.MessageConnector[Out],
 ) *processorRunnerHandler[WArgs, In, Out] {
@@ -44,7 +45,7 @@ func (prh *processorRunnerHandler[WArgs, In, Out]) handle(ctx context.Context) {
 
 	defer msgIn.Destroy()
 
-	prh.metrics.incrementProcessedMessages()
+	prh.metrics.IncrementProcessedMessages()
 
 	// Extract the span context from the input message
 	ctx = msgIn.LoadSpanContext(ctx)
@@ -52,7 +53,7 @@ func (prh *processorRunnerHandler[WArgs, In, Out]) handle(ctx context.Context) {
 	msgOut, err := prh.worker.Handle(ctx, msgIn)
 	if err != nil {
 		prh.tel.LogError("failed to process message", err, "worker_id", prh.workerID)
-		prh.metrics.incrementProcessingErrors()
+		prh.metrics.IncrementProcessingErrors()
 
 		return
 	}
@@ -65,7 +66,7 @@ func (prh *processorRunnerHandler[WArgs, In, Out]) handle(ctx context.Context) {
 	if msgOut.IsDropped() {
 		msgOut.Destroy()
 
-		prh.metrics.incrementDroppedMessages()
+		prh.metrics.IncrementDroppedMessages()
 
 		return
 	}

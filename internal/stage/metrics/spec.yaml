@@ -21,3 +21,4 @@ groups:
 
       - name: total_message_processing_time
         type: histogram
+        unit: ms
