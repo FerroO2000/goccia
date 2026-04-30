@@ -16,6 +16,11 @@ type {{ $structType }} struct {
 {{- end }}
 }
 
+// New{{ $structType }} returns a new instance of the {{ $structType }} struct.
+func New{{ $structType }}() *{{ $structType }} {
+    return &{{ $structType }}{}
+}
+
 // InitMetrics initializes the metrics for the {{ $structType }}.
 // It uses the given telemetry instance to create the metrics.
 //

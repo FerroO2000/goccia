@@ -9,31 +9,21 @@ import (
 	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
-type runnerHandler[WArgs any, W Worker[WArgs]] interface {
-	handle(ctx context.Context)
-}
-
 // Runner is a struct that represents a worker runner.
 // It is used as a wrapper for the different kinds of worker,
 // and it is meant to be used by both single-threaded and pooled stages.
 type Runner[WArgs any, W Worker[WArgs]] struct {
 	tel *telemetry.Telemetry
 
-	workerID int
-	worker   W
-
 	handler runnerHandler[WArgs, W]
 }
 
 func newRunner[WArgs any, W Worker[WArgs]](
-	tel *telemetry.Telemetry, workerID int, worker W, handler runnerHandler[WArgs, W],
+	tel *telemetry.Telemetry, handler runnerHandler[WArgs, W],
 ) *Runner[WArgs, W] {
 
 	return &Runner[WArgs, W]{
 		tel: tel,
-
-		workerID: workerID,
-		worker:   worker,
 
 		handler: handler,
 	}
@@ -50,7 +40,7 @@ func NewProcessorRunner[WArgs any, In, Out msgBody](
 		tel, metrics, workerID, worker, messageReader, messageWriter,
 	)
 
-	return newRunner(tel, workerID, worker, handler)
+	return newRunner(tel, handler)
 }
 
 // NewEgressRunner returns a new runner for an egress worker.
@@ -64,17 +54,18 @@ func NewEgressRunner[WArgs any, In msgBody](
 		tel, metrics, workerID, worker, messageReader,
 	)
 
-	return newRunner(tel, workerID, worker, handler)
+	return newRunner(tel, handler)
 }
 
 // Init initializes the worker.
 func (r *Runner[WArgs, W]) Init(ctx context.Context, workerArgs WArgs) error {
-	defer r.tel.LogDebug("worker initialized", "worker_id", r.workerID)
+	worker, workerID := r.handler.getWorker()
+	defer r.tel.LogDebug("worker initialized", "worker_id", workerID)
 
-	r.worker.SetTelemetry(r.tel)
+	worker.SetTelemetry(r.tel)
 
-	if err := r.worker.Init(ctx, workerArgs); err != nil {
-		r.tel.LogError("failed to init worker", err, "worker_id", r.workerID)
+	if err := worker.Init(ctx, workerArgs); err != nil {
+		r.tel.LogError("failed to init worker", err, "worker_id", workerID)
 		return err
 	}
 
@@ -119,10 +110,11 @@ func (r *Runner[WArgs, W]) RunPooled(
 
 // Close closes the worker.
 func (r *Runner[WArgs, W]) Close(ctx context.Context) error {
-	defer r.tel.LogDebug("worker closed", "worker_id", r.workerID)
+	worker, workerID := r.handler.getWorker()
+	defer r.tel.LogDebug("worker closed", "worker_id", workerID)
 
-	if err := r.worker.Close(ctx); err != nil {
-		r.tel.LogError("failed to close worker", err, "worker_id", r.workerID)
+	if err := worker.Close(ctx); err != nil {
+		r.tel.LogError("failed to close worker", err, "worker_id", workerID)
 		return err
 	}
 

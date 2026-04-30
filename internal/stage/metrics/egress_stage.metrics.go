@@ -16,6 +16,11 @@ type EgressStage struct {
 	totalMessageProcessingTime *telemetry.Histogram
 }
 
+// NewEgressStage returns a new instance of the EgressStage struct.
+func NewEgressStage() *EgressStage {
+	return &EgressStage{}
+}
+
 // InitMetrics initializes the metrics for the EgressStage.
 // It uses the given telemetry instance to create the metrics.
 //

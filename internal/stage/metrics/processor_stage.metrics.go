@@ -14,6 +14,11 @@ type ProcessorStage struct {
 	processingErrors  atomic.Int64
 }
 
+// NewProcessorStage returns a new instance of the ProcessorStage struct.
+func NewProcessorStage() *ProcessorStage {
+	return &ProcessorStage{}
+}
+
 // InitMetrics initializes the metrics for the ProcessorStage.
 // It uses the given telemetry instance to create the metrics.
 //
