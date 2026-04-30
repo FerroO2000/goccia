@@ -275,3 +275,7 @@ func (s *Scaler) GetStopCh(workerID int) <-chan struct{} {
 func (s *Scaler) GetStartCh() <-chan struct{} {
 	return s.startCh
 }
+
+func (s *Scaler) GetPendingCounter() *atomic.Int64 {
+	return &s.pendingTasks
+}

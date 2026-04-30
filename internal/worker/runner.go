@@ -98,7 +98,7 @@ func (r *Runner[WArgs, W]) Run(ctx context.Context) {
 // RunPooled runs the worker until the context is done or the stopCh is closed.
 // This method is meant to be used by pooled stages.
 func (r *Runner[WArgs, W]) RunPooled(
-	ctx context.Context, stopCh <-chan struct{}, completedCounter *atomic.Int64,
+	ctx context.Context, stopCh <-chan struct{}, pendingCounter *atomic.Int64,
 ) {
 
 	for {
@@ -110,8 +110,9 @@ func (r *Runner[WArgs, W]) RunPooled(
 			return
 
 		default:
+			pendingCounter.Add(1)
 			r.handler.handle(ctx)
-			completedCounter.Add(1)
+			pendingCounter.Add(-1)
 		}
 	}
 }

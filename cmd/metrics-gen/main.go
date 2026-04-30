@@ -27,19 +27,4 @@ func main() {
 	if err := generator.Generate(spec); err != nil {
 		log.Fatalf("generating code: %v", err)
 	}
-
-	// input, err := loader.Load(*inputFile)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// out, err := os.Create(*outputFile)
-	// if err != nil {
-	// 	log.Fatalf("creating output file: %v", err)
-	// }
-	// defer out.Close()
-
-	// if err := generator.Generate(out, input); err != nil {
-	// 	log.Fatalf("generating code: %v", err)
-	// }
 }
