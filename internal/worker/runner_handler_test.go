@@ -1,6 +1,4 @@
-// Package worker contains tests for processorRunnerHandler and egressRunnerHandler.
-//
-// Covered scenarios:
+// Runner Handler test covered scenarios:
 //
 // ┌─────────────────────────────────────────────────────────────────────────────────┐
 // │ Handler                      │ Scenario                  │ Expected behaviour   │
@@ -37,98 +35,111 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// ─── Shared test body type ───────────────────────────────────────────────────
+// ─── Mock: Message Connector ────────────────────────────────────────────────|
 
-type testBody struct{ Value string }
+type messageBody struct{ Value string }
 
-// Destroy implements message.Body.
-func (b *testBody) Destroy() {}
+func (b *messageBody) Destroy() {}
 
-// ─── Mock: connector.MessageConnector ───────────────────────────────────────
+var _ connector.MessageConnector[*messageBody] = (*mockReader)(nil)
 
-type mockReader[T msgBody] struct{ mock.Mock }
+type mockReader struct{ mock.Mock }
 
-func (m *mockReader[T]) Read(ctx context.Context) (*msg[T], error) {
+func newMockReader() *mockReader {
+	return &mockReader{}
+}
+
+func (m *mockReader) Read(ctx context.Context) (*msg[*messageBody], error) {
 	args := m.Called(ctx)
-	v, _ := args.Get(0).(*msg[T])
+	v, _ := args.Get(0).(*msg[*messageBody])
 	return v, args.Error(1)
 }
 
-func (m *mockReader[T]) Write(item *msg[T]) error {
+func (m *mockReader) Write(item *msg[*messageBody]) error {
 	args := m.Called(item)
 	return args.Error(0)
 }
 
-func (m *mockReader[T]) Close()                         {}
-func (m *mockReader[T]) SetReadTimeout(_ time.Duration) {}
+func (m *mockReader) Close()                         {}
+func (m *mockReader) SetReadTimeout(_ time.Duration) {}
 
-var _ connector.MessageConnector[*testBody] = (*mockReader[*testBody])(nil)
+var _ connector.MessageConnector[*messageBody] = (*mockWriter)(nil)
 
-type mockWriter[T msgBody] struct{ mock.Mock }
+type mockWriter struct{ mock.Mock }
 
-func (m *mockWriter[T]) Read(ctx context.Context) (*msg[T], error) {
+func newMockWriter() *mockWriter {
+	return &mockWriter{}
+}
+
+func (m *mockWriter) Read(ctx context.Context) (*msg[*messageBody], error) {
 	args := m.Called(ctx)
-	v, _ := args.Get(0).(*msg[T])
+	v, _ := args.Get(0).(*msg[*messageBody])
 	return v, args.Error(1)
 }
 
-func (m *mockWriter[T]) Write(item *msg[T]) error {
+func (m *mockWriter) Write(item *msg[*messageBody]) error {
 	args := m.Called(item)
 	return args.Error(0)
 }
 
-func (m *mockWriter[T]) Close()                         {}
-func (m *mockWriter[T]) SetReadTimeout(_ time.Duration) {}
+func (m *mockWriter) Close()                         {}
+func (m *mockWriter) SetReadTimeout(_ time.Duration) {}
 
-var _ connector.MessageConnector[*testBody] = (*mockWriter[*testBody])(nil)
+// ─── Mock: Processor Worker ─────────────────────────────────────────────────|
 
-// ─── Mock: Processor worker ──────────────────────────────────────────────────
+type mockProcessor struct{ mock.Mock }
 
-type mockProcessor[WArgs any, In, Out msgBody] struct{ mock.Mock }
+func newMockProcessor() *mockProcessor {
+	return &mockProcessor{}
+}
 
-func (m *mockProcessor[WArgs, In, Out]) SetTelemetry(tel *telemetry.Telemetry) {
+func (m *mockProcessor) SetTelemetry(tel *telemetry.Telemetry) {
 	m.Called(tel)
 }
 
-func (m *mockProcessor[WArgs, In, Out]) Init(ctx context.Context, args WArgs) error {
+func (m *mockProcessor) Init(ctx context.Context, args struct{}) error {
 	return m.Called(ctx, args).Error(0)
 }
 
-func (m *mockProcessor[WArgs, In, Out]) Close(ctx context.Context) error {
+func (m *mockProcessor) Close(ctx context.Context) error {
 	return m.Called(ctx).Error(0)
 }
 
-func (m *mockProcessor[WArgs, In, Out]) Handle(ctx context.Context, in *msg[In]) (*msg[Out], error) {
+func (m *mockProcessor) Handle(ctx context.Context, in *msg[*messageBody]) (*msg[*messageBody], error) {
 	args := m.Called(ctx, in)
-	out, _ := args.Get(0).(*msg[Out])
+	out, _ := args.Get(0).(*msg[*messageBody])
 	return out, args.Error(1)
 }
 
-var _ Processor[struct{}, *testBody, *testBody] = (*mockProcessor[struct{}, *testBody, *testBody])(nil)
+var _ Processor[struct{}, *messageBody, *messageBody] = (*mockProcessor)(nil)
 
-// ─── Mock: Egress worker ─────────────────────────────────────────────────────
+// ─── Mock: Egress Worker ────────────────────────────────────────────────────|
 
-type mockEgress[WArgs any, In msgBody] struct{ mock.Mock }
+type mockEgress struct{ mock.Mock }
 
-func (m *mockEgress[WArgs, In]) SetTelemetry(tel *telemetry.Telemetry) {
+func newMockEgress() *mockEgress {
+	return &mockEgress{}
+}
+
+func (m *mockEgress) SetTelemetry(tel *telemetry.Telemetry) {
 	m.Called(tel)
 }
 
-func (m *mockEgress[WArgs, In]) Init(ctx context.Context, args WArgs) error {
+func (m *mockEgress) Init(ctx context.Context, args struct{}) error {
 	return m.Called(ctx, args).Error(0)
 }
 
-func (m *mockEgress[WArgs, In]) Close(ctx context.Context) error {
+func (m *mockEgress) Close(ctx context.Context) error {
 	return m.Called(ctx).Error(0)
 }
 
-func (m *mockEgress[WArgs, In]) Deliver(ctx context.Context, task *msg[In]) error {
+func (m *mockEgress) Deliver(ctx context.Context, task *msg[*messageBody]) error {
 	return m.Called(ctx, task).Error(0)
 }
 
-var _ Egress[struct{}, *testBody] = (*mockEgress[struct{}, *testBody])(nil)
+var _ Egress[struct{}, *messageBody] = (*mockEgress)(nil)
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────|
 
 func noopTelemetry(t *testing.T) *telemetry.Telemetry {
 	t.Helper()
@@ -149,24 +160,32 @@ func noopEgressMetrics(t *testing.T) *metrics.EgressStage {
 	return m
 }
 
-func newTestMsg(body *testBody) *msg[*testBody] {
+func newTestMsg(body *messageBody) *msg[*messageBody] {
 	m := message.NewMessage(body)
 	m.SetReceiveTime(time.Now())
 	return m
 }
 
-// ─── processorRunnerHandler tests ────────────────────────────────────────────
+// ─── Processor Runner Handler ───────────────────────────────────────────────|
+
+func newTestProcessorRunnerHandler(
+	t *testing.T,
+	worker Processor[struct{}, *messageBody, *messageBody],
+	workerID int,
+	reader connector.MessageConnector[*messageBody],
+	writer connector.MessageConnector[*messageBody],
+) *processorRunnerHandler[struct{}, *messageBody, *messageBody] {
+	return newProcessorRunnerHandler(
+		noopTelemetry(t), noopProcessorMetrics(t), workerID, worker, reader, writer,
+	)
+}
 
 func Test_ProcessorRunnerHandler_GetWorker(t *testing.T) {
-	worker := &mockProcessor[struct{}, *testBody, *testBody]{}
-	handler := newProcessorRunnerHandler[struct{}, *testBody, *testBody](
-		noopTelemetry(t),
-		noopProcessorMetrics(t),
-		42,
-		worker,
-		&mockReader[*testBody]{},
-		&mockWriter[*testBody]{},
-	)
+	worker := newMockProcessor()
+	reader := newMockReader()
+	writer := newMockWriter()
+
+	handler := newTestProcessorRunnerHandler(t, worker, 42, reader, writer)
 
 	gotWorker, gotID := handler.getWorker()
 	assert.Equal(t, worker, gotWorker)
@@ -174,22 +193,15 @@ func Test_ProcessorRunnerHandler_GetWorker(t *testing.T) {
 }
 
 func Test_ProcessorRunnerHandler_Handle_ReadError(t *testing.T) {
-	reader := &mockReader[*testBody]{}
-	writer := &mockWriter[*testBody]{}
-	worker := &mockProcessor[struct{}, *testBody, *testBody]{}
+	worker := newMockProcessor()
+	reader := newMockReader()
+	writer := newMockWriter()
 
 	reader.On("Read", mock.Anything).Return(nil, errors.New("read error"))
 
-	handler := newProcessorRunnerHandler[struct{}, *testBody, *testBody](
-		noopTelemetry(t),
-		noopProcessorMetrics(t),
-		1,
-		worker,
-		reader,
-		writer,
-	)
+	handler := newTestProcessorRunnerHandler(t, worker, 1, reader, writer)
 
-	handler.handle(context.Background())
+	handler.handle(t.Context())
 
 	reader.AssertExpectations(t)
 	worker.AssertNotCalled(t, "Handle", mock.Anything, mock.Anything)
@@ -197,25 +209,18 @@ func Test_ProcessorRunnerHandler_Handle_ReadError(t *testing.T) {
 }
 
 func Test_ProcessorRunnerHandler_Handle_WorkerError(t *testing.T) {
-	msgIn := newTestMsg(&testBody{Value: "in"})
+	worker := newMockProcessor()
+	reader := newMockReader()
+	writer := newMockWriter()
 
-	reader := &mockReader[*testBody]{}
-	writer := &mockWriter[*testBody]{}
-	worker := &mockProcessor[struct{}, *testBody, *testBody]{}
+	msgIn := newTestMsg(&messageBody{Value: "in"})
 
 	reader.On("Read", mock.Anything).Return(msgIn, nil)
 	worker.On("Handle", mock.Anything, msgIn).Return(nil, errors.New("handle error"))
 
-	handler := newProcessorRunnerHandler[struct{}, *testBody, *testBody](
-		noopTelemetry(t),
-		noopProcessorMetrics(t),
-		1,
-		worker,
-		reader,
-		writer,
-	)
+	handler := newTestProcessorRunnerHandler(t, worker, 1, reader, writer)
 
-	handler.handle(context.Background())
+	handler.handle(t.Context())
 
 	reader.AssertExpectations(t)
 	worker.AssertExpectations(t)
@@ -223,27 +228,20 @@ func Test_ProcessorRunnerHandler_Handle_WorkerError(t *testing.T) {
 }
 
 func Test_ProcessorRunnerHandler_Handle_DroppedMessage(t *testing.T) {
-	msgIn := newTestMsg(&testBody{Value: "in"})
-	msgOut := newTestMsg(&testBody{Value: "out"})
-	msgOut.Drop()
+	worker := newMockProcessor()
+	reader := newMockReader()
+	writer := newMockWriter()
 
-	reader := &mockReader[*testBody]{}
-	writer := &mockWriter[*testBody]{}
-	worker := &mockProcessor[struct{}, *testBody, *testBody]{}
+	msgIn := newTestMsg(&messageBody{Value: "in"})
+	msgOut := newTestMsg(&messageBody{Value: "out"})
+	msgOut.Drop()
 
 	reader.On("Read", mock.Anything).Return(msgIn, nil)
 	worker.On("Handle", mock.Anything, msgIn).Return(msgOut, nil)
 
-	handler := newProcessorRunnerHandler[struct{}, *testBody, *testBody](
-		noopTelemetry(t),
-		noopProcessorMetrics(t),
-		1,
-		worker,
-		reader,
-		writer,
-	)
+	handler := newTestProcessorRunnerHandler(t, worker, 1, reader, writer)
 
-	handler.handle(context.Background())
+	handler.handle(t.Context())
 
 	reader.AssertExpectations(t)
 	worker.AssertExpectations(t)
@@ -251,27 +249,20 @@ func Test_ProcessorRunnerHandler_Handle_DroppedMessage(t *testing.T) {
 }
 
 func Test_ProcessorRunnerHandler_Handle_HappyPath(t *testing.T) {
-	msgIn := newTestMsg(&testBody{Value: "in"})
-	msgOut := newTestMsg(&testBody{Value: "out"})
+	worker := newMockProcessor()
+	reader := newMockReader()
+	writer := newMockWriter()
 
-	reader := &mockReader[*testBody]{}
-	writer := &mockWriter[*testBody]{}
-	worker := &mockProcessor[struct{}, *testBody, *testBody]{}
+	msgIn := newTestMsg(&messageBody{Value: "in"})
+	msgOut := newTestMsg(&messageBody{Value: "out"})
 
 	reader.On("Read", mock.Anything).Return(msgIn, nil)
 	worker.On("Handle", mock.Anything, msgIn).Return(msgOut, nil)
 	writer.On("Write", msgOut).Return(nil)
 
-	handler := newProcessorRunnerHandler[struct{}, *testBody, *testBody](
-		noopTelemetry(t),
-		noopProcessorMetrics(t),
-		1,
-		worker,
-		reader,
-		writer,
-	)
+	handler := newTestProcessorRunnerHandler(t, worker, 1, reader, writer)
 
-	handler.handle(context.Background())
+	handler.handle(t.Context())
 
 	reader.AssertExpectations(t)
 	worker.AssertExpectations(t)
@@ -282,28 +273,21 @@ func Test_ProcessorRunnerHandler_Handle_HappyPath(t *testing.T) {
 }
 
 func Test_ProcessorRunnerHandler_Handle_WriteError(t *testing.T) {
-	msgIn := newTestMsg(&testBody{Value: "in"})
-	msgOut := newTestMsg(&testBody{Value: "out"})
+	worker := newMockProcessor()
+	reader := newMockReader()
+	writer := newMockWriter()
 
-	reader := &mockReader[*testBody]{}
-	writer := &mockWriter[*testBody]{}
-	worker := &mockProcessor[struct{}, *testBody, *testBody]{}
+	msgIn := newTestMsg(&messageBody{Value: "in"})
+	msgOut := newTestMsg(&messageBody{Value: "out"})
 
 	reader.On("Read", mock.Anything).Return(msgIn, nil)
 	worker.On("Handle", mock.Anything, msgIn).Return(msgOut, nil)
 	writer.On("Write", msgOut).Return(errors.New("write error"))
 
-	handler := newProcessorRunnerHandler[struct{}, *testBody, *testBody](
-		noopTelemetry(t),
-		noopProcessorMetrics(t),
-		1,
-		worker,
-		reader,
-		writer,
-	)
+	handler := newTestProcessorRunnerHandler(t, worker, 1, reader, writer)
 
 	assert.NotPanics(t, func() {
-		handler.handle(context.Background())
+		handler.handle(t.Context())
 	})
 
 	reader.AssertExpectations(t)
@@ -311,17 +295,24 @@ func Test_ProcessorRunnerHandler_Handle_WriteError(t *testing.T) {
 	writer.AssertExpectations(t)
 }
 
-// ─── egressRunnerHandler tests ───────────────────────────────────────────────
+// ─── Egress Runner Handler ──────────────────────────────────────────────────|
+
+func newTestEgressRunnerHandler(
+	t *testing.T,
+	worker Egress[struct{}, *messageBody],
+	workerID int,
+	reader connector.MessageConnector[*messageBody],
+) *egressRunnerHandler[struct{}, *messageBody] {
+	return newEgressRunnerHandler(
+		noopTelemetry(t), noopEgressMetrics(t), workerID, worker, reader,
+	)
+}
 
 func Test_EgressRunnerHandler_GetWorker(t *testing.T) {
-	worker := &mockEgress[struct{}, *testBody]{}
-	handler := newEgressRunnerHandler[struct{}, *testBody](
-		noopTelemetry(t),
-		noopEgressMetrics(t),
-		99,
-		worker,
-		&mockReader[*testBody]{},
-	)
+	worker := newMockEgress()
+	reader := newMockReader()
+
+	handler := newTestEgressRunnerHandler(t, worker, 99, reader)
 
 	gotWorker, gotID := handler.getWorker()
 	assert.Equal(t, worker, gotWorker)
@@ -329,44 +320,32 @@ func Test_EgressRunnerHandler_GetWorker(t *testing.T) {
 }
 
 func Test_EgressRunnerHandler_Handle_ReadError(t *testing.T) {
-	reader := &mockReader[*testBody]{}
-	worker := &mockEgress[struct{}, *testBody]{}
+	worker := newMockEgress()
+	reader := newMockReader()
 
 	reader.On("Read", mock.Anything).Return(nil, errors.New("read error"))
 
-	handler := newEgressRunnerHandler[struct{}, *testBody](
-		noopTelemetry(t),
-		noopEgressMetrics(t),
-		1,
-		worker,
-		reader,
-	)
+	handler := newTestEgressRunnerHandler(t, worker, 1, reader)
 
-	handler.handle(context.Background())
+	handler.handle(t.Context())
 
 	reader.AssertExpectations(t)
 	worker.AssertNotCalled(t, "Deliver", mock.Anything, mock.Anything)
 }
 
 func Test_EgressRunnerHandler_Handle_DeliverError(t *testing.T) {
-	msgIn := newTestMsg(&testBody{Value: "payload"})
+	worker := newMockEgress()
+	reader := newMockReader()
 
-	reader := &mockReader[*testBody]{}
-	worker := &mockEgress[struct{}, *testBody]{}
+	msgIn := newTestMsg(&messageBody{Value: "payload"})
 
 	reader.On("Read", mock.Anything).Return(msgIn, nil)
 	worker.On("Deliver", mock.Anything, msgIn).Return(errors.New("deliver error"))
 
-	handler := newEgressRunnerHandler[struct{}, *testBody](
-		noopTelemetry(t),
-		noopEgressMetrics(t),
-		1,
-		worker,
-		reader,
-	)
+	handler := newTestEgressRunnerHandler(t, worker, 1, reader)
 
 	assert.NotPanics(t, func() {
-		handler.handle(context.Background())
+		handler.handle(t.Context())
 	})
 
 	reader.AssertExpectations(t)
@@ -374,48 +353,36 @@ func Test_EgressRunnerHandler_Handle_DeliverError(t *testing.T) {
 }
 
 func Test_EgressRunnerHandler_Handle_HappyPath(t *testing.T) {
-	msgIn := newTestMsg(&testBody{Value: "payload"})
+	worker := newMockEgress()
+	reader := newMockReader()
 
-	reader := &mockReader[*testBody]{}
-	worker := &mockEgress[struct{}, *testBody]{}
+	msgIn := newTestMsg(&messageBody{Value: "payload"})
 
 	reader.On("Read", mock.Anything).Return(msgIn, nil)
 	worker.On("Deliver", mock.Anything, msgIn).Return(nil)
 
-	handler := newEgressRunnerHandler[struct{}, *testBody](
-		noopTelemetry(t),
-		noopEgressMetrics(t),
-		1,
-		worker,
-		reader,
-	)
+	handler := newTestEgressRunnerHandler(t, worker, 1, reader)
 
-	handler.handle(context.Background())
+	handler.handle(t.Context())
 
 	reader.AssertExpectations(t)
 	worker.AssertExpectations(t)
 }
 
 func Test_EgressRunnerHandler_Handle_RecordsProcessingTime(t *testing.T) {
-	msgIn := newTestMsg(&testBody{Value: "payload"})
-	msgIn.SetReceiveTime(time.Now().Add(-50 * time.Millisecond))
+	worker := newMockEgress()
+	reader := newMockReader()
 
-	reader := &mockReader[*testBody]{}
-	worker := &mockEgress[struct{}, *testBody]{}
+	msgIn := newTestMsg(&messageBody{Value: "payload"})
+	msgIn.SetReceiveTime(time.Now().Add(-50 * time.Millisecond))
 
 	reader.On("Read", mock.Anything).Return(msgIn, nil)
 	worker.On("Deliver", mock.Anything, msgIn).Return(nil)
 
-	handler := &egressRunnerHandler[struct{}, *testBody]{
-		tel:           noopTelemetry(t),
-		metrics:       noopEgressMetrics(t),
-		workerID:      1,
-		worker:        worker,
-		messageReader: reader,
-	}
+	handler := newTestEgressRunnerHandler(t, worker, 1, reader)
 
 	assert.NotPanics(t, func() {
-		handler.handle(context.Background())
+		handler.handle(t.Context())
 	})
 
 	reader.AssertExpectations(t)
