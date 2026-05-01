@@ -9,16 +9,16 @@ import (
 	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
-type runnerHandler[WArgs any, W Worker[WArgs]] interface {
+type workerHandler[WArgs any, W Worker[WArgs]] interface {
 	getWorker() (worker W, workerID int)
 	handle(ctx context.Context)
 }
 
 // ─── Processor ──────────────────────────────────────────────────────────────|
 
-type processorRunnerHandler[WArgs any, In, Out msgBody] struct {
-	tel     *telemetry.Telemetry
-	metrics *metrics.ProcessorStage
+type processorWorkerHandler[WArgs any, In, Out msgBody] struct {
+	tel          *telemetry.Telemetry
+	stageMetrics *metrics.ProcessorStage
 
 	workerID int
 	worker   Processor[WArgs, In, Out]
@@ -27,15 +27,15 @@ type processorRunnerHandler[WArgs any, In, Out msgBody] struct {
 	messageWriter connector.MessageConnector[Out]
 }
 
-func newProcessorRunnerHandler[WArgs any, In, Out msgBody](
+func newProcessorWorkerHandler[WArgs any, In, Out msgBody](
 	tel *telemetry.Telemetry, metrics *metrics.ProcessorStage,
 	workerID int, worker Processor[WArgs, In, Out],
 	messageReader connector.MessageConnector[In], messageWriter connector.MessageConnector[Out],
-) *processorRunnerHandler[WArgs, In, Out] {
+) *processorWorkerHandler[WArgs, In, Out] {
 
-	return &processorRunnerHandler[WArgs, In, Out]{
-		tel:     tel,
-		metrics: metrics,
+	return &processorWorkerHandler[WArgs, In, Out]{
+		tel:          tel,
+		stageMetrics: metrics,
 
 		workerID: workerID,
 		worker:   worker,
@@ -45,27 +45,27 @@ func newProcessorRunnerHandler[WArgs any, In, Out msgBody](
 	}
 }
 
-func (prh *processorRunnerHandler[WArgs, In, Out]) getWorker() (Processor[WArgs, In, Out], int) {
-	return prh.worker, prh.workerID
+func (pwh *processorWorkerHandler[WArgs, In, Out]) getWorker() (Processor[WArgs, In, Out], int) {
+	return pwh.worker, pwh.workerID
 }
 
-func (prh *processorRunnerHandler[WArgs, In, Out]) handle(ctx context.Context) {
-	msgIn, err := prh.messageReader.Read(ctx)
+func (pwh *processorWorkerHandler[WArgs, In, Out]) handle(ctx context.Context) {
+	msgIn, err := pwh.messageReader.Read(ctx)
 	if err != nil {
 		return
 	}
 
 	defer msgIn.Destroy()
 
-	prh.metrics.IncrementProcessedMessages()
+	pwh.stageMetrics.IncrementProcessedMessages()
 
 	// Extract the span context from the input message
 	ctx = msgIn.LoadSpanContext(ctx)
 
-	msgOut, err := prh.worker.Handle(ctx, msgIn)
+	msgOut, err := pwh.worker.Handle(ctx, msgIn)
 	if err != nil {
-		prh.tel.LogError("failed to process message", err, "worker_id", prh.workerID)
-		prh.metrics.IncrementProcessingErrors()
+		pwh.tel.LogError("failed to process message", err, "worker_id", pwh.workerID)
+		pwh.stageMetrics.IncrementProcessingErrors()
 
 		return
 	}
@@ -78,22 +78,22 @@ func (prh *processorRunnerHandler[WArgs, In, Out]) handle(ctx context.Context) {
 	if msgOut.IsDropped() {
 		msgOut.Destroy()
 
-		prh.metrics.IncrementDroppedMessages()
+		pwh.stageMetrics.IncrementDroppedMessages()
 
 		return
 	}
 
 	// Inject the output message
-	if err := prh.messageWriter.Write(msgOut); err != nil {
-		prh.tel.LogError("failed to inject message", err, "worker_id", prh.workerID)
+	if err := pwh.messageWriter.Write(msgOut); err != nil {
+		pwh.tel.LogError("failed to inject message", err, "worker_id", pwh.workerID)
 	}
 }
 
 // ─── Egress ─────────────────────────────────────────────────────────────────|
 
-type egressRunnerHandler[WArgs any, In msgBody] struct {
-	tel     *telemetry.Telemetry
-	metrics *metrics.EgressStage
+type egressWorkerHandler[WArgs any, In msgBody] struct {
+	tel          *telemetry.Telemetry
+	stageMetrics *metrics.EgressStage
 
 	workerID int
 	worker   Egress[WArgs, In]
@@ -101,15 +101,15 @@ type egressRunnerHandler[WArgs any, In msgBody] struct {
 	messageReader connector.MessageConnector[In]
 }
 
-func newEgressRunnerHandler[WArgs any, In msgBody](
+func newEgressWorkerHandler[WArgs any, In msgBody](
 	tel *telemetry.Telemetry, metrics *metrics.EgressStage,
 	workerID int, worker Egress[WArgs, In],
 	messageReader connector.MessageConnector[In],
-) *egressRunnerHandler[WArgs, In] {
+) *egressWorkerHandler[WArgs, In] {
 
-	return &egressRunnerHandler[WArgs, In]{
-		tel:     tel,
-		metrics: metrics,
+	return &egressWorkerHandler[WArgs, In]{
+		tel:          tel,
+		stageMetrics: metrics,
 
 		workerID: workerID,
 		worker:   worker,
@@ -118,12 +118,12 @@ func newEgressRunnerHandler[WArgs any, In msgBody](
 	}
 }
 
-func (erh *egressRunnerHandler[WArgs, In]) getWorker() (Egress[WArgs, In], int) {
-	return erh.worker, erh.workerID
+func (ewh *egressWorkerHandler[WArgs, In]) getWorker() (Egress[WArgs, In], int) {
+	return ewh.worker, ewh.workerID
 }
 
-func (erh *egressRunnerHandler[WArgs, In]) handle(ctx context.Context) {
-	msg, err := erh.messageReader.Read(ctx)
+func (ewh *egressWorkerHandler[WArgs, In]) handle(ctx context.Context) {
+	msg, err := ewh.messageReader.Read(ctx)
 	if err != nil {
 		return
 	}
@@ -133,11 +133,11 @@ func (erh *egressRunnerHandler[WArgs, In]) handle(ctx context.Context) {
 	// Extract the span context from the input message
 	ctx = msg.LoadSpanContext(ctx)
 
-	if err := erh.worker.Deliver(ctx, msg); err != nil {
-		erh.tel.LogError("failed to deliver message", err, "worker_id", erh.workerID)
-		erh.metrics.IncrementDeliveringErrors()
+	if err := ewh.worker.Deliver(ctx, msg); err != nil {
+		ewh.tel.LogError("failed to deliver message", err, "worker_id", ewh.workerID)
+		ewh.stageMetrics.IncrementDeliveringErrors()
 	}
 
-	erh.metrics.IncrementDeliveredMessages()
-	erh.metrics.RecordTotalMessageProcessingTime(ctx, int(time.Since(msg.GetReceiveTime()).Milliseconds()))
+	ewh.stageMetrics.IncrementDeliveredMessages()
+	ewh.stageMetrics.RecordTotalMessageProcessingTime(ctx, int(time.Since(msg.GetReceiveTime()).Milliseconds()))
 }

@@ -15,29 +15,29 @@ import (
 type Runner[WArgs any, W Worker[WArgs]] struct {
 	tel *telemetry.Telemetry
 
-	handler runnerHandler[WArgs, W]
+	workerHandler workerHandler[WArgs, W]
 }
 
 func newRunner[WArgs any, W Worker[WArgs]](
-	tel *telemetry.Telemetry, handler runnerHandler[WArgs, W],
+	tel *telemetry.Telemetry, workerHandler workerHandler[WArgs, W],
 ) *Runner[WArgs, W] {
 
 	return &Runner[WArgs, W]{
 		tel: tel,
 
-		handler: handler,
+		workerHandler: workerHandler,
 	}
 }
 
 // NewProcessorRunner returns a new runner for a processor worker.
 func NewProcessorRunner[WArgs any, In, Out msgBody](
-	tel *telemetry.Telemetry, metrics *metrics.ProcessorStage,
+	tel *telemetry.Telemetry, stageMetrics *metrics.ProcessorStage,
 	workerID int, worker Processor[WArgs, In, Out],
 	messageReader connector.MessageConnector[In], messageWriter connector.MessageConnector[Out],
 ) *Runner[WArgs, Processor[WArgs, In, Out]] {
 
-	handler := newProcessorRunnerHandler(
-		tel, metrics, workerID, worker, messageReader, messageWriter,
+	handler := newProcessorWorkerHandler(
+		tel, stageMetrics, workerID, worker, messageReader, messageWriter,
 	)
 
 	return newRunner(tel, handler)
@@ -45,13 +45,13 @@ func NewProcessorRunner[WArgs any, In, Out msgBody](
 
 // NewEgressRunner returns a new runner for an egress worker.
 func NewEgressRunner[WArgs any, In msgBody](
-	tel *telemetry.Telemetry, metrics *metrics.EgressStage,
+	tel *telemetry.Telemetry, stageMetrics *metrics.EgressStage,
 	workerID int, worker Egress[WArgs, In],
 	messageReader connector.MessageConnector[In],
 ) *Runner[WArgs, Egress[WArgs, In]] {
 
-	handler := newEgressRunnerHandler(
-		tel, metrics, workerID, worker, messageReader,
+	handler := newEgressWorkerHandler(
+		tel, stageMetrics, workerID, worker, messageReader,
 	)
 
 	return newRunner(tel, handler)
@@ -59,7 +59,7 @@ func NewEgressRunner[WArgs any, In msgBody](
 
 // Init initializes the worker.
 func (r *Runner[WArgs, W]) Init(ctx context.Context, workerArgs WArgs) error {
-	worker, workerID := r.handler.getWorker()
+	worker, workerID := r.workerHandler.getWorker()
 	defer r.tel.LogDebug("worker initialized", "worker_id", workerID)
 
 	worker.SetTelemetry(r.tel)
@@ -81,7 +81,7 @@ func (r *Runner[WArgs, W]) Run(ctx context.Context) {
 			return
 
 		default:
-			r.handler.handle(ctx)
+			r.workerHandler.handle(ctx)
 		}
 	}
 }
@@ -102,7 +102,7 @@ func (r *Runner[WArgs, W]) RunPooled(
 
 		default:
 			pendingCounter.Add(1)
-			r.handler.handle(ctx)
+			r.workerHandler.handle(ctx)
 			pendingCounter.Add(-1)
 		}
 	}
@@ -110,7 +110,7 @@ func (r *Runner[WArgs, W]) RunPooled(
 
 // Close closes the worker.
 func (r *Runner[WArgs, W]) Close(ctx context.Context) error {
-	worker, workerID := r.handler.getWorker()
+	worker, workerID := r.workerHandler.getWorker()
 	defer r.tel.LogDebug("worker closed", "worker_id", workerID)
 
 	if err := worker.Close(ctx); err != nil {

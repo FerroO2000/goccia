@@ -1,9 +1,9 @@
-// Runner Handler test covered scenarios:
+// Worker Handler test covered scenarios:
 //
 // ┌─────────────────────────────────────────────────────────────────────────────────┐
 // │ Handler                      │ Scenario                  │ Expected behaviour   │
 // ├─────────────────────────────────────────────────────────────────────────────────┤
-// │ processorRunnerHandler       │ GetWorker                 │ returns worker + ID  │
+// │ processorWorkerHandler       │ GetWorker                 │ returns worker + ID  │
 // │                              │ Read error                │ Handle/Write skipped │
 // │                              │ Handle error              │ Write skipped        │
 // │                              │ Output message dropped    │ Write skipped        │
@@ -11,7 +11,7 @@
 // │                              │                           │ timestamps propagated│
 // │                              │ Write error               │ no panic             │
 // ├─────────────────────────────────────────────────────────────────────────────────┤
-// │ egressRunnerHandler          │ GetWorker                 │ returns worker + ID  │
+// │ egressWorkerHandler          │ GetWorker                 │ returns worker + ID  │
 // │                              │ Read error                │ Deliver skipped      │
 // │                              │ Deliver error             │ no panic             │
 // │                              │ Happy path                │ Deliver called       │
@@ -168,38 +168,38 @@ func newTestMsg(body *messageBody) *msg[*messageBody] {
 
 // ─── Processor Runner Handler ───────────────────────────────────────────────|
 
-func newTestProcessorRunnerHandler(
+func newTestProcessorWorkerHandler(
 	t *testing.T,
 	worker Processor[struct{}, *messageBody, *messageBody],
 	workerID int,
 	reader connector.MessageConnector[*messageBody],
 	writer connector.MessageConnector[*messageBody],
-) *processorRunnerHandler[struct{}, *messageBody, *messageBody] {
-	return newProcessorRunnerHandler(
+) *processorWorkerHandler[struct{}, *messageBody, *messageBody] {
+	return newProcessorWorkerHandler(
 		noopTelemetry(t), noopProcessorMetrics(t), workerID, worker, reader, writer,
 	)
 }
 
-func Test_ProcessorRunnerHandler_GetWorker(t *testing.T) {
+func Test_ProcessorWorkerHandler_GetWorker(t *testing.T) {
 	worker := newMockProcessor()
 	reader := newMockReader()
 	writer := newMockWriter()
 
-	handler := newTestProcessorRunnerHandler(t, worker, 42, reader, writer)
+	handler := newTestProcessorWorkerHandler(t, worker, 42, reader, writer)
 
 	gotWorker, gotID := handler.getWorker()
 	assert.Equal(t, worker, gotWorker)
 	assert.Equal(t, 42, gotID)
 }
 
-func Test_ProcessorRunnerHandler_Handle_ReadError(t *testing.T) {
+func Test_ProcessorWorkerHandler_Handle_ReadError(t *testing.T) {
 	worker := newMockProcessor()
 	reader := newMockReader()
 	writer := newMockWriter()
 
 	reader.On("Read", mock.Anything).Return(nil, errors.New("read error"))
 
-	handler := newTestProcessorRunnerHandler(t, worker, 1, reader, writer)
+	handler := newTestProcessorWorkerHandler(t, worker, 1, reader, writer)
 
 	handler.handle(t.Context())
 
@@ -208,7 +208,7 @@ func Test_ProcessorRunnerHandler_Handle_ReadError(t *testing.T) {
 	writer.AssertNotCalled(t, "Write", mock.Anything)
 }
 
-func Test_ProcessorRunnerHandler_Handle_WorkerError(t *testing.T) {
+func Test_ProcessorWorkerHandler_Handle_WorkerError(t *testing.T) {
 	worker := newMockProcessor()
 	reader := newMockReader()
 	writer := newMockWriter()
@@ -218,7 +218,7 @@ func Test_ProcessorRunnerHandler_Handle_WorkerError(t *testing.T) {
 	reader.On("Read", mock.Anything).Return(msgIn, nil)
 	worker.On("Handle", mock.Anything, msgIn).Return(nil, errors.New("handle error"))
 
-	handler := newTestProcessorRunnerHandler(t, worker, 1, reader, writer)
+	handler := newTestProcessorWorkerHandler(t, worker, 1, reader, writer)
 
 	handler.handle(t.Context())
 
@@ -227,7 +227,7 @@ func Test_ProcessorRunnerHandler_Handle_WorkerError(t *testing.T) {
 	writer.AssertNotCalled(t, "Write", mock.Anything)
 }
 
-func Test_ProcessorRunnerHandler_Handle_DroppedMessage(t *testing.T) {
+func Test_ProcessorWorkerHandler_Handle_DroppedMessage(t *testing.T) {
 	worker := newMockProcessor()
 	reader := newMockReader()
 	writer := newMockWriter()
@@ -239,7 +239,7 @@ func Test_ProcessorRunnerHandler_Handle_DroppedMessage(t *testing.T) {
 	reader.On("Read", mock.Anything).Return(msgIn, nil)
 	worker.On("Handle", mock.Anything, msgIn).Return(msgOut, nil)
 
-	handler := newTestProcessorRunnerHandler(t, worker, 1, reader, writer)
+	handler := newTestProcessorWorkerHandler(t, worker, 1, reader, writer)
 
 	handler.handle(t.Context())
 
@@ -248,7 +248,7 @@ func Test_ProcessorRunnerHandler_Handle_DroppedMessage(t *testing.T) {
 	writer.AssertNotCalled(t, "Write", mock.Anything)
 }
 
-func Test_ProcessorRunnerHandler_Handle_HappyPath(t *testing.T) {
+func Test_ProcessorWorkerHandler_Handle_HappyPath(t *testing.T) {
 	worker := newMockProcessor()
 	reader := newMockReader()
 	writer := newMockWriter()
@@ -260,7 +260,7 @@ func Test_ProcessorRunnerHandler_Handle_HappyPath(t *testing.T) {
 	worker.On("Handle", mock.Anything, msgIn).Return(msgOut, nil)
 	writer.On("Write", msgOut).Return(nil)
 
-	handler := newTestProcessorRunnerHandler(t, worker, 1, reader, writer)
+	handler := newTestProcessorWorkerHandler(t, worker, 1, reader, writer)
 
 	handler.handle(t.Context())
 
@@ -272,7 +272,7 @@ func Test_ProcessorRunnerHandler_Handle_HappyPath(t *testing.T) {
 	assert.Equal(t, msgIn.GetTimestamp(), msgOut.GetTimestamp())
 }
 
-func Test_ProcessorRunnerHandler_Handle_WriteError(t *testing.T) {
+func Test_ProcessorWorkerHandler_Handle_WriteError(t *testing.T) {
 	worker := newMockProcessor()
 	reader := newMockReader()
 	writer := newMockWriter()
@@ -284,7 +284,7 @@ func Test_ProcessorRunnerHandler_Handle_WriteError(t *testing.T) {
 	worker.On("Handle", mock.Anything, msgIn).Return(msgOut, nil)
 	writer.On("Write", msgOut).Return(errors.New("write error"))
 
-	handler := newTestProcessorRunnerHandler(t, worker, 1, reader, writer)
+	handler := newTestProcessorWorkerHandler(t, worker, 1, reader, writer)
 
 	assert.NotPanics(t, func() {
 		handler.handle(t.Context())
@@ -297,35 +297,35 @@ func Test_ProcessorRunnerHandler_Handle_WriteError(t *testing.T) {
 
 // ─── Egress Runner Handler ──────────────────────────────────────────────────|
 
-func newTestEgressRunnerHandler(
+func newTestEgressWorkerHandler(
 	t *testing.T,
 	worker Egress[struct{}, *messageBody],
 	workerID int,
 	reader connector.MessageConnector[*messageBody],
-) *egressRunnerHandler[struct{}, *messageBody] {
-	return newEgressRunnerHandler(
+) *egressWorkerHandler[struct{}, *messageBody] {
+	return newEgressWorkerHandler(
 		noopTelemetry(t), noopEgressMetrics(t), workerID, worker, reader,
 	)
 }
 
-func Test_EgressRunnerHandler_GetWorker(t *testing.T) {
+func Test_EgressWorkerHandler_GetWorker(t *testing.T) {
 	worker := newMockEgress()
 	reader := newMockReader()
 
-	handler := newTestEgressRunnerHandler(t, worker, 99, reader)
+	handler := newTestEgressWorkerHandler(t, worker, 99, reader)
 
 	gotWorker, gotID := handler.getWorker()
 	assert.Equal(t, worker, gotWorker)
 	assert.Equal(t, 99, gotID)
 }
 
-func Test_EgressRunnerHandler_Handle_ReadError(t *testing.T) {
+func Test_EgressWorkerHandler_Handle_ReadError(t *testing.T) {
 	worker := newMockEgress()
 	reader := newMockReader()
 
 	reader.On("Read", mock.Anything).Return(nil, errors.New("read error"))
 
-	handler := newTestEgressRunnerHandler(t, worker, 1, reader)
+	handler := newTestEgressWorkerHandler(t, worker, 1, reader)
 
 	handler.handle(t.Context())
 
@@ -333,7 +333,7 @@ func Test_EgressRunnerHandler_Handle_ReadError(t *testing.T) {
 	worker.AssertNotCalled(t, "Deliver", mock.Anything, mock.Anything)
 }
 
-func Test_EgressRunnerHandler_Handle_DeliverError(t *testing.T) {
+func Test_EgressWorkerHandler_Handle_DeliverError(t *testing.T) {
 	worker := newMockEgress()
 	reader := newMockReader()
 
@@ -342,7 +342,7 @@ func Test_EgressRunnerHandler_Handle_DeliverError(t *testing.T) {
 	reader.On("Read", mock.Anything).Return(msgIn, nil)
 	worker.On("Deliver", mock.Anything, msgIn).Return(errors.New("deliver error"))
 
-	handler := newTestEgressRunnerHandler(t, worker, 1, reader)
+	handler := newTestEgressWorkerHandler(t, worker, 1, reader)
 
 	assert.NotPanics(t, func() {
 		handler.handle(t.Context())
@@ -352,7 +352,7 @@ func Test_EgressRunnerHandler_Handle_DeliverError(t *testing.T) {
 	worker.AssertExpectations(t)
 }
 
-func Test_EgressRunnerHandler_Handle_HappyPath(t *testing.T) {
+func Test_EgressWorkerHandler_Handle_HappyPath(t *testing.T) {
 	worker := newMockEgress()
 	reader := newMockReader()
 
@@ -361,7 +361,7 @@ func Test_EgressRunnerHandler_Handle_HappyPath(t *testing.T) {
 	reader.On("Read", mock.Anything).Return(msgIn, nil)
 	worker.On("Deliver", mock.Anything, msgIn).Return(nil)
 
-	handler := newTestEgressRunnerHandler(t, worker, 1, reader)
+	handler := newTestEgressWorkerHandler(t, worker, 1, reader)
 
 	handler.handle(t.Context())
 
@@ -369,7 +369,7 @@ func Test_EgressRunnerHandler_Handle_HappyPath(t *testing.T) {
 	worker.AssertExpectations(t)
 }
 
-func Test_EgressRunnerHandler_Handle_RecordsProcessingTime(t *testing.T) {
+func Test_EgressWorkerHandler_Handle_RecordsProcessingTime(t *testing.T) {
 	worker := newMockEgress()
 	reader := newMockReader()
 
@@ -379,7 +379,7 @@ func Test_EgressRunnerHandler_Handle_RecordsProcessingTime(t *testing.T) {
 	reader.On("Read", mock.Anything).Return(msgIn, nil)
 	worker.On("Deliver", mock.Anything, msgIn).Return(nil)
 
-	handler := newTestEgressRunnerHandler(t, worker, 1, reader)
+	handler := newTestEgressWorkerHandler(t, worker, 1, reader)
 
 	assert.NotPanics(t, func() {
 		handler.handle(t.Context())
