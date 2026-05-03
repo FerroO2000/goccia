@@ -16,24 +16,24 @@ type workerHandler[WArgs any, W Worker[WArgs]] interface {
 
 // ─── Processor ──────────────────────────────────────────────────────────────|
 
-type processorWorkerHandler[WArgs any, In, Out msgBody] struct {
+type processorWorkerHandler[WArgs any, In, Out msgBody, W Processor[WArgs, In, Out]] struct {
 	tel          *telemetry.Telemetry
 	stageMetrics *metrics.ProcessorStage
 
 	workerID int
-	worker   Processor[WArgs, In, Out]
+	worker   W
 
 	messageReader connector.MessageConnector[In]
 	messageWriter connector.MessageConnector[Out]
 }
 
-func newProcessorWorkerHandler[WArgs any, In, Out msgBody](
+func newProcessorWorkerHandler[WArgs any, In, Out msgBody, W Processor[WArgs, In, Out]](
 	tel *telemetry.Telemetry, metrics *metrics.ProcessorStage,
-	workerID int, worker Processor[WArgs, In, Out],
+	workerID int, worker W,
 	messageReader connector.MessageConnector[In], messageWriter connector.MessageConnector[Out],
-) *processorWorkerHandler[WArgs, In, Out] {
+) *processorWorkerHandler[WArgs, In, Out, W] {
 
-	return &processorWorkerHandler[WArgs, In, Out]{
+	return &processorWorkerHandler[WArgs, In, Out, W]{
 		tel:          tel,
 		stageMetrics: metrics,
 
@@ -45,11 +45,11 @@ func newProcessorWorkerHandler[WArgs any, In, Out msgBody](
 	}
 }
 
-func (pwh *processorWorkerHandler[WArgs, In, Out]) getWorker() (Processor[WArgs, In, Out], int) {
+func (pwh *processorWorkerHandler[WArgs, In, Out, W]) getWorker() (W, int) {
 	return pwh.worker, pwh.workerID
 }
 
-func (pwh *processorWorkerHandler[WArgs, In, Out]) handle(ctx context.Context) {
+func (pwh *processorWorkerHandler[WArgs, In, Out, W]) handle(ctx context.Context) {
 	msgIn, err := pwh.messageReader.Read(ctx)
 	if err != nil {
 		return
@@ -91,23 +91,23 @@ func (pwh *processorWorkerHandler[WArgs, In, Out]) handle(ctx context.Context) {
 
 // ─── Egress ─────────────────────────────────────────────────────────────────|
 
-type egressWorkerHandler[WArgs any, In msgBody] struct {
+type egressWorkerHandler[WArgs any, In msgBody, W Egress[WArgs, In]] struct {
 	tel          *telemetry.Telemetry
 	stageMetrics *metrics.EgressStage
 
 	workerID int
-	worker   Egress[WArgs, In]
+	worker   W
 
 	messageReader connector.MessageConnector[In]
 }
 
-func newEgressWorkerHandler[WArgs any, In msgBody](
+func newEgressWorkerHandler[WArgs any, In msgBody, W Egress[WArgs, In]](
 	tel *telemetry.Telemetry, metrics *metrics.EgressStage,
-	workerID int, worker Egress[WArgs, In],
+	workerID int, worker W,
 	messageReader connector.MessageConnector[In],
-) *egressWorkerHandler[WArgs, In] {
+) *egressWorkerHandler[WArgs, In, W] {
 
-	return &egressWorkerHandler[WArgs, In]{
+	return &egressWorkerHandler[WArgs, In, W]{
 		tel:          tel,
 		stageMetrics: metrics,
 
@@ -118,11 +118,11 @@ func newEgressWorkerHandler[WArgs any, In msgBody](
 	}
 }
 
-func (ewh *egressWorkerHandler[WArgs, In]) getWorker() (Egress[WArgs, In], int) {
+func (ewh *egressWorkerHandler[WArgs, In, W]) getWorker() (W, int) {
 	return ewh.worker, ewh.workerID
 }
 
-func (ewh *egressWorkerHandler[WArgs, In]) handle(ctx context.Context) {
+func (ewh *egressWorkerHandler[WArgs, In, W]) handle(ctx context.Context) {
 	msg, err := ewh.messageReader.Read(ctx)
 	if err != nil {
 		return

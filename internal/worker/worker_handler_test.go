@@ -174,7 +174,7 @@ func newTestProcessorWorkerHandler(
 	workerID int,
 	reader connector.MessageConnector[*messageBody],
 	writer connector.MessageConnector[*messageBody],
-) *processorWorkerHandler[struct{}, *messageBody, *messageBody] {
+) *processorWorkerHandler[struct{}, *messageBody, *messageBody, Processor[struct{}, *messageBody, *messageBody]] {
 	return newProcessorWorkerHandler(
 		noopTelemetry(t), noopProcessorMetrics(t), workerID, worker, reader, writer,
 	)
@@ -302,7 +302,7 @@ func newTestEgressWorkerHandler(
 	worker Egress[struct{}, *messageBody],
 	workerID int,
 	reader connector.MessageConnector[*messageBody],
-) *egressWorkerHandler[struct{}, *messageBody] {
+) *egressWorkerHandler[struct{}, *messageBody, Egress[struct{}, *messageBody]] {
 	return newEgressWorkerHandler(
 		noopTelemetry(t), noopEgressMetrics(t), workerID, worker, reader,
 	)

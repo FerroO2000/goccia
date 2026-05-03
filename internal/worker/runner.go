@@ -30,11 +30,11 @@ func newRunner[WArgs any, W Worker[WArgs]](
 }
 
 // NewProcessorRunner returns a new runner for a processor worker.
-func NewProcessorRunner[WArgs any, In, Out msgBody](
+func NewProcessorRunner[WArgs any, In, Out msgBody, W Processor[WArgs, In, Out]](
 	tel *telemetry.Telemetry, stageMetrics *metrics.ProcessorStage,
-	workerID int, worker Processor[WArgs, In, Out],
+	workerID int, worker W,
 	messageReader connector.MessageConnector[In], messageWriter connector.MessageConnector[Out],
-) *Runner[WArgs, Processor[WArgs, In, Out]] {
+) *Runner[WArgs, W] {
 
 	handler := newProcessorWorkerHandler(
 		tel, stageMetrics, workerID, worker, messageReader, messageWriter,
@@ -44,11 +44,11 @@ func NewProcessorRunner[WArgs any, In, Out msgBody](
 }
 
 // NewEgressRunner returns a new runner for an egress worker.
-func NewEgressRunner[WArgs any, In msgBody](
+func NewEgressRunner[WArgs any, In msgBody, W Egress[WArgs, In]](
 	tel *telemetry.Telemetry, stageMetrics *metrics.EgressStage,
-	workerID int, worker Egress[WArgs, In],
+	workerID int, worker W,
 	messageReader connector.MessageConnector[In],
-) *Runner[WArgs, Egress[WArgs, In]] {
+) *Runner[WArgs, W] {
 
 	handler := newEgressWorkerHandler(
 		tel, stageMetrics, workerID, worker, messageReader,
