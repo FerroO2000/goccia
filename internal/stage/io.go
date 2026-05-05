@@ -8,10 +8,21 @@ import (
 	"github.com/FerroO2000/goccia/internal/rb"
 )
 
-type stageInput[T msgBody] interface {
-	getWorkerRunnerReader() connector.MessageConnector[T]
+type stageIO interface {
+	getConnectorID() uintptr
 	run(ctx context.Context)
 }
+
+// ─── Input ──────────────────────────────────────────────────────────────────|
+
+type stageInput[T msgBody] interface {
+	stageIO
+
+	getWorkerRunnerReader() connector.MessageConnector[T]
+}
+
+var _ stageInput[msgBody] = (*baseInput[msgBody])(nil)
+var _ stageInput[msgBody] = (*fanOut[msgBody])(nil)
 
 type baseInput[T msgBody] struct {
 	input connector.MessageConnector[T]
@@ -21,6 +32,10 @@ func newBaseInput[T msgBody](input connector.MessageConnector[T]) *baseInput[T] 
 	return &baseInput[T]{
 		input: input,
 	}
+}
+
+func (sb *baseInput[T]) getConnectorID() uintptr {
+	return connector.GetConnectorID(sb.input)
 }
 
 func (sb *baseInput[T]) getWorkerRunnerReader() connector.MessageConnector[T] {
@@ -41,22 +56,21 @@ func newFanOut[T msgBody](input connector.MessageConnector[T], fanOutCapacity ui
 	}
 }
 
+func (fo *fanOut[T]) getConnectorID() uintptr {
+	return connector.GetConnectorID(fo.input)
+}
+
 func (fo *fanOut[T]) getWorkerRunnerReader() connector.MessageConnector[T] {
 	return fo.fanOut
 }
 
 func (fo *fanOut[T]) run(ctx context.Context) {
+	defer fo.fanOut.Close()
+
 	for {
-		select {
-		case <-ctx.Done():
-			return
-
-		default:
-		}
-
 		msg, err := fo.input.Read(ctx)
 		if err != nil {
-			continue
+			return
 		}
 
 		if err := fo.fanOut.Write(msg); err != nil {
@@ -65,11 +79,17 @@ func (fo *fanOut[T]) run(ctx context.Context) {
 	}
 }
 
+// ─── Output ─────────────────────────────────────────────────────────────────|
+
 type stageOutput[T msgBody] interface {
+	stageIO
+
 	getWorkerRunnerWriter() connector.MessageConnector[T]
-	run(ctx context.Context)
 	close()
 }
+
+var _ stageOutput[msgBody] = (*baseOutput[msgBody])(nil)
+var _ stageOutput[msgBody] = (*fanIn[msgBody])(nil)
 
 type baseOutput[T msgBody] struct {
 	output connector.MessageConnector[T]
@@ -79,6 +99,10 @@ func newBaseOutput[T msgBody](output connector.MessageConnector[T]) *baseOutput[
 	return &baseOutput[T]{
 		output: output,
 	}
+}
+
+func (sb *baseOutput[T]) getConnectorID() uintptr {
+	return connector.GetConnectorID(sb.output)
 }
 
 func (sb *baseOutput[T]) getWorkerRunnerWriter() connector.MessageConnector[T] {
@@ -103,22 +127,21 @@ func newFanIn[T msgBody](output connector.MessageConnector[T], fanInCapacity uin
 	}
 }
 
+func (fi *fanIn[T]) getConnectorID() uintptr {
+	return connector.GetConnectorID(fi.output)
+}
+
 func (fi *fanIn[T]) getWorkerRunnerWriter() connector.MessageConnector[T] {
 	return fi.fanIn
 }
 
 func (fi *fanIn[T]) run(ctx context.Context) {
+	defer fi.output.Close()
+
 	for {
-		select {
-		case <-ctx.Done():
-			return
-
-		default:
-		}
-
 		msg, err := fi.fanIn.Read(ctx)
 		if err != nil {
-			continue
+			return
 		}
 
 		if err := fi.output.Write(msg); err != nil {

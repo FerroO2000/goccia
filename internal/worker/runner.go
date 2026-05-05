@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 
 	"github.com/FerroO2000/goccia/connector"
@@ -72,16 +73,17 @@ func (r *Runner[WArgs, W]) Init(ctx context.Context, workerArgs WArgs) error {
 	return nil
 }
 
+func (r *Runner[WArgs, W]) shallExitRun(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, connector.ErrClosed)
+}
+
 // Run runs the worker until the context is done.
 // This method is meant to be used by single-threaded stages.
 func (r *Runner[WArgs, W]) Run(ctx context.Context) {
 	for {
-		select {
-		case <-ctx.Done():
+		err := r.workerHandler.handle(ctx)
+		if err != nil && r.shallExitRun(err) {
 			return
-
-		default:
-			r.workerHandler.handle(ctx)
 		}
 	}
 }
@@ -94,16 +96,17 @@ func (r *Runner[WArgs, W]) RunPooled(
 
 	for {
 		select {
-		case <-ctx.Done():
-			return
-
 		case <-stopCh:
 			return
 
 		default:
 			pendingCounter.Add(1)
-			r.workerHandler.handle(ctx)
+			err := r.workerHandler.handle(ctx)
 			pendingCounter.Add(-1)
+
+			if err != nil && r.shallExitRun(err) {
+				return
+			}
 		}
 	}
 }

@@ -11,7 +11,7 @@ import (
 
 type workerHandler[WArgs any, W Worker[WArgs]] interface {
 	getWorker() (worker W, workerID int)
-	handle(ctx context.Context)
+	handle(ctx context.Context) error
 }
 
 // ─── Processor ──────────────────────────────────────────────────────────────|
@@ -49,10 +49,10 @@ func (pwh *processorWorkerHandler[WArgs, In, Out, W]) getWorker() (W, int) {
 	return pwh.worker, pwh.workerID
 }
 
-func (pwh *processorWorkerHandler[WArgs, In, Out, W]) handle(ctx context.Context) {
+func (pwh *processorWorkerHandler[WArgs, In, Out, W]) handle(ctx context.Context) error {
 	msgIn, err := pwh.messageReader.Read(ctx)
 	if err != nil {
-		return
+		return err
 	}
 
 	defer msgIn.Destroy()
@@ -67,7 +67,7 @@ func (pwh *processorWorkerHandler[WArgs, In, Out, W]) handle(ctx context.Context
 		pwh.tel.LogError("failed to process message", err, "worker_id", pwh.workerID)
 		pwh.stageMetrics.IncrementProcessingErrors()
 
-		return
+		return nil
 	}
 
 	// Set the receive time and timestamp
@@ -80,13 +80,10 @@ func (pwh *processorWorkerHandler[WArgs, In, Out, W]) handle(ctx context.Context
 
 		pwh.stageMetrics.IncrementDroppedMessages()
 
-		return
+		return nil
 	}
 
-	// Inject the output message
-	if err := pwh.messageWriter.Write(msgOut); err != nil {
-		pwh.tel.LogError("failed to inject message", err, "worker_id", pwh.workerID)
-	}
+	return pwh.messageWriter.Write(msgOut)
 }
 
 // ─── Egress ─────────────────────────────────────────────────────────────────|
@@ -122,10 +119,10 @@ func (ewh *egressWorkerHandler[WArgs, In, W]) getWorker() (W, int) {
 	return ewh.worker, ewh.workerID
 }
 
-func (ewh *egressWorkerHandler[WArgs, In, W]) handle(ctx context.Context) {
+func (ewh *egressWorkerHandler[WArgs, In, W]) handle(ctx context.Context) error {
 	msg, err := ewh.messageReader.Read(ctx)
 	if err != nil {
-		return
+		return err
 	}
 
 	defer msg.Destroy()
@@ -140,4 +137,6 @@ func (ewh *egressWorkerHandler[WArgs, In, W]) handle(ctx context.Context) {
 
 	ewh.stageMetrics.IncrementDeliveredMessages()
 	ewh.stageMetrics.RecordTotalMessageProcessingTime(ctx, int(time.Since(msg.GetReceiveTime()).Milliseconds()))
+
+	return nil
 }
