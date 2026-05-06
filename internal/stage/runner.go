@@ -19,11 +19,30 @@ type Runner[WArgs any, W worker.Worker[WArgs]] interface {
 	Outputs() []uintptr
 }
 
+func newRunner[WArgs any, W worker.Worker[WArgs]](
+	tel *telemetry.Telemetry,
+	workerArgs WArgs, workerRunnerFactory stageWorkerRunnerFactory[WArgs, W],
+	cfg *config.Stage,
+) Runner[WArgs, W] {
+
+	switch cfg.RunningMode {
+	case config.StageRunningModeSingle:
+		return newRunnerSingle(tel, workerArgs, workerRunnerFactory)
+
+	case config.StageRunningModePool:
+		return newRunnerPool(tel, workerArgs, workerRunnerFactory, cfg.Pool)
+
+	default:
+		panic("invalid running mode")
+	}
+}
+
+// ─── Base ───────────────────────────────────────────────────────────────────|
+
 type baseRunner[WArgs any, W worker.Worker[WArgs]] struct {
 	tel *telemetry.Telemetry
 
-	workerArgs WArgs
-
+	workerArgs          WArgs
 	workerRunnerFactory stageWorkerRunnerFactory[WArgs, W]
 }
 
@@ -35,8 +54,7 @@ func newBaseRunner[WArgs any, W worker.Worker[WArgs]](
 	return &baseRunner[WArgs, W]{
 		tel: tel,
 
-		workerArgs: workerArgs,
-
+		workerArgs:          workerArgs,
 		workerRunnerFactory: workerRunnerFactory,
 	}
 }
@@ -61,7 +79,7 @@ func (br *baseRunner[WArgs, W]) Outputs() []uintptr {
 	return []uintptr{}
 }
 
-// ─── Single ───────────────────────────────────────────────────────────────────|
+// ─── Single ─────────────────────────────────────────────────────────────────|
 
 var _ Runner[any, worker.Worker[any]] = (*runnerSingle[any, worker.Worker[any]])(nil)
 

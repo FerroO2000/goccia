@@ -9,6 +9,14 @@ import (
 	"github.com/FerroO2000/goccia/internal/worker"
 )
 
+type Kind = string
+
+const (
+	KindIngress   Kind = "ingress"
+	KindProcessor Kind = "processor"
+	KindEgress    Kind = "egress"
+)
+
 // Stage defines the interface for a generic stage.
 type Stage interface {
 	Kind() Kind
@@ -34,14 +42,6 @@ type Stage interface {
 	// Outputs returns a slice of pointers to output connectors.
 	Outputs() []uintptr
 }
-
-type Kind = string
-
-const (
-	KindIngress   Kind = "ingress"
-	KindProcessor Kind = "processor"
-	KindEgress    Kind = "egress"
-)
 
 type BaseStage[Cfg config.Config] struct {
 	kind Kind
@@ -92,45 +92,28 @@ type ProcessorStage[In, Out msgBody, WArgs any, W worker.Processor[WArgs, In, Ou
 	Runner[WArgs, W]
 }
 
+func NewProcessorStage[In, Out msgBody, WArgs any, W worker.Processor[WArgs, In, Out], Cfg stageConfig](
+	name string, inConn msgConn[In], outConn msgConn[Out], workerMaker func() W, workerArgs WArgs, cfg Cfg,
+) *ProcessorStage[In, Out, WArgs, W, Cfg] {
+
+	tel := telemetry.NewTelemetry(KindProcessor, name)
+
+	stageCfg := cfg.GetStage()
+
+	input := newInput(inConn, stageCfg)
+	output := newOutput(outConn, stageCfg)
+
+	workerRunnerFactory := newProcessorWorkerRunnerFactory(input, output, workerMaker, metrics.NewProcessorStage())
+
+	return &ProcessorStage[In, Out, WArgs, W, Cfg]{
+		BaseStage: newBaseStage(KindProcessor, name, cfg),
+		Runner:    newRunner(tel, workerArgs, workerRunnerFactory, stageCfg),
+	}
+}
+
 func (ps *ProcessorStage[In, Out, WArgs, W, Cfg]) Init(ctx context.Context) error {
 	ps.BaseStage.initConfig()
 	return ps.Runner.Init(ctx)
-}
-
-func NewProcessorStageSingle[In, Out msgBody, WArgs any, W worker.Processor[WArgs, In, Out], Cfg config.Config](
-	name string, inConn msgConn[In], outConn msgConn[Out], workerMaker func() W, workerArgs WArgs, cfg Cfg,
-) *ProcessorStage[In, Out, WArgs, W, Cfg] {
-
-	tel := telemetry.NewTelemetry(KindProcessor, name)
-
-	input := newBaseInput(inConn)
-	output := newBaseOutput(outConn)
-
-	workerRunnerFactory := newProcessorWorkerRunnerFactory(input, output, workerMaker, metrics.NewProcessorStage())
-
-	return &ProcessorStage[In, Out, WArgs, W, Cfg]{
-		BaseStage: newBaseStage(KindProcessor, name, cfg),
-		Runner:    newRunnerSingle(tel, workerArgs, workerRunnerFactory),
-	}
-}
-
-func NewProcessorStagePool[In, Out msgBody, WArgs any, W worker.Processor[WArgs, In, Out], Cfg config.WithStage](
-	name string, inConn msgConn[In], outConn msgConn[Out], workerMaker func() W, workerArgs WArgs, cfg Cfg,
-) *ProcessorStage[In, Out, WArgs, W, Cfg] {
-
-	tel := telemetry.NewTelemetry(KindProcessor, name)
-
-	poolCfg := cfg.GetStage().Pool
-
-	input := newFanOut(inConn, uint64(poolCfg.InputQueueSize))
-	output := newFanIn(outConn, uint64(poolCfg.OutputQueueSize))
-
-	workerRunnerFactory := newProcessorWorkerRunnerFactory(input, output, workerMaker, metrics.NewProcessorStage())
-
-	return &ProcessorStage[In, Out, WArgs, W, Cfg]{
-		BaseStage: newBaseStage(KindProcessor, name, cfg),
-		Runner:    newRunnerPool(tel, workerArgs, workerRunnerFactory, poolCfg),
-	}
 }
 
 type EgressStage[In msgBody, WArgs any, W worker.Egress[WArgs, In], Cfg config.Config] struct {
@@ -138,40 +121,25 @@ type EgressStage[In msgBody, WArgs any, W worker.Egress[WArgs, In], Cfg config.C
 	Runner[WArgs, W]
 }
 
+func NewEgressStage[In msgBody, WArgs any, W worker.Egress[WArgs, In], Cfg stageConfig](
+	name string, inConn msgConn[In], workerMaker func() W, workerArgs WArgs, cfg Cfg,
+) *EgressStage[In, WArgs, W, Cfg] {
+
+	tel := telemetry.NewTelemetry(KindEgress, name)
+
+	stageCfg := cfg.GetStage()
+
+	input := newInput(inConn, stageCfg)
+
+	workerRunnerFactory := newEgressWorkerRunnerFactory(input, workerMaker, metrics.NewEgressStage())
+
+	return &EgressStage[In, WArgs, W, Cfg]{
+		BaseStage: newBaseStage(KindEgress, name, cfg),
+		Runner:    newRunner(tel, workerArgs, workerRunnerFactory, stageCfg),
+	}
+}
+
 func (ps *EgressStage[In, WArgs, W, Cfg]) Init(ctx context.Context) error {
 	ps.BaseStage.initConfig()
 	return ps.Runner.Init(ctx)
-}
-
-func NewEgressStageSingle[In msgBody, WArgs any, W worker.Egress[WArgs, In], Cfg config.Config](
-	name string, inConn msgConn[In], workerMaker func() W, workerArgs WArgs, cfg Cfg,
-) *EgressStage[In, WArgs, W, Cfg] {
-
-	tel := telemetry.NewTelemetry(KindEgress, name)
-
-	input := newBaseInput(inConn)
-
-	workerRunnerFactory := newEgressWorkerRunnerFactory(input, workerMaker, metrics.NewEgressStage())
-
-	return &EgressStage[In, WArgs, W, Cfg]{
-		BaseStage: newBaseStage(KindEgress, name, cfg),
-		Runner:    newRunnerSingle(tel, workerArgs, workerRunnerFactory),
-	}
-}
-
-func NewEgressStagePool[In msgBody, WArgs any, W worker.Egress[WArgs, In], Cfg config.WithStage](
-	name string, inConn msgConn[In], workerMaker func() W, workerArgs WArgs, cfg Cfg,
-) *EgressStage[In, WArgs, W, Cfg] {
-
-	tel := telemetry.NewTelemetry(KindEgress, name)
-
-	poolCfg := cfg.GetStage().Pool
-	input := newFanOut(inConn, uint64(poolCfg.InputQueueSize))
-
-	workerRunnerFactory := newEgressWorkerRunnerFactory(input, workerMaker, metrics.NewEgressStage())
-
-	return &EgressStage[In, WArgs, W, Cfg]{
-		BaseStage: newBaseStage(KindEgress, name, cfg),
-		Runner:    newRunnerPool(tel, workerArgs, workerRunnerFactory, poolCfg),
-	}
 }

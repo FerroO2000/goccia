@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/FerroO2000/goccia/connector"
+	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/rb"
 )
@@ -19,6 +20,19 @@ type stageInput[T msgBody] interface {
 	stageIO
 
 	getWorkerRunnerReader() connector.MessageConnector[T]
+}
+
+func newInput[T msgBody](input msgConn[T], cfg *config.Stage) stageInput[T] {
+	switch cfg.RunningMode {
+	case config.StageRunningModeSingle:
+		return newBaseInput(input)
+
+	case config.StageRunningModePool:
+		return newFanOut(input, uint64(cfg.Pool.InputQueueSize))
+
+	default:
+		panic("invalid running mode")
+	}
 }
 
 var _ stageInput[msgBody] = (*baseInput[msgBody])(nil)
@@ -86,6 +100,19 @@ type stageOutput[T msgBody] interface {
 
 	getWorkerRunnerWriter() connector.MessageConnector[T]
 	close()
+}
+
+func newOutput[T msgBody](output msgConn[T], cfg *config.Stage) stageOutput[T] {
+	switch cfg.RunningMode {
+	case config.StageRunningModeSingle:
+		return newBaseOutput(output)
+
+	case config.StageRunningModePool:
+		return newFanIn(output, uint64(cfg.Pool.OutputQueueSize))
+
+	default:
+		panic("invalid running mode")
+	}
 }
 
 var _ stageOutput[msgBody] = (*baseOutput[msgBody])(nil)
