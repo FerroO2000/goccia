@@ -9,8 +9,9 @@ import (
 )
 
 type stageWorkerRunnerFactory[WArgs any, W worker.Worker[WArgs]] interface {
-	initMetrics(tel *telemetry.Telemetry) error
-	makeWorkerRunner(tel *telemetry.Telemetry, workerID int) *worker.Runner[WArgs, W]
+	setTelemetry(tel *telemetry.Telemetry)
+	initMetrics() error
+	makeWorkerRunner(workerID int) *worker.Runner[WArgs, W]
 	runIO(ctx context.Context)
 	closeIO()
 	getInputConnectorID() uintptr
@@ -18,6 +19,8 @@ type stageWorkerRunnerFactory[WArgs any, W worker.Worker[WArgs]] interface {
 }
 
 type processorWorkerRunnerFactory[WArgs any, In, Out msgBody, W worker.Processor[WArgs, In, Out]] struct {
+	tel *telemetry.Telemetry
+
 	input  stageInput[In]
 	output stageOutput[Out]
 
@@ -42,15 +45,19 @@ func newProcessorWorkerRunnerFactory[WArgs any, In, Out msgBody, W worker.Proces
 	}
 }
 
-func (p *processorWorkerRunnerFactory[WArgs, In, Out, W]) initMetrics(tel *telemetry.Telemetry) error {
-	return p.metrics.InitMetrics(tel)
+func (p *processorWorkerRunnerFactory[WArgs, In, Out, W]) setTelemetry(tel *telemetry.Telemetry) {
+	p.tel = tel
 }
 
-func (p *processorWorkerRunnerFactory[WArgs, In, Out, W]) makeWorkerRunner(tel *telemetry.Telemetry, workerID int) *worker.Runner[WArgs, W] {
+func (p *processorWorkerRunnerFactory[WArgs, In, Out, W]) initMetrics() error {
+	return p.metrics.InitMetrics(p.tel)
+}
+
+func (p *processorWorkerRunnerFactory[WArgs, In, Out, W]) makeWorkerRunner(workerID int) *worker.Runner[WArgs, W] {
 	w := p.workerMaker()
 	reader := p.input.getWorkerRunnerReader()
 	writer := p.output.getWorkerRunnerWriter()
-	return worker.NewProcessorRunner(tel, p.metrics, workerID, w, reader, writer)
+	return worker.NewProcessorRunner(p.tel, p.metrics, workerID, w, reader, writer)
 }
 
 func (p *processorWorkerRunnerFactory[WArgs, In, Out, W]) runIO(ctx context.Context) {
@@ -71,6 +78,8 @@ func (p *processorWorkerRunnerFactory[WArgs, In, Out, W]) getOutputConnectorID()
 }
 
 type egressWorkerRunnerFactory[WArgs any, In msgBody, W worker.Egress[WArgs, In]] struct {
+	tel *telemetry.Telemetry
+
 	input stageInput[In]
 
 	workerMaker func() W
@@ -93,14 +102,18 @@ func newEgressWorkerRunnerFactory[WArgs any, In msgBody, W worker.Egress[WArgs, 
 	}
 }
 
-func (ef *egressWorkerRunnerFactory[WArgs, In, W]) initMetrics(tel *telemetry.Telemetry) error {
-	return ef.metrics.InitMetrics(tel)
+func (ef *egressWorkerRunnerFactory[WArgs, In, W]) setTelemetry(tel *telemetry.Telemetry) {
+	ef.tel = tel
 }
 
-func (ef *egressWorkerRunnerFactory[WArgs, In, W]) makeWorkerRunner(tel *telemetry.Telemetry, workerID int) *worker.Runner[WArgs, W] {
+func (ef *egressWorkerRunnerFactory[WArgs, In, W]) initMetrics() error {
+	return ef.metrics.InitMetrics(ef.tel)
+}
+
+func (ef *egressWorkerRunnerFactory[WArgs, In, W]) makeWorkerRunner(workerID int) *worker.Runner[WArgs, W] {
 	w := ef.workerMaker()
 	reader := ef.input.getWorkerRunnerReader()
-	return worker.NewEgressRunner(tel, ef.metrics, workerID, w, reader)
+	return worker.NewEgressRunner(ef.tel, ef.metrics, workerID, w, reader)
 }
 
 func (ef *egressWorkerRunnerFactory[WArgs, In, W]) runIO(ctx context.Context) {

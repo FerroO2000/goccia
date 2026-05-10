@@ -40,7 +40,7 @@ func (m *mockStage) Telemetry() *telemetry.Telemetry { return nil }
 func (m *mockStage) Config() config.Config           { return nil }
 func (m *mockStage) Init(_ context.Context) error    { return nil }
 func (m *mockStage) Run(_ context.Context)           {}
-func (m *mockStage) Close()                          {}
+func (m *mockStage) Close(_ context.Context)         {}
 func (m *mockStage) Inputs() []uintptr               { return m.inputs }
 func (m *mockStage) Outputs() []uintptr              { return m.outputs }
 

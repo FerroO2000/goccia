@@ -140,7 +140,7 @@ func (p *Pipeline) runStage(ctx context.Context, stageNode *stageNode) {
 
 // Close closes all the stages.
 // It blocks until all the stages are closed.
-func (p *Pipeline) Close() {
+func (p *Pipeline) Close(ctx context.Context) {
 	p.stateMux.Lock()
 	defer p.stateMux.Unlock()
 
@@ -153,7 +153,7 @@ func (p *Pipeline) Close() {
 	for stageNode := range p.stageGraph.traverse() {
 		// Only close the stages when they exited the run loop
 		<-stageNode.runDoneCh
-		stageNode.stage.Close()
+		stageNode.stage.Close(ctx)
 	}
 
 	p.state = pipelineStateClosed

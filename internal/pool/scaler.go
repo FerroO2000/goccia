@@ -68,6 +68,12 @@ func NewScaler(tel *telemetry.Telemetry, poolCfg *config.Pool) *Scaler {
 	}
 }
 
+// SetTelemetry sets the telemetry for the scaler.
+// It must be called before Init method.
+func (s *Scaler) SetTelemetry(tel *telemetry.Telemetry) {
+	s.tel = tel
+}
+
 func (s *Scaler) initMetrics() {
 	s.tel.NewUpDownCounterMetric("worker_pool_pending_tasks", func() int64 {
 		return s.pendingTasks.Load()

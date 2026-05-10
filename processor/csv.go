@@ -23,9 +23,7 @@ const (
 	CSVColumnTypeTimestamp
 )
 
-//////////////
-//  CONFIG  //
-//////////////
+// ─── Config ─────────────────────────────────────────────────────────────────|
 
 // CSVColumnDef represents the definition of a CSV column.
 type CSVColumnDef struct {
@@ -80,9 +78,7 @@ func (c *CSVConfig) AddColumnDef(colDef *CSVColumnDef) {
 	c.Columns = append(c.Columns, colDef)
 }
 
-///////////////
-//  MESSAGE  //
-///////////////
+// ─── Message ────────────────────────────────────────────────────────────────|
 
 // CSVColumn represents a column entry in a CSV message.
 type CSVColumn struct {

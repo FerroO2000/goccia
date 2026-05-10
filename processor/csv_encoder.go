@@ -8,11 +8,10 @@ import (
 
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/stage"
 )
 
-///////////////
-//  MESSAGE  //
-///////////////
+// ─── Message ────────────────────────────────────────────────────────────────|
 
 var _ msgSer = (*CSVEncodedMessage)(nil)
 
@@ -35,9 +34,7 @@ func (m *CSVEncodedMessage) GetBytes() []byte {
 	return m.Data
 }
 
-///////////////
-//  ENCODER  //
-///////////////
+// ─── Encoder ────────────────────────────────────────────────────────────────|
 
 type csvEncoderConfig struct {
 	columns []*CSVColumnDef
@@ -129,9 +126,7 @@ func (e *csvEncoder) encodeDefaultColumn(sb *strings.Builder, currCol int) {
 	}
 }
 
-//////////////
-//  WORKER  //
-//////////////
+// ─── Worker ─────────────────────────────────────────────────────────────────|
 
 type csvEncoderWorkerArgs struct {
 	encoder *csvEncoder
@@ -149,8 +144,8 @@ type csvEncoderWorker struct {
 	encoder *csvEncoder
 }
 
-func newCSVEncoderWorkerInstMaker() workerInstanceMaker[*csvEncoderWorkerArgs, *CSVMessage, *CSVEncodedMessage] {
-	return func() workerInstance[*csvEncoderWorkerArgs, *CSVMessage, *CSVEncodedMessage] {
+func newCSVEncoderWorkerMaker() func() *csvEncoderWorker {
+	return func() *csvEncoderWorker {
 		return &csvEncoderWorker{}
 	}
 }
@@ -179,13 +174,13 @@ func (w *csvEncoderWorker) Close(_ context.Context) error {
 	return nil
 }
 
-/////////////
-//  STAGE  //
-/////////////
+// ─── Stage ──────────────────────────────────────────────────────────────────|
+
+var _ stage.Stage = (*CSVEncoderStage)(nil)
 
 // CSVEncoderStage is a processor stage that encodes CSV messages.
 type CSVEncoderStage struct {
-	processorStage[*csvEncoderWorkerArgs, *CSVMessage, *CSVEncodedMessage, *CSVConfig]
+	*stage.ProcessorStage[*CSVMessage, *CSVEncodedMessage, *csvEncoderWorkerArgs, *CSVConfig]
 }
 
 // NewCSVEncoderStage returns a new CSV encoder stage.
@@ -193,7 +188,9 @@ func NewCSVEncoderStage(
 	inputConnector msgConn[*CSVMessage], outputConnector msgConn[*CSVEncodedMessage], cfg *CSVConfig,
 ) *CSVEncoderStage {
 	return &CSVEncoderStage{
-		processorStage: newStage("csv_encoder", inputConnector, outputConnector, newCSVEncoderWorkerInstMaker(), cfg),
+		ProcessorStage: stage.NewProcessorStage(
+			"csv_encoder", inputConnector, outputConnector, newCSVEncoderWorkerMaker(), cfg,
+		),
 	}
 }
 
@@ -203,5 +200,5 @@ func (s *CSVEncoderStage) Init(ctx context.Context) error {
 		columns: s.Config().Columns,
 	})
 
-	return s.processorStage.Init(ctx, newCSVEncoderWorkerArgs(encoder))
+	return s.ProcessorStage.InitWithArgs(ctx, newCSVEncoderWorkerArgs(encoder))
 }

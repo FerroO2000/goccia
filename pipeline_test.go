@@ -104,7 +104,7 @@ func Test_Pipeline_CancellationOrder(t *testing.T) {
 
 	// Cancel the pipeline
 	cancel()
-	p.Close()
+	p.Close(t.Context())
 
 	canceledBefore := func(a, b *cancellableMockStage) bool {
 		return a.canceledAt.Load() <= b.canceledAt.Load()
@@ -152,7 +152,7 @@ func Test_Pipeline_CloseCancellation(t *testing.T) {
 	<-c.runStarted
 
 	cancel()
-	p.Close()
+	p.Close(t.Context())
 
 	// If Close() returned, all Run goroutines must have exited
 	assert.True(isClosed(a.runExited), "A.Run must have exited")

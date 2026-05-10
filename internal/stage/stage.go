@@ -25,8 +25,6 @@ type Stage interface {
 
 	Telemetry() *telemetry.Telemetry
 
-	Config() config.Config
-
 	// Init initializes the stage.
 	Init(ctx context.Context) error
 
@@ -34,7 +32,7 @@ type Stage interface {
 	Run(ctx context.Context)
 
 	// Close closes (forever) the stage.
-	Close()
+	Close(ctx context.Context)
 
 	// Inputs returns a slice of pointers to input connectors.
 	Inputs() []uintptr
@@ -43,60 +41,104 @@ type Stage interface {
 	Outputs() []uintptr
 }
 
-type BaseStage[Cfg config.Config] struct {
+type BaseStage[Cfg config.Config, IArgs any] struct {
+	tel *telemetry.Telemetry
+
 	kind Kind
 	name string
 
-	tel *telemetry.Telemetry
+	runner Runner[IArgs]
 
 	cfg Cfg
 }
 
-func newBaseStage[Cfg config.Config](kind Kind, name string, cfg Cfg) *BaseStage[Cfg] {
+func newBaseStage[Cfg config.Config, IArgs any](
+	kind Kind, name string, runner Runner[IArgs], cfg Cfg,
+) *BaseStage[Cfg, IArgs] {
 
-	return &BaseStage[Cfg]{
+	return &BaseStage[Cfg, IArgs]{
+		tel: telemetry.NewTelemetry(kind, name),
+
 		kind: kind,
 		name: name,
 
-		tel: telemetry.NewTelemetry(kind, name),
+		runner: runner,
 
 		cfg: cfg,
 	}
 }
 
-func (s *BaseStage[Cfg]) Kind() Kind {
-	return s.kind
-}
-
-func (s *BaseStage[Cfg]) Name() string {
-	return s.name
-}
-
-func (s *BaseStage[Cfg]) Telemetry() *telemetry.Telemetry {
+func (s *BaseStage[Cfg, IArgs]) Telemetry() *telemetry.Telemetry {
 	return s.tel
 }
 
-func (s *BaseStage[Cfg]) Config() Cfg {
+func (s *BaseStage[Cfg, IArgs]) Kind() Kind {
+	return s.kind
+}
+
+func (s *BaseStage[Cfg, IArgs]) Name() string {
+	return s.name
+}
+
+func (s *BaseStage[Cfg, IArgs]) Config() Cfg {
 	return s.cfg
 }
 
-func (s *BaseStage[Cfg]) initConfig() {
+func (s *BaseStage[Cfg, IArgs]) InitConfig() {
 	s.tel.LogDebug("validating configuration")
 	configValidator := config.NewValidator(s.tel)
 	configValidator.Validate(s.cfg)
 	s.tel.LogDebug("validated configuration")
 }
 
-type ProcessorStage[In, Out msgBody, WArgs any, W worker.Processor[WArgs, In, Out], Cfg config.Config] struct {
-	*BaseStage[Cfg]
-	Runner[WArgs, W]
+func (s *BaseStage[Cfg, IArgs]) InitWithArgs(ctx context.Context, initArgs IArgs) error {
+	s.InitConfig()
+
+	s.runner.SetTelemetry(s.tel)
+	return s.runner.Init(ctx, initArgs)
 }
 
-func NewProcessorStage[In, Out msgBody, WArgs any, W worker.Processor[WArgs, In, Out], Cfg stageConfig](
-	name string, inConn msgConn[In], outConn msgConn[Out], workerMaker func() W, workerArgs WArgs, cfg Cfg,
-) *ProcessorStage[In, Out, WArgs, W, Cfg] {
+func (s *BaseStage[Cfg, IArgs]) Init(ctx context.Context) error {
+	var zeroInitArgs IArgs
+	return s.InitWithArgs(ctx, zeroInitArgs)
+}
 
-	tel := telemetry.NewTelemetry(KindProcessor, name)
+func (s *BaseStage[Cfg, IArgs]) Run(ctx context.Context) {
+	s.runner.Run(ctx)
+}
+
+func (s *BaseStage[Cfg, IArgs]) Close(ctx context.Context) {
+	s.runner.Close(ctx)
+}
+
+func (s *BaseStage[Cfg, IArgs]) Inputs() []uintptr {
+	return s.runner.Inputs()
+}
+
+func (s *BaseStage[Cfg, IArgs]) Outputs() []uintptr {
+	return s.runner.Outputs()
+}
+
+type IngressStage[In msgBody, IArgs any, Cfg config.Config] struct {
+	*BaseStage[Cfg, IArgs]
+}
+
+func NewIngressStageFromRunner[In msgBody, IArgs any, Cfg config.Config](
+	name string, runner Runner[IArgs], cfg Cfg,
+) *IngressStage[In, IArgs, Cfg] {
+
+	return &IngressStage[In, IArgs, Cfg]{
+		BaseStage: newBaseStage(KindIngress, name, runner, cfg),
+	}
+}
+
+type ProcessorStage[In, Out msgBody, IArgs any, Cfg config.Config] struct {
+	*BaseStage[Cfg, IArgs]
+}
+
+func NewProcessorStage[In, Out msgBody, IArgs any, W worker.Processor[IArgs, In, Out], Cfg stageConfig](
+	name string, inConn msgConn[In], outConn msgConn[Out], workerMaker func() W, cfg Cfg,
+) *ProcessorStage[In, Out, IArgs, Cfg] {
 
 	stageCfg := cfg.GetStage()
 
@@ -104,42 +146,36 @@ func NewProcessorStage[In, Out msgBody, WArgs any, W worker.Processor[WArgs, In,
 	output := newOutput(outConn, stageCfg)
 
 	workerRunnerFactory := newProcessorWorkerRunnerFactory(input, output, workerMaker, metrics.NewProcessorStage())
+	runner := newRunner(workerRunnerFactory, stageCfg)
 
-	return &ProcessorStage[In, Out, WArgs, W, Cfg]{
-		BaseStage: newBaseStage(KindProcessor, name, cfg),
-		Runner:    newRunner(tel, workerArgs, workerRunnerFactory, stageCfg),
+	return NewProcessorStageFromRunner[In, Out](name, runner, cfg)
+}
+
+func NewProcessorStageFromRunner[In, Out msgBody, IArgs any, Cfg config.Config](
+	name string, runner Runner[IArgs], cfg Cfg,
+) *ProcessorStage[In, Out, IArgs, Cfg] {
+
+	return &ProcessorStage[In, Out, IArgs, Cfg]{
+		BaseStage: newBaseStage(KindProcessor, name, runner, cfg),
 	}
 }
 
-func (ps *ProcessorStage[In, Out, WArgs, W, Cfg]) Init(ctx context.Context) error {
-	ps.BaseStage.initConfig()
-	return ps.Runner.Init(ctx)
+type EgressStage[In msgBody, IArgs any, Cfg config.Config] struct {
+	*BaseStage[Cfg, IArgs]
 }
 
-type EgressStage[In msgBody, WArgs any, W worker.Egress[WArgs, In], Cfg config.Config] struct {
-	*BaseStage[Cfg]
-	Runner[WArgs, W]
-}
-
-func NewEgressStage[In msgBody, WArgs any, W worker.Egress[WArgs, In], Cfg stageConfig](
-	name string, inConn msgConn[In], workerMaker func() W, workerArgs WArgs, cfg Cfg,
-) *EgressStage[In, WArgs, W, Cfg] {
-
-	tel := telemetry.NewTelemetry(KindEgress, name)
+func NewEgressStage[In msgBody, IArgs any, W worker.Egress[IArgs, In], Cfg stageConfig](
+	name string, inConn msgConn[In], workerMaker func() W, cfg Cfg,
+) *EgressStage[In, IArgs, Cfg] {
 
 	stageCfg := cfg.GetStage()
 
 	input := newInput(inConn, stageCfg)
 
 	workerRunnerFactory := newEgressWorkerRunnerFactory(input, workerMaker, metrics.NewEgressStage())
+	runner := newRunner(workerRunnerFactory, stageCfg)
 
-	return &EgressStage[In, WArgs, W, Cfg]{
-		BaseStage: newBaseStage(KindEgress, name, cfg),
-		Runner:    newRunner(tel, workerArgs, workerRunnerFactory, stageCfg),
+	return &EgressStage[In, IArgs, Cfg]{
+		BaseStage: newBaseStage(KindEgress, name, runner, cfg),
 	}
-}
-
-func (ps *EgressStage[In, WArgs, W, Cfg]) Init(ctx context.Context) error {
-	ps.BaseStage.initConfig()
-	return ps.Runner.Init(ctx)
 }

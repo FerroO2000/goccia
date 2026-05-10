@@ -3,122 +3,153 @@ package processor
 import (
 	"context"
 	"errors"
-	"sync/atomic"
 
 	"github.com/FerroO2000/goccia/connector"
+	"github.com/FerroO2000/goccia/internal/config"
+	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/telemetry"
+	"github.com/FerroO2000/goccia/processor/metrics"
 	"go.opentelemetry.io/otel/attribute"
 )
 
-// TeeStage is a processor stage that "clones" the input message to multiple output connectors.
-// Under the hood, it does not perform an actual copy of the real message data (envelope).
-// It only copies the message's metadata and increments the reference counter of the enveloped message.
-type TeeStage[T msgBody] struct {
+// ─── Arguments ──────────────────────────────────────────────────────────────|
+
+type teeArgs[T msgBody] struct {
+	inConnector   msgConn[T]
+	outConnectors []msgConn[T]
+}
+
+func newTeeArgs[T msgBody](inConnector msgConn[T], outConnectors ...msgConn[T]) *teeArgs[T] {
+	return &teeArgs[T]{
+		inConnector:   inConnector,
+		outConnectors: outConnectors,
+	}
+}
+
+// ─── Runner ─────────────────────────────────────────────────────────────────|
+
+var _ stage.Runner[*teeArgs[msgBody]] = (*teeRunner[msgBody])(nil)
+
+type teeRunner[T msgBody] struct {
 	tel *telemetry.Telemetry
 
-	inputConnector   msgConn[T]
-	outputConnectors []msgConn[T]
+	inConnector   msgConn[T]
+	outConnectors []msgConn[T]
 
 	cloneCount int
 
-	// Metrics
-	clonedMessages atomic.Int64
+	runDone chan struct{}
+
+	metrics *metrics.TeeStage
 }
 
-// NewTeeStage returns a new tee processor stage.
-func NewTeeStage[T msgBody](inputConnector msgConn[T], outputConnectors ...msgConn[T]) *TeeStage[T] {
-	return &TeeStage[T]{
-		tel: telemetry.NewTelemetry("processor", "tee"),
+func newTeeRunner[T msgBody]() *teeRunner[T] {
+	return &teeRunner[T]{
+		runDone: make(chan struct{}),
 
-		inputConnector:   inputConnector,
-		outputConnectors: outputConnectors,
+		metrics: metrics.NewTeeStage(),
 	}
 }
 
-// Init initializes the stage.
-func (ts *TeeStage[T]) Init(_ context.Context) error {
-	ts.tel.LogInfo("initializing")
+func (tr *teeRunner[T]) SetTelemetry(tel *telemetry.Telemetry) {
+	tr.tel = tel
+}
 
-	cloneCount := len(ts.outputConnectors)
-	if cloneCount == 0 {
+func (tr *teeRunner[T]) Init(_ context.Context, args *teeArgs[T]) error {
+	tr.cloneCount = len(args.outConnectors)
+	if tr.cloneCount == 0 {
 		return errors.New("no output connector specified")
 	}
-	ts.cloneCount = cloneCount
 
-	ts.initMetrics()
+	tr.inConnector = args.inConnector
+	tr.outConnectors = args.outConnectors
 
-	return nil
+	return tr.metrics.InitMetrics(tr.tel)
 }
 
-func (ts *TeeStage[T]) initMetrics() {
-	ts.tel.NewCounterMetric("cloned_messages", func() int64 { return ts.clonedMessages.Load() })
-}
-
-// Run runs the stage.
-func (ts *TeeStage[T]) Run(ctx context.Context) {
-	ts.tel.LogInfo("running")
+func (tr *teeRunner[T]) Run(ctx context.Context) {
+	defer close(tr.runDone)
 
 	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		msgIn, err := ts.inputConnector.Read(ctx)
+		msgIn, err := tr.inConnector.Read(ctx)
 		if err != nil {
-			if errors.Is(err, connector.ErrClosed) {
-				ts.tel.LogInfo("input connector is closed, stopping")
-				return
-			}
-
-			continue
+			// This means the input connector is closed
+			// and there are no more messages in it
+			return
 		}
 
-		ts.clone(ctx, msgIn)
+		tr.clone(ctx, msgIn)
 	}
 }
 
-func (ts *TeeStage[T]) clone(ctx context.Context, msgIn *msg[T]) {
+func (tr *teeRunner[T]) clone(ctx context.Context, msgIn *msg[T]) {
 	// Extract the span context from the input message
-	ctx, span := ts.tel.StartTrace(msgIn.LoadSpanContext(ctx), "clone message")
+	ctx, span := tr.tel.StartTrace(msgIn.LoadSpanContext(ctx), "clone message")
 	defer span.End()
 
-	span.SetAttributes(attribute.Int("clone_count", ts.cloneCount))
+	span.SetAttributes(attribute.Int("clone_count", tr.cloneCount))
 
-	for _, outConn := range ts.outputConnectors {
+	for _, outConn := range tr.outConnectors {
 		// Clone the input message
 		msgOut := msgIn.Clone()
 
 		if err := outConn.Write(msgOut); err != nil {
 			// Destroy the cloned message, if the write fails
 			msgOut.Destroy()
-			ts.tel.LogError("failed to write into output connector", err)
+			tr.tel.LogError("failed to write into output connector", err)
 		}
 	}
 
-	ts.clonedMessages.Add(1)
+	tr.metrics.IncrementClonedMessages()
 }
 
-// Close closes the stage.
-func (ts *TeeStage[T]) Close() {
-	ts.tel.LogInfo("closing")
+func (tr *teeRunner[T]) Close(_ context.Context) {
+	<-tr.runDone
 
-	for _, outConn := range ts.outputConnectors {
+	for _, outConn := range tr.outConnectors {
 		outConn.Close()
 	}
 }
 
-func (ts *TeeStage[T]) Inputs() []uintptr {
-	return []uintptr{connector.GetConnectorID(ts.inputConnector)}
+func (tr *teeRunner[T]) Inputs() []uintptr {
+	return []uintptr{connector.GetConnectorID(tr.inConnector)}
 }
 
-func (ts *TeeStage[T]) Outputs() []uintptr {
-	outputs := make([]uintptr, 0, len(ts.outputConnectors))
+func (tr *teeRunner[T]) Outputs() []uintptr {
+	outputs := make([]uintptr, 0, len(tr.outConnectors))
 
-	for _, outConn := range ts.outputConnectors {
+	for _, outConn := range tr.outConnectors {
 		outputs = append(outputs, connector.GetConnectorID(outConn))
 	}
 
 	return outputs
+}
+
+// ─── Stage ──────────────────────────────────────────────────────────────────|
+
+var _ stage.Stage = (*TeeStage[msgBody])(nil)
+
+// TeeStage is a processor stage that "clones" the input message to multiple output connectors.
+// Under the hood, it does not perform an actual copy of the real message data (envelope).
+// It only copies the message's metadata and increments the reference counter of the enveloped message.
+type TeeStage[T msgBody] struct {
+	*stage.ProcessorStage[T, T, *teeArgs[T], *config.Dummy]
+
+	args *teeArgs[T]
+}
+
+// NewTeeStage returns a new tee processor stage.
+func NewTeeStage[T msgBody](inConnector msgConn[T], outConnectors ...msgConn[T]) *TeeStage[T] {
+	return &TeeStage[T]{
+		ProcessorStage: stage.NewProcessorStageFromRunner[T, T](
+			"tee", newTeeRunner[T](), &config.Dummy{},
+		),
+
+		args: newTeeArgs(inConnector, outConnectors...),
+	}
+}
+
+// Init initializes the stage.
+func (ts *TeeStage[T]) Init(ctx context.Context) error {
+	return ts.ProcessorStage.InitWithArgs(ctx, ts.args)
 }

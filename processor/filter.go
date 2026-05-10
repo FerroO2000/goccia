@@ -7,12 +7,11 @@ import (
 
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
-//////////////
-//  CONFIG  //
-//////////////
+// ─── Config ─────────────────────────────────────────────────────────────────|
 
 // FilterConfig structs contains the configuration for the [FilterStage].
 type FilterConfig struct {
@@ -26,9 +25,7 @@ func NewFilterConfig(runningMode config.StageRunningMode) *FilterConfig {
 	}
 }
 
-////////////////////////
-//  WORKER ARGUMENTS  //
-////////////////////////
+// ─── Worker - Arguments ─────────────────────────────────────────────────────|
 
 type filterWorkerArgs[T msgBody] struct {
 	filterFn func(T) bool
@@ -40,9 +37,7 @@ func newFilterWorkerArgs[T msgBody](filterFn func(T) bool) *filterWorkerArgs[T] 
 	}
 }
 
-//////////////////////
-//  WORKER METRICS  //
-//////////////////////
+// ─── Worker - Metrics ───────────────────────────────────────────────────────|
 
 type filterWorkerMetrics struct {
 	once sync.Once
@@ -66,9 +61,7 @@ func (fwm *filterWorkerMetrics) incrementFilteredMessages() {
 	fwm.filteredMessages.Add(1)
 }
 
-/////////////////////////////
-//  WORKER IMPLEMENTATION  //
-/////////////////////////////
+// ─── Worker - Implementation ────────────────────────────────────────────────|
 
 type filterWorker[T msgBody] struct {
 	pool.BaseWorker
@@ -78,8 +71,8 @@ type filterWorker[T msgBody] struct {
 	metrics *filterWorkerMetrics
 }
 
-func newFilterWorkerInstMaker[T msgBody]() workerInstanceMaker[*filterWorkerArgs[T], T, T] {
-	return func() workerInstance[*filterWorkerArgs[T], T, T] {
+func newFilterWorkerMaker[T msgBody]() func() *filterWorker[T] {
+	return func() *filterWorker[T] {
 		return &filterWorker[T]{
 			metrics: filterWorkerMetricsInst,
 		}
@@ -112,13 +105,13 @@ func (fw *filterWorker[T]) Close(_ context.Context) error {
 	return nil
 }
 
-/////////////
-//  STAGE  //
-/////////////
+// ─── Stage ──────────────────────────────────────────────────────────────────|
+
+var _ stage.Stage = (*FilterStage[msgBody])(nil)
 
 // FilterStage is a processor stage that filters messages based on a user-defined function.
 type FilterStage[T msgBody] struct {
-	processorStage[*filterWorkerArgs[T], T, T, *FilterConfig]
+	*stage.ProcessorStage[T, T, *filterWorkerArgs[T], *FilterConfig]
 
 	filterFn func(T) bool
 }
@@ -126,8 +119,8 @@ type FilterStage[T msgBody] struct {
 // NewFilterStage returns a new filter processor stage.
 func NewFilterStage[T msgBody](filterFn func(T) bool, inputConnector, outputConnector msgConn[T], cfg *FilterConfig) *FilterStage[T] {
 	return &FilterStage[T]{
-		processorStage: newStage(
-			"filter", inputConnector, outputConnector, newFilterWorkerInstMaker[T](), cfg,
+		ProcessorStage: stage.NewProcessorStage(
+			"filter", inputConnector, outputConnector, newFilterWorkerMaker[T](), cfg,
 		),
 
 		filterFn: filterFn,
@@ -136,5 +129,5 @@ func NewFilterStage[T msgBody](filterFn func(T) bool, inputConnector, outputConn
 
 // Init initializes the stage.
 func (fs *FilterStage[T]) Init(ctx context.Context) error {
-	return fs.processorStage.Init(ctx, newFilterWorkerArgs(fs.filterFn))
+	return fs.ProcessorStage.InitWithArgs(ctx, newFilterWorkerArgs(fs.filterFn))
 }

@@ -11,8 +11,9 @@ import (
 )
 
 // Runner defines the interface for a stage runner.
-type Runner[WArgs any, W worker.Worker[WArgs]] interface {
-	Init(ctx context.Context) error
+type Runner[IArgs any] interface {
+	SetTelemetry(tel *telemetry.Telemetry)
+	Init(ctx context.Context, initArgs IArgs) error
 	Run(ctx context.Context)
 	Close(ctx context.Context)
 	Inputs() []uintptr
@@ -20,17 +21,16 @@ type Runner[WArgs any, W worker.Worker[WArgs]] interface {
 }
 
 func newRunner[WArgs any, W worker.Worker[WArgs]](
-	tel *telemetry.Telemetry,
-	workerArgs WArgs, workerRunnerFactory stageWorkerRunnerFactory[WArgs, W],
+	workerRunnerFactory stageWorkerRunnerFactory[WArgs, W],
 	cfg *config.Stage,
-) Runner[WArgs, W] {
+) Runner[WArgs] {
 
 	switch cfg.RunningMode {
 	case config.StageRunningModeSingle:
-		return newRunnerSingle(tel, workerArgs, workerRunnerFactory)
+		return newRunnerSingle(workerRunnerFactory)
 
 	case config.StageRunningModePool:
-		return newRunnerPool(tel, workerArgs, workerRunnerFactory, cfg.Pool)
+		return newRunnerPool(workerRunnerFactory, cfg.Pool)
 
 	default:
 		panic("invalid running mode")
@@ -40,23 +40,20 @@ func newRunner[WArgs any, W worker.Worker[WArgs]](
 // ─── Base ───────────────────────────────────────────────────────────────────|
 
 type baseRunner[WArgs any, W worker.Worker[WArgs]] struct {
-	tel *telemetry.Telemetry
-
-	workerArgs          WArgs
 	workerRunnerFactory stageWorkerRunnerFactory[WArgs, W]
 }
 
 func newBaseRunner[WArgs any, W worker.Worker[WArgs]](
-	tel *telemetry.Telemetry,
-	workerArgs WArgs, workerRunnerFactory stageWorkerRunnerFactory[WArgs, W],
+	workerRunnerFactory stageWorkerRunnerFactory[WArgs, W],
 ) *baseRunner[WArgs, W] {
 
 	return &baseRunner[WArgs, W]{
-		tel: tel,
-
-		workerArgs:          workerArgs,
 		workerRunnerFactory: workerRunnerFactory,
 	}
+}
+
+func (br *baseRunner[WArgs, W]) SetTelemetry(tel *telemetry.Telemetry) {
+	br.workerRunnerFactory.setTelemetry(tel)
 }
 
 // Inputs returns the input connector IDs.
@@ -81,7 +78,7 @@ func (br *baseRunner[WArgs, W]) Outputs() []uintptr {
 
 // ─── Single ─────────────────────────────────────────────────────────────────|
 
-var _ Runner[any, worker.Worker[any]] = (*runnerSingle[any, worker.Worker[any]])(nil)
+var _ Runner[any] = (*runnerSingle[any, worker.Worker[any]])(nil)
 
 type runnerSingle[WArgs any, W worker.Worker[WArgs]] struct {
 	*baseRunner[WArgs, W]
@@ -90,24 +87,23 @@ type runnerSingle[WArgs any, W worker.Worker[WArgs]] struct {
 }
 
 func newRunnerSingle[WArgs any, W worker.Worker[WArgs]](
-	tel *telemetry.Telemetry,
-	workerArgs WArgs, workerRunnerFactory stageWorkerRunnerFactory[WArgs, W],
+	workerRunnerFactory stageWorkerRunnerFactory[WArgs, W],
 ) *runnerSingle[WArgs, W] {
 
 	return &runnerSingle[WArgs, W]{
-		baseRunner: newBaseRunner(tel, workerArgs, workerRunnerFactory),
+		baseRunner: newBaseRunner(workerRunnerFactory),
 
-		workerRunner: workerRunnerFactory.makeWorkerRunner(tel, 0),
+		workerRunner: workerRunnerFactory.makeWorkerRunner(0),
 	}
 }
 
 // Init initializes worker runner and the stage metrics.
-func (rs *runnerSingle[WArgs, W]) Init(ctx context.Context) error {
-	if err := rs.workerRunner.Init(ctx, rs.workerArgs); err != nil {
+func (rs *runnerSingle[WArgs, W]) Init(ctx context.Context, initArgs WArgs) error {
+	if err := rs.workerRunner.Init(ctx, initArgs); err != nil {
 		return err
 	}
 
-	return rs.workerRunnerFactory.initMetrics(rs.tel)
+	return rs.workerRunnerFactory.initMetrics()
 }
 
 // Run runs the worker runner.
@@ -123,10 +119,12 @@ func (rs *runnerSingle[WArgs, W]) Close(ctx context.Context) {
 
 // ─── Pool ───────────────────────────────────────────────────────────────────|
 
-var _ Runner[any, worker.Worker[any]] = (*runnerPool[any, worker.Worker[any]])(nil)
+var _ Runner[any] = (*runnerPool[any, worker.Worker[any]])(nil)
 
 type runnerPool[WArgs any, W worker.Worker[WArgs]] struct {
 	*baseRunner[WArgs, W]
+
+	initArgs WArgs
 
 	initialWorkerRunner      int
 	workerRunnerListenerDone chan struct{}
@@ -136,25 +134,31 @@ type runnerPool[WArgs any, W worker.Worker[WArgs]] struct {
 }
 
 func newRunnerPool[WArgs any, W worker.Worker[WArgs]](
-	tel *telemetry.Telemetry,
-	workerArgs WArgs, workerRunnerFactory stageWorkerRunnerFactory[WArgs, W], cfg *config.Pool,
+	workerRunnerFactory stageWorkerRunnerFactory[WArgs, W],
+	cfg *config.Pool,
 ) *runnerPool[WArgs, W] {
 
 	return &runnerPool[WArgs, W]{
-		baseRunner: newBaseRunner(tel, workerArgs, workerRunnerFactory),
+		baseRunner: newBaseRunner(workerRunnerFactory),
 
 		initialWorkerRunner:      cfg.InitialWorkers,
 		workerRunnerListenerDone: make(chan struct{}),
 		workerRunnerWg:           &sync.WaitGroup{},
 
-		scaler: pool.NewScaler(tel, cfg),
+		scaler: pool.NewScaler(nil, cfg),
 	}
 }
 
+func (rp *runnerPool[WArgs, W]) SetTelemetry(tel *telemetry.Telemetry) {
+	rp.baseRunner.SetTelemetry(tel)
+	rp.scaler.SetTelemetry(tel)
+}
+
 // Init initializes the scaler and the stage metrics.
-func (rp *runnerPool[WArgs, W]) Init(ctx context.Context) error {
+func (rp *runnerPool[WArgs, W]) Init(ctx context.Context, initArgs WArgs) error {
+	rp.initArgs = initArgs
 	rp.scaler.Init(ctx, rp.initialWorkerRunner)
-	return rp.workerRunnerFactory.initMetrics(rp.tel)
+	return rp.workerRunnerFactory.initMetrics()
 }
 
 // runStartWorkerRunnerListener will trigger the creation of new worker runners
@@ -188,9 +192,9 @@ func (rp *runnerPool[WArgs, W]) startWorkerRunner(ctx context.Context) {
 		return
 	}
 
-	workerRunner := rp.workerRunnerFactory.makeWorkerRunner(rp.tel, workerID)
+	workerRunner := rp.workerRunnerFactory.makeWorkerRunner(workerID)
 
-	if err := workerRunner.Init(ctx, rp.workerArgs); err != nil {
+	if err := workerRunner.Init(ctx, rp.initArgs); err != nil {
 		return
 	}
 	defer workerRunner.Close(ctx)

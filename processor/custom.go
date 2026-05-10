@@ -7,12 +7,11 @@ import (
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
-//////////////
-//  CONFIG  //
-//////////////
+// ─── Config ─────────────────────────────────────────────────────────────────|
 
 // Default configuration values for the custom processor stage.
 const (
@@ -44,9 +43,7 @@ func (c *CustomConfig) Validate(ac *config.AnomalyCollector) {
 	config.CheckNotEmpty(ac, "Name", &c.Name, DefaultCustomConfigName)
 }
 
-///////////////
-//  HANDLER  //
-///////////////
+// ─── Handler ────────────────────────────────────────────────────────────────|
 
 // CustomHandler interface defines the methods that the handler for the
 // processor processor must implement.
@@ -90,9 +87,7 @@ func (chb *CustomHandlerBase) SetTelemetry(tel *telemetry.Telemetry) {
 	chb.Telemetry = tel
 }
 
-//////////////
-//  WORKER  //
-//////////////
+// ─── Worker ─────────────────────────────────────────────────────────────────|
 
 type customWorkerArgs[In, Out msgBody] struct {
 	name    string
@@ -114,8 +109,8 @@ type customWorker[In, Out msgBody] struct {
 	traceString string
 }
 
-func newCustomWorkerInstMaker[In, Out msgBody]() workerInstanceMaker[*customWorkerArgs[In, Out], In, Out] {
-	return func() workerInstance[*customWorkerArgs[In, Out], In, Out] {
+func newCustomWorkerMaker[In, Out msgBody]() func() *customWorker[In, Out] {
+	return func() *customWorker[In, Out] {
 		return &customWorker[In, Out]{}
 	}
 }
@@ -149,13 +144,13 @@ func (cw *customWorker[In, Out]) Close(_ context.Context) error {
 	return nil
 }
 
-/////////////
-//  STAGE  //
-/////////////
+// ─── Stage ──────────────────────────────────────────────────────────────────|
+
+var _ stage.Stage = (*CustomStage[msgBody, msgBody])(nil)
 
 // CustomStage is a processor stage that uses a custom handler to process messages.
 type CustomStage[In, Out msgBody] struct {
-	processorStage[*customWorkerArgs[In, Out], In, Out, *CustomConfig]
+	*stage.ProcessorStage[In, Out, *customWorkerArgs[In, Out], *CustomConfig]
 
 	handler CustomHandler[In, Out]
 }
@@ -166,8 +161,8 @@ func NewCustomStage[In, Out msgBody](
 ) *CustomStage[In, Out] {
 
 	return &CustomStage[In, Out]{
-		processorStage: newStage(
-			cfg.Name, inputConnector, outputConnector, newCustomWorkerInstMaker[In, Out](), cfg,
+		ProcessorStage: stage.NewProcessorStage(
+			cfg.Name, inputConnector, outputConnector, newCustomWorkerMaker[In, Out](), cfg,
 		),
 
 		handler: handler,
@@ -181,5 +176,5 @@ func (cs *CustomStage[In, Out]) Init(ctx context.Context) error {
 		return err
 	}
 
-	return cs.processorStage.Init(ctx, newCustomWorkerArgs(cs.Config().Name, cs.handler))
+	return cs.ProcessorStage.InitWithArgs(ctx, newCustomWorkerArgs(cs.Config().Name, cs.handler))
 }

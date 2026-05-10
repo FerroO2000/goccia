@@ -8,14 +8,13 @@ import (
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/telemetry"
 	"github.com/squadracorsepolito/acmelib"
 	"go.opentelemetry.io/otel/attribute"
 )
 
-//////////////
-//  CONFIG  //
-//////////////
+// ─── Config ─────────────────────────────────────────────────────────────────|
 
 // CANConfig structs contains the configuration for the CAN processor stage.
 type CANConfig struct {
@@ -33,9 +32,7 @@ func NewCANConfig(runningMode config.StageRunningMode) *CANConfig {
 	}
 }
 
-///////////////
-//  MESSAGE  //
-///////////////
+// ─── Message ────────────────────────────────────────────────────────────────|
 
 // CANMessageCarrier interface defines the common methods
 // for all message types that carry CAN messages.
@@ -116,9 +113,7 @@ func NewCANMessage() *CANMessage {
 // Destroy cleans up the message.
 func (cm *CANMessage) Destroy() {}
 
-///////////////
-//  DECODER  //
-///////////////
+// ─── Decoder ────────────────────────────────────────────────────────────────|
 
 type canDecoder struct {
 	m map[uint32]func([]byte) []*acmelib.SignalDecoding
@@ -151,9 +146,7 @@ func (cd *canDecoder) decode(ctx context.Context, canID uint32, data []byte) []*
 	return fnDecode(data)
 }
 
-////////////////////////
-//  WORKER ARGUMENTS  //
-////////////////////////
+// ─── Worker - Arguments ─────────────────────────────────────────────────────|
 
 type canWorkerArgs struct {
 	decoder *canDecoder
@@ -165,9 +158,7 @@ func newCANWorkerArgs(decoder *canDecoder) *canWorkerArgs {
 	}
 }
 
-//////////////////////
-//  WORKER METRICS  //
-//////////////////////
+// ─── Worker - Metrics ───────────────────────────────────────────────────────|
 
 type canWorkerMetrics struct {
 	once sync.Once
@@ -197,9 +188,7 @@ func (cwm *canWorkerMetrics) addCANSignals(amount int) {
 	cwm.canSignals.Add(int64(amount))
 }
 
-/////////////////////////////
-//  WORKER IMPLEMENTATION  //
-/////////////////////////////
+// ─── Worker - Implementation ────────────────────────────────────────────────|
 
 type canWorker[T CANMessageCarrier] struct {
 	pool.BaseWorker
@@ -209,8 +198,8 @@ type canWorker[T CANMessageCarrier] struct {
 	metrics *canWorkerMetrics
 }
 
-func newCANWorkerInstMaker[T CANMessageCarrier]() workerInstanceMaker[*canWorkerArgs, T, *CANMessage] {
-	return func() workerInstance[*canWorkerArgs, T, *CANMessage] {
+func newCANWorkerMaker[T CANMessageCarrier]() func() *canWorker[T] {
+	return func() *canWorker[T] {
 		return &canWorker[T]{
 			metrics: canWorkerMetricsInst,
 		}
@@ -290,20 +279,20 @@ func (cw *canWorker[T]) Close(_ context.Context) error {
 	return nil
 }
 
-/////////////
-//  STAGE  //
-/////////////
+// ─── Stage ──────────────────────────────────────────────────────────────────|
+
+var _ stage.Stage = (*CANStage[CANMessageCarrier])(nil)
 
 // CANStage is a processor stage that decodes CAN messages.
 type CANStage[T CANMessageCarrier] struct {
-	processorStage[*canWorkerArgs, T, *CANMessage, *CANConfig]
+	*stage.ProcessorStage[T, *CANMessage, *canWorkerArgs, *CANConfig]
 }
 
 // NewCANStage returns a new CAN processor stage.
 func NewCANStage[T CANMessageCarrier](inputConnector msgConn[T], outputConnector msgConn[*CANMessage], cfg *CANConfig) *CANStage[T] {
 	return &CANStage[T]{
-		processorStage: newStage(
-			"can", inputConnector, outputConnector, newCANWorkerInstMaker[T](), cfg,
+		ProcessorStage: stage.NewProcessorStage(
+			"can", inputConnector, outputConnector, newCANWorkerMaker[T](), cfg,
 		),
 	}
 }
@@ -312,5 +301,5 @@ func NewCANStage[T CANMessageCarrier](inputConnector msgConn[T], outputConnector
 func (cs *CANStage[T]) Init(ctx context.Context) error {
 	decoder := newCANDecoder(cs.Config().Messages)
 
-	return cs.processorStage.Init(ctx, newCANWorkerArgs(decoder))
+	return cs.ProcessorStage.InitWithArgs(ctx, newCANWorkerArgs(decoder))
 }
