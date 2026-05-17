@@ -65,8 +65,6 @@ func (sr *sinkRunner[T]) Run(ctx context.Context) {
 
 func (sr *sinkRunner[T]) Close(_ context.Context) {
 	<-sr.runDone
-
-	sr.inConnector.Close()
 }
 
 func (sr *sinkRunner[T]) Inputs() []uintptr {
