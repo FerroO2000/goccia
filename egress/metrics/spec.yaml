@@ -1,0 +1,26 @@
+package: metrics
+groups:
+  - name: file_stage
+    metrics:
+      - name: written_bytes
+        type: counter
+      - name: write_errors
+        type: counter
+      - name: flush_errors
+        type: counter
+
+  - name: quest_db_stage
+    metrics:
+      - name: inserted_rows
+        type: counter
+
+  - name: tcp_stage
+    metrics:
+      - name: delivered_bytes
+        type: counter
+
+  - name: udp_stage
+    metrics:
+      - name: delivered_bytes
+        type: counter
+

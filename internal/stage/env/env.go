@@ -25,9 +25,9 @@ type Env interface {
 var _ Env = (*BaseEnv[cfg, met])(nil)
 
 type BaseEnv[Cfg cfg, M met] struct {
-	tel *telemetry.Telemetry
+	Tel *telemetry.Telemetry
 
-	config Cfg
+	Config Cfg
 
 	processorMetrics *stageMetrics.ProcessorStage
 	egressMetrics    *stageMetrics.EgressStage
@@ -37,9 +37,9 @@ type BaseEnv[Cfg cfg, M met] struct {
 
 func newBaseEnv[Cfg cfg, M met](config Cfg, metrics M) *BaseEnv[Cfg, M] {
 	return &BaseEnv[Cfg, M]{
-		tel: nil,
+		Tel: nil,
 
-		config: config,
+		Config: config,
 
 		processorMetrics: nil,
 		egressMetrics:    nil,
@@ -61,19 +61,19 @@ func NewEgressEnv[Cfg cfg, M met](config Cfg, metrics M) *BaseEnv[Cfg, M] {
 }
 
 func (e *BaseEnv[Cfg, M]) SetTelemetry(tel *telemetry.Telemetry) {
-	e.tel = tel
+	e.Tel = tel
 }
 
 func (e *BaseEnv[Cfg, M]) Telemetry() *telemetry.Telemetry {
-	return e.tel
+	return e.Tel
 }
 
 func (e *BaseEnv[Cfg, M]) validateConfig() {
-	e.tel.LogDebug("validating configuration")
-	defer e.tel.LogDebug("validated configuration")
+	e.Tel.LogDebug("validating configuration")
+	defer e.Tel.LogDebug("validated configuration")
 
-	configValidator := config.NewValidator(e.tel)
-	configValidator.Validate(e.config)
+	configValidator := config.NewValidator(e.Tel)
+	configValidator.Validate(e.Config)
 }
 
 func (e *BaseEnv[Cfg, M]) getStageMetrics() met {
@@ -89,27 +89,27 @@ func (e *BaseEnv[Cfg, M]) getStageMetrics() met {
 }
 
 func (e *BaseEnv[Cfg, M]) initMetrics() error {
-	e.tel.LogDebug("initializing metrics")
-	defer e.tel.LogDebug("initialized metrics")
+	e.Tel.LogDebug("initializing metrics")
+	defer e.Tel.LogDebug("initialized metrics")
 
-	if err := e.getStageMetrics().InitMetrics(e.tel); err != nil {
+	if err := e.getStageMetrics().InitMetrics(e.Tel); err != nil {
 		return err
 	}
 
-	return e.Metrics.InitMetrics(e.tel)
+	return e.Metrics.InitMetrics(e.Tel)
 }
 
 func (e *BaseEnv[Cfg, M]) Init(_ context.Context) error {
-	e.tel.LogDebug("initializing environment")
-	defer e.tel.LogDebug("initialized environment")
+	e.Tel.LogDebug("initializing environment")
+	defer e.Tel.LogDebug("initialized environment")
 
 	e.validateConfig()
 	return e.initMetrics()
 }
 
 func (e *BaseEnv[Cfg, M]) Close(_ context.Context) {
-	e.tel.LogDebug("closing environment")
-	defer e.tel.LogDebug("closed environment")
+	e.Tel.LogDebug("closing environment")
+	defer e.Tel.LogDebug("closed environment")
 }
 
 func (e *BaseEnv[Cfg, M]) GetProcessorMetrics() *stageMetrics.ProcessorStage {

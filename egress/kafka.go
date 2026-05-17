@@ -5,15 +5,16 @@ import (
 	"time"
 
 	"github.com/FerroO2000/goccia/internal/config"
-	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/metrics"
+	"github.com/FerroO2000/goccia/internal/stage"
+	"github.com/FerroO2000/goccia/internal/stage/env"
+	"github.com/FerroO2000/goccia/internal/stage/worker"
 	"github.com/FerroO2000/goccia/internal/telemetry"
 
 	"github.com/segmentio/kafka-go"
 )
 
-//////////////
-//  CONFIG  //
-//////////////
+// ─── Config ─────────────────────────────────────────────────────────────────|
 
 // DefaultKafkaConfigBrokers is the default list of Kafka brokers to connect to.
 var DefaultKafkaConfigBrokers = []string{"localhost:9092"}
@@ -122,9 +123,7 @@ func DefaultKafkaConfig(runningMode config.StageRunningMode) *KafkaConfig {
 	}
 }
 
-///////////////
-//  MESSAGE  //
-///////////////
+// ─── Message ────────────────────────────────────────────────────────────────|
 
 var _ msgBody = (*KafkaMessage)(nil)
 
@@ -156,36 +155,58 @@ func (km *KafkaMessage) AddHeader(key string, value []byte) {
 	})
 }
 
-//////////////
-//  WORKER  //
-//////////////
+// ─── Environment ────────────────────────────────────────────────────────────|
 
-type kafkaWorkerArgs struct {
+type kafkaEnv struct {
+	*env.BaseEnv[*KafkaConfig, *metrics.EmptyMetrics]
+
 	writer *kafka.Writer
 }
 
-func newKafkaWorkerArgs(writer *kafka.Writer) *kafkaWorkerArgs {
-	return &kafkaWorkerArgs{
+func newKafkaEnv(config *KafkaConfig) *kafkaEnv {
+	writer := &kafka.Writer{
+		Addr:                   kafka.TCP(config.Brokers...),
+		Balancer:               config.Balancer,
+		MaxAttempts:            config.MaxAttempts,
+		WriteBackoffMin:        config.WriteBackoffMin,
+		WriteBackoffMax:        config.WriteBackoffMax,
+		BatchSize:              config.BatchSize,
+		BatchBytes:             config.BatchBytes,
+		BatchTimeout:           config.BatchTimeout,
+		ReadTimeout:            config.ReadTimeout,
+		WriteTimeout:           config.WriteTimeout,
+		RequiredAcks:           config.RequiredAcks,
+		Async:                  config.Async,
+		Compression:            config.Compression,
+		Transport:              config.Transport,
+		AllowAutoTopicCreation: config.AllowAutoTopicCreation,
+	}
+
+	return &kafkaEnv{
+		BaseEnv: env.NewEgressEnv(config, metrics.NewEmptyMetrics()),
+
 		writer: writer,
 	}
 }
 
-func newKafkaWorkerInstMaker() workerInstanceMaker[*kafkaWorkerArgs, *KafkaMessage] {
-	return func() workerInstance[*kafkaWorkerArgs, *KafkaMessage] {
-		return &kafkaWorker{}
+func (ke *kafkaEnv) Close(ctx context.Context) {
+	if err := ke.writer.Close(); err != nil {
+		ke.Tel.LogError("failed to close writer", err)
 	}
+
+	ke.BaseEnv.Close(ctx)
 }
+
+// ─── Worker ─────────────────────────────────────────────────────────────────|
 
 type kafkaWorker struct {
-	pool.BaseWorker
-
-	writer *kafka.Writer
+	worker.BaseWorker[*kafkaEnv]
 }
 
-func (kw *kafkaWorker) Init(_ context.Context, args *kafkaWorkerArgs) error {
-	kw.writer = args.writer
-
-	return nil
+func newKafkaWorkerMaker() func() *kafkaWorker {
+	return func() *kafkaWorker {
+		return &kafkaWorker{}
+	}
 }
 
 func (kw *kafkaWorker) Deliver(ctx context.Context, msgIn *msg[*KafkaMessage]) error {
@@ -210,63 +231,27 @@ func (kw *kafkaWorker) Deliver(ctx context.Context, msgIn *msg[*KafkaMessage]) e
 	}
 
 	// Write the message to kafka
-	if err := kw.writer.WriteMessages(ctx, kafkaMsg); err != nil {
+	if err := kw.Env.writer.WriteMessages(ctx, kafkaMsg); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (kw *kafkaWorker) Close(_ context.Context) error { return nil }
-
-/////////////
-//  STAGE  //
-/////////////
+// ─── Stage ──────────────────────────────────────────────────────────────────|
 
 // KafkaStage is an egress stage that writes messages to Kafka.
 type KafkaStage struct {
-	stage[*kafkaWorkerArgs, *KafkaMessage, *KafkaConfig]
-
-	writer *kafka.Writer
+	*stage.EgressStage[*KafkaMessage, *kafkaEnv]
 }
 
 // NewKafkaStage returns a new Kafka egress stage.
 func NewKafkaStage(inputConnector msgConn[*KafkaMessage], cfg *KafkaConfig) *KafkaStage {
+	env := newKafkaEnv(cfg)
+
 	return &KafkaStage{
-		stage: newStage("kafka", inputConnector, newKafkaWorkerInstMaker(), cfg),
-	}
-}
-
-// Init initializes the stage.
-func (ks *KafkaStage) Init(ctx context.Context) error {
-	cfg := ks.Config()
-
-	ks.writer = &kafka.Writer{
-		Addr:                   kafka.TCP(cfg.Brokers...),
-		Balancer:               cfg.Balancer,
-		MaxAttempts:            cfg.MaxAttempts,
-		WriteBackoffMin:        cfg.WriteBackoffMin,
-		WriteBackoffMax:        cfg.WriteBackoffMax,
-		BatchSize:              cfg.BatchSize,
-		BatchBytes:             cfg.BatchBytes,
-		BatchTimeout:           cfg.BatchTimeout,
-		ReadTimeout:            cfg.ReadTimeout,
-		WriteTimeout:           cfg.WriteTimeout,
-		RequiredAcks:           cfg.RequiredAcks,
-		Async:                  cfg.Async,
-		Compression:            cfg.Compression,
-		Transport:              cfg.Transport,
-		AllowAutoTopicCreation: cfg.AllowAutoTopicCreation,
-	}
-
-	return ks.stage.Init(ctx, newKafkaWorkerArgs(ks.writer))
-}
-
-// Close closes the stage.
-func (ks *KafkaStage) Close() {
-	ks.stage.Close()
-
-	if err := ks.writer.Close(); err != nil {
-		ks.Tel().LogError("failed to close writer", err)
+		EgressStage: stage.NewEgressStage(
+			"kafka", inputConnector, env, newKafkaWorkerMaker(), cfg.Stage,
+		),
 	}
 }

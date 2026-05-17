@@ -98,6 +98,7 @@ func (s *BaseStage[Env]) Run(ctx context.Context) {
 
 func (s *BaseStage[Env]) Close(ctx context.Context) {
 	s.runner.Close(ctx)
+	s.env.Close(ctx)
 }
 
 func (s *BaseStage[Env]) Inputs() []uintptr {
@@ -165,6 +166,13 @@ func NewEgressStage[In msgBody, Env env.Env, W worker.Egress[Env, In]](
 
 	workerRunnerFactory := newEgressWorkerRunnerFactory(input, workerMaker)
 	runner := newRunner(workerRunnerFactory, stageCfg)
+
+	return NewEgressStageFromRunner[In](name, env, runner)
+}
+
+func NewEgressStageFromRunner[In msgBody, Env env.Env](
+	name string, env Env, runner Runner[Env],
+) *EgressStage[In, Env] {
 
 	return &EgressStage[In, Env]{
 		BaseStage: newBaseStage(KindEgress, name, env, runner),

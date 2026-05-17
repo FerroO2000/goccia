@@ -47,7 +47,7 @@ func Test_SinkStage(t *testing.T) {
 
 	<-stopCh
 
-	stage.Close()
+	stage.Close(t.Context())
 
 	assert.Equal(msgCount, destroyCount)
 }
