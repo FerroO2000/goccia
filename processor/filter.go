@@ -6,7 +6,7 @@ import (
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/stage/env"
-	wp "github.com/FerroO2000/goccia/internal/stage/worker"
+	"github.com/FerroO2000/goccia/internal/stage/worker"
 	"github.com/FerroO2000/goccia/processor/metrics"
 )
 
@@ -43,7 +43,7 @@ func newFilterEnv[T msgBody](config *FilterConfig, filterFn func(T) bool) *filte
 // ─── Worker ─────────────────────────────────────────────────────────────────|
 
 type filterWorker[T msgBody] struct {
-	wp.BaseWorker[*filterEnv[T]]
+	worker.BaseWorker[*filterEnv[T]]
 }
 
 func newFilterWorkerMaker[T msgBody]() func() *filterWorker[T] {

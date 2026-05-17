@@ -9,7 +9,7 @@ import (
 	"github.com/FerroO2000/goccia/internal/metrics"
 	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/stage/env"
-	wp "github.com/FerroO2000/goccia/internal/stage/worker"
+	"github.com/FerroO2000/goccia/internal/stage/worker"
 	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
@@ -110,7 +110,7 @@ func newCustomEnv[In, Out msgBody](config *CustomConfig, handler CustomHandler[I
 // ─── Worker ─────────────────────────────────────────────────────────────────|
 
 type customWorker[In, Out msgBody] struct {
-	wp.BaseWorker[*customEnv[In, Out]]
+	worker.BaseWorker[*customEnv[In, Out]]
 }
 
 func newCustomWorkerMaker[In, Out msgBody]() func() *customWorker[In, Out] {

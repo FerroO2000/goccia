@@ -7,7 +7,7 @@ import (
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/stage/env"
-	wp "github.com/FerroO2000/goccia/internal/stage/worker"
+	"github.com/FerroO2000/goccia/internal/stage/worker"
 	"github.com/FerroO2000/goccia/processor/metrics"
 	"github.com/squadracorsepolito/acmelib"
 	"go.opentelemetry.io/otel/attribute"
@@ -164,7 +164,7 @@ func newCANEnv(config *CANConfig) *canEnv {
 // ─── Worker ─────────────────────────────────────────────────────────────────|
 
 type canWorker[T CANMessageCarrier] struct {
-	wp.BaseWorker[*canEnv]
+	worker.BaseWorker[*canEnv]
 }
 
 func newCANWorkerMaker[T CANMessageCarrier]() func() *canWorker[T] {

@@ -10,7 +10,7 @@ import (
 	"github.com/FerroO2000/goccia/internal/metrics"
 	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/stage/env"
-	wp "github.com/FerroO2000/goccia/internal/stage/worker"
+	"github.com/FerroO2000/goccia/internal/stage/worker"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -219,7 +219,7 @@ func newCannelloniDecoderEnv[T msgSer](config *CannelloniConfig) *cannelloniDeco
 // ─── Decoder - Worker ───────────────────────────────────────────────────────|
 
 type cannelloniDecoderWorker[T msgSer] struct {
-	wp.BaseWorker[*cannelloniDecoderEnv[T]]
+	worker.BaseWorker[*cannelloniDecoderEnv[T]]
 }
 
 func newCannelloniDecoderWorkerMaker[T msgSer]() func() *cannelloniDecoderWorker[T] {
@@ -360,7 +360,7 @@ func newCannelloniEncoderEnv(config *CannelloniConfig) *cannelloniEncoderEnv {
 // ─── Encoder - Worker ───────────────────────────────────────────────────────|
 
 type cannelloniEncoderWorker struct {
-	wp.BaseWorker[*cannelloniEncoderEnv]
+	worker.BaseWorker[*cannelloniEncoderEnv]
 }
 
 func newCannelloniEncoderWorkerMaker() func() *cannelloniEncoderWorker {

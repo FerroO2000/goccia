@@ -46,7 +46,7 @@ func (te *teeEnv[T]) Init(ctx context.Context) error {
 var _ stage.Runner[*teeEnv[msgBody]] = (*teeRunner[msgBody])(nil)
 
 type teeRunner[T msgBody] struct {
-	env *teeEnv[T]
+	*teeEnv[T]
 
 	runDone chan struct{}
 }
@@ -58,7 +58,7 @@ func newTeeRunner[T msgBody]() *teeRunner[T] {
 }
 
 func (tr *teeRunner[T]) SetEnvironment(env *teeEnv[T]) {
-	tr.env = env
+	tr.teeEnv = env
 }
 
 func (tr *teeRunner[T]) Init(_ context.Context) error {
@@ -69,7 +69,7 @@ func (tr *teeRunner[T]) Run(ctx context.Context) {
 	defer close(tr.runDone)
 
 	for {
-		msgIn, err := tr.env.inConnector.Read(ctx)
+		msgIn, err := tr.inConnector.Read(ctx)
 		if err != nil {
 			// This means the input connector is closed
 			// and there are no more messages in it
@@ -82,41 +82,41 @@ func (tr *teeRunner[T]) Run(ctx context.Context) {
 
 func (tr *teeRunner[T]) clone(ctx context.Context, msgIn *msg[T]) {
 	// Extract the span context from the input message
-	ctx, span := tr.env.Telemetry().StartTrace(msgIn.LoadSpanContext(ctx), "clone message")
+	ctx, span := tr.Telemetry().StartTrace(msgIn.LoadSpanContext(ctx), "clone message")
 	defer span.End()
 
-	span.SetAttributes(attribute.Int("clone_count", tr.env.cloneCount))
+	span.SetAttributes(attribute.Int("clone_count", tr.cloneCount))
 
-	for _, outConn := range tr.env.outConnectors {
+	for _, outConn := range tr.outConnectors {
 		// Clone the input message
 		msgOut := msgIn.Clone()
 
 		if err := outConn.Write(msgOut); err != nil {
 			// Destroy the cloned message, if the write fails
 			msgOut.Destroy()
-			tr.env.Telemetry().LogError("failed to write into output connector", err)
+			tr.Telemetry().LogError("failed to write into output connector", err)
 		}
 	}
 
-	tr.env.Metrics.IncrementClonedMessages()
+	tr.Metrics.IncrementClonedMessages()
 }
 
 func (tr *teeRunner[T]) Close(_ context.Context) {
 	<-tr.runDone
 
-	for _, outConn := range tr.env.outConnectors {
+	for _, outConn := range tr.outConnectors {
 		outConn.Close()
 	}
 }
 
 func (tr *teeRunner[T]) Inputs() []uintptr {
-	return []uintptr{connector.GetConnectorID(tr.env.inConnector)}
+	return []uintptr{connector.GetConnectorID(tr.inConnector)}
 }
 
 func (tr *teeRunner[T]) Outputs() []uintptr {
-	outputs := make([]uintptr, 0, len(tr.env.outConnectors))
+	outputs := make([]uintptr, 0, len(tr.outConnectors))
 
-	for _, outConn := range tr.env.outConnectors {
+	for _, outConn := range tr.outConnectors {
 		outputs = append(outputs, connector.GetConnectorID(outConn))
 	}
 

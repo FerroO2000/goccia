@@ -12,7 +12,7 @@ import (
 	"github.com/FerroO2000/goccia/internal/metrics"
 	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/stage/env"
-	wp "github.com/FerroO2000/goccia/internal/stage/worker"
+	"github.com/FerroO2000/goccia/internal/stage/worker"
 )
 
 // ─── Decoder ────────────────────────────────────────────────────────────────|
@@ -210,7 +210,7 @@ func newCSVDecoderEnv(config *CSVConfig) *csvDecoderEnv {
 // ─── Worker ─────────────────────────────────────────────────────────────────|
 
 type csvDecoderWorker[T msgSer] struct {
-	wp.BaseWorker[*csvDecoderEnv]
+	worker.BaseWorker[*csvDecoderEnv]
 }
 
 func newCSVDecoderWorkerMaker[T msgSer]() func() *csvDecoderWorker[T] {

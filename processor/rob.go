@@ -97,7 +97,7 @@ func newROBEnv[T message.ReOrderable](config *ROBConfig, inConnector, outConnect
 var _ stage.Runner[*robEnv[message.ReOrderable]] = (*robRunner[message.ReOrderable])(nil)
 
 type robRunner[T message.ReOrderable] struct {
-	env *robEnv[T]
+	*robEnv[T]
 
 	runDone chan struct{}
 }
@@ -109,7 +109,7 @@ func newROBRunner[T message.ReOrderable]() *robRunner[T] {
 }
 
 func (rr *robRunner[T]) SetEnvironment(env *robEnv[T]) {
-	rr.env = env
+	rr.robEnv = env
 }
 
 func (rr *robRunner[T]) Init(_ context.Context) error {
@@ -117,15 +117,15 @@ func (rr *robRunner[T]) Init(_ context.Context) error {
 }
 
 func (rr *robRunner[T]) Run(ctx context.Context) {
-	rr.env.Telemetry().LogInfo("running")
-	defer rr.env.Telemetry().LogInfo("stopped")
+	rr.Telemetry().LogInfo("running")
+	defer rr.Telemetry().LogInfo("stopped")
 
 	resetNeeded := false
 	for {
 		select {
 		case <-ctx.Done():
 			// Context is done, flush the ROB and return
-			rr.env.rob.FlushAndReset()
+			rr.rob.FlushAndReset()
 			return
 
 		default:
@@ -133,8 +133,8 @@ func (rr *robRunner[T]) Run(ctx context.Context) {
 
 		// Read the next message with a timeout context
 		// in order to reset the re-order buffer
-		deadlineCtx, cancelCtx := context.WithTimeout(ctx, rr.env.resetTimeout)
-		msgIn, err := rr.env.inConnector.Read(deadlineCtx)
+		deadlineCtx, cancelCtx := context.WithTimeout(ctx, rr.resetTimeout)
+		msgIn, err := rr.inConnector.Read(deadlineCtx)
 		cancelCtx()
 
 		if err != nil {
@@ -145,11 +145,11 @@ func (rr *robRunner[T]) Run(ctx context.Context) {
 			// This means the context is done.
 			// Check if the rob has to be reset
 			if resetNeeded {
-				rr.env.rob.FlushAndReset()
-				rr.env.Metrics.IncrementResets()
+				rr.rob.FlushAndReset()
+				rr.Metrics.IncrementResets()
 				resetNeeded = false
 
-				rr.env.Telemetry().LogInfo("resetting and flushing re-order buffer")
+				rr.Telemetry().LogInfo("resetting and flushing re-order buffer")
 			}
 
 			continue
@@ -167,17 +167,17 @@ func (rr *robRunner[T]) Run(ctx context.Context) {
 }
 
 func (rr *robRunner[T]) enqueue(ctx context.Context, msgIn *msg[T]) {
-	_, span := rr.env.Telemetry().StartTrace(msgIn.LoadSpanContext(ctx), "enqueue message into re-order buffer")
+	_, span := rr.Telemetry().StartTrace(msgIn.LoadSpanContext(ctx), "enqueue message into re-order buffer")
 	defer span.End()
 
-	status, err := rr.env.rob.Enqueue(msgIn)
+	status, err := rr.rob.Enqueue(msgIn)
 	if err != nil {
 		if errors.Is(err, rob.ErrSeqNumOutOfWindow) {
-			rr.env.Metrics.IncrementOutOfOrderSequenceNumber()
+			rr.Metrics.IncrementOutOfOrderSequenceNumber()
 		} else if errors.Is(err, rob.ErrSeqNumDuplicated) {
-			rr.env.Metrics.IncrementDuplicatedSequenceNumber()
+			rr.Metrics.IncrementDuplicatedSequenceNumber()
 		} else if errors.Is(err, rob.ErrSeqNumTooBig) {
-			rr.env.Metrics.IncrementInvalidSequenceNumber()
+			rr.Metrics.IncrementInvalidSequenceNumber()
 		}
 	}
 
@@ -185,11 +185,11 @@ func (rr *robRunner[T]) enqueue(ctx context.Context, msgIn *msg[T]) {
 
 	switch status {
 	case rob.EnqueueStatusInOrder:
-		rr.env.Metrics.IncrementOrderedMessages()
+		rr.Metrics.IncrementOrderedMessages()
 	case rob.EnqueueStatusPrimary:
-		rr.env.Metrics.IncrementPrimaryEnqueuedMessages()
+		rr.Metrics.IncrementPrimaryEnqueuedMessages()
 	case rob.EnqueueStatusAuxiliary:
-		rr.env.Metrics.IncrementAuxiliaryEnqueuedMessages()
+		rr.Metrics.IncrementAuxiliaryEnqueuedMessages()
 	case rob.EnqueueStatusErr:
 		return
 	}
@@ -197,15 +197,15 @@ func (rr *robRunner[T]) enqueue(ctx context.Context, msgIn *msg[T]) {
 
 func (rr *robRunner[T]) Close(_ context.Context) {
 	<-rr.runDone
-	rr.env.outConnector.Close()
+	rr.outConnector.Close()
 }
 
 func (rr *robRunner[T]) Inputs() []uintptr {
-	return []uintptr{connector.GetConnectorID(rr.env.inConnector)}
+	return []uintptr{connector.GetConnectorID(rr.inConnector)}
 }
 
 func (rr *robRunner[T]) Outputs() []uintptr {
-	return []uintptr{connector.GetConnectorID(rr.env.outConnector)}
+	return []uintptr{connector.GetConnectorID(rr.outConnector)}
 }
 
 // ─── Stage ──────────────────────────────────────────────────────────────────|
