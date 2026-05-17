@@ -1,5 +1,17 @@
 package: metrics
 groups:
+  - name: can_stage
+    metrics:
+      - name: can_messages
+        type: counter
+      - name: can_signals
+        type: counter
+
+  - name: filter_stage
+    metrics:
+      - name: filtered_messages
+        type: counter
+
   - name: tee_stage
     metrics:
       - name: cloned_messages

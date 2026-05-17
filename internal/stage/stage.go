@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/FerroO2000/goccia/internal/config"
-	"github.com/FerroO2000/goccia/internal/stage/metrics"
+	"github.com/FerroO2000/goccia/internal/stage/env"
+	"github.com/FerroO2000/goccia/internal/stage/worker"
 	"github.com/FerroO2000/goccia/internal/telemetry"
-	"github.com/FerroO2000/goccia/internal/worker"
 )
 
 type Kind = string
@@ -41,141 +41,132 @@ type Stage interface {
 	Outputs() []uintptr
 }
 
-type BaseStage[Cfg config.Config, IArgs any] struct {
-	tel *telemetry.Telemetry
-
+type BaseStage[Env env.Env] struct {
 	kind Kind
 	name string
 
-	runner Runner[IArgs]
+	env Env
 
-	cfg Cfg
+	runner Runner[Env]
 }
 
-func newBaseStage[Cfg config.Config, IArgs any](
-	kind Kind, name string, runner Runner[IArgs], cfg Cfg,
-) *BaseStage[Cfg, IArgs] {
+func newBaseStage[Env env.Env](
+	kind Kind, name string, env Env, runner Runner[Env],
+) *BaseStage[Env] {
 
-	return &BaseStage[Cfg, IArgs]{
-		tel: telemetry.NewTelemetry(kind, name),
+	tel := telemetry.NewTelemetry(kind, name)
+	env.SetTelemetry(tel)
 
+	return &BaseStage[Env]{
 		kind: kind,
 		name: name,
 
-		runner: runner,
+		env: env,
 
-		cfg: cfg,
+		runner: runner,
 	}
 }
 
-func (s *BaseStage[Cfg, IArgs]) Telemetry() *telemetry.Telemetry {
-	return s.tel
+func (s *BaseStage[Env]) Telemetry() *telemetry.Telemetry {
+	return s.env.Telemetry()
 }
 
-func (s *BaseStage[Cfg, IArgs]) Kind() Kind {
+func (s *BaseStage[Env]) Kind() Kind {
 	return s.kind
 }
 
-func (s *BaseStage[Cfg, IArgs]) Name() string {
+func (s *BaseStage[Env]) Name() string {
 	return s.name
 }
 
-func (s *BaseStage[Cfg, IArgs]) Config() Cfg {
-	return s.cfg
+func (s *BaseStage[Env]) Env() Env {
+	return s.env
 }
 
-func (s *BaseStage[Cfg, IArgs]) InitConfig() {
-	s.tel.LogDebug("validating configuration")
-	configValidator := config.NewValidator(s.tel)
-	configValidator.Validate(s.cfg)
-	s.tel.LogDebug("validated configuration")
+func (s *BaseStage[Env]) Init(ctx context.Context) error {
+	if err := s.env.Init(ctx); err != nil {
+		return err
+	}
+
+	s.runner.SetEnvironment(s.env)
+	return s.runner.Init(ctx)
 }
 
-func (s *BaseStage[Cfg, IArgs]) InitWithArgs(ctx context.Context, initArgs IArgs) error {
-	s.InitConfig()
-
-	s.runner.SetTelemetry(s.tel)
-	return s.runner.Init(ctx, initArgs)
-}
-
-func (s *BaseStage[Cfg, IArgs]) Init(ctx context.Context) error {
-	var zeroInitArgs IArgs
-	return s.InitWithArgs(ctx, zeroInitArgs)
-}
-
-func (s *BaseStage[Cfg, IArgs]) Run(ctx context.Context) {
+func (s *BaseStage[Env]) Run(ctx context.Context) {
 	s.runner.Run(ctx)
 }
 
-func (s *BaseStage[Cfg, IArgs]) Close(ctx context.Context) {
+func (s *BaseStage[Env]) Close(ctx context.Context) {
 	s.runner.Close(ctx)
 }
 
-func (s *BaseStage[Cfg, IArgs]) Inputs() []uintptr {
+func (s *BaseStage[Env]) Inputs() []uintptr {
 	return s.runner.Inputs()
 }
 
-func (s *BaseStage[Cfg, IArgs]) Outputs() []uintptr {
+func (s *BaseStage[Env]) Outputs() []uintptr {
 	return s.runner.Outputs()
 }
 
-type IngressStage[In msgBody, IArgs any, Cfg config.Config] struct {
-	*BaseStage[Cfg, IArgs]
+// ─── Ingress ────────────────────────────────────────────────────────────────|
+
+type IngressStage[In msgBody, Env env.Env] struct {
+	*BaseStage[Env]
 }
 
-func NewIngressStageFromRunner[In msgBody, IArgs any, Cfg config.Config](
-	name string, runner Runner[IArgs], cfg Cfg,
-) *IngressStage[In, IArgs, Cfg] {
+func NewIngressStageFromRunner[In msgBody, Env env.Env](
+	name string, env Env, runner Runner[Env],
+) *IngressStage[In, Env] {
 
-	return &IngressStage[In, IArgs, Cfg]{
-		BaseStage: newBaseStage(KindIngress, name, runner, cfg),
+	return &IngressStage[In, Env]{
+		BaseStage: newBaseStage(KindIngress, name, env, runner),
 	}
 }
 
-type ProcessorStage[In, Out msgBody, IArgs any, Cfg config.Config] struct {
-	*BaseStage[Cfg, IArgs]
+// ─── Processor ──────────────────────────────────────────────────────────────|
+
+type ProcessorStage[In, Out msgBody, Env env.Env] struct {
+	*BaseStage[Env]
 }
 
-func NewProcessorStage[In, Out msgBody, IArgs any, W worker.Processor[IArgs, In, Out], Cfg stageConfig](
-	name string, inConn msgConn[In], outConn msgConn[Out], workerMaker func() W, cfg Cfg,
-) *ProcessorStage[In, Out, IArgs, Cfg] {
-
-	stageCfg := cfg.GetStage()
+func NewProcessorStage[In, Out msgBody, Env env.Env, W worker.Processor[Env, In, Out]](
+	name string, inConn msgConn[In], outConn msgConn[Out], env Env, workerMaker func() W, stageCfg *config.Stage,
+) *ProcessorStage[In, Out, Env] {
 
 	input := newInput(inConn, stageCfg)
 	output := newOutput(outConn, stageCfg)
 
-	workerRunnerFactory := newProcessorWorkerRunnerFactory(input, output, workerMaker, metrics.NewProcessorStage())
+	workerRunnerFactory := newProcessorWorkerRunnerFactory(input, output, workerMaker)
 	runner := newRunner(workerRunnerFactory, stageCfg)
 
-	return NewProcessorStageFromRunner[In, Out](name, runner, cfg)
+	return NewProcessorStageFromRunner[In, Out](name, env, runner)
 }
 
-func NewProcessorStageFromRunner[In, Out msgBody, IArgs any, Cfg config.Config](
-	name string, runner Runner[IArgs], cfg Cfg,
-) *ProcessorStage[In, Out, IArgs, Cfg] {
+func NewProcessorStageFromRunner[In, Out msgBody, Env env.Env](
+	name string, env Env, runner Runner[Env],
+) *ProcessorStage[In, Out, Env] {
 
-	return &ProcessorStage[In, Out, IArgs, Cfg]{
-		BaseStage: newBaseStage(KindProcessor, name, runner, cfg),
+	return &ProcessorStage[In, Out, Env]{
+		BaseStage: newBaseStage(KindProcessor, name, env, runner),
 	}
 }
 
-type EgressStage[In msgBody, IArgs any, Cfg config.Config] struct {
-	*BaseStage[Cfg, IArgs]
+// ─── Egress ─────────────────────────────────────────────────────────────────|
+
+type EgressStage[In msgBody, Env env.Env] struct {
+	*BaseStage[Env]
 }
 
-func NewEgressStage[In msgBody, IArgs any, W worker.Egress[IArgs, In], Cfg stageConfig](
-	name string, inConn msgConn[In], workerMaker func() W, cfg Cfg,
-) *EgressStage[In, IArgs, Cfg] {
-
-	stageCfg := cfg.GetStage()
+func NewEgressStage[In msgBody, Env env.Env, W worker.Egress[Env, In]](
+	name string, inConn msgConn[In], env Env, workerMaker func() W, stageCfg *config.Stage,
+) *EgressStage[In, Env] {
 
 	input := newInput(inConn, stageCfg)
 
-	workerRunnerFactory := newEgressWorkerRunnerFactory(input, workerMaker, metrics.NewEgressStage())
+	workerRunnerFactory := newEgressWorkerRunnerFactory(input, workerMaker)
 	runner := newRunner(workerRunnerFactory, stageCfg)
 
-	return &EgressStage[In, IArgs, Cfg]{
-		BaseStage: newBaseStage(KindEgress, name, runner, cfg),
+	return &EgressStage[In, Env]{
+		BaseStage: newBaseStage(KindEgress, name, env, runner),
 	}
 }

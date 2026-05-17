@@ -9,8 +9,10 @@ import (
 	"unicode/utf8"
 
 	"github.com/FerroO2000/goccia/internal/message"
-	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/metrics"
 	"github.com/FerroO2000/goccia/internal/stage"
+	"github.com/FerroO2000/goccia/internal/stage/env"
+	wp "github.com/FerroO2000/goccia/internal/stage/worker"
 )
 
 // ─── Decoder ────────────────────────────────────────────────────────────────|
@@ -187,33 +189,34 @@ func (d *csvDecoder) decodeTimestamp(column *CSVColumn, data string, currColumn 
 	column.TimestampValue = timeValue
 }
 
-// ─── Worker ─────────────────────────────────────────────────────────────────|
+// ─── Environment ────────────────────────────────────────────────────────────|
 
-type csvDecoderWorkerArgs struct {
+type csvDecoderEnv struct {
+	*env.BaseEnv[*CSVConfig, *metrics.EmptyMetrics]
+
 	decoder *csvDecoder
 }
 
-func newCSVDecoderWorkerArgs(decoder *csvDecoder) *csvDecoderWorkerArgs {
-	return &csvDecoderWorkerArgs{
-		decoder: decoder,
+func newCSVDecoderEnv(config *CSVConfig) *csvDecoderEnv {
+	return &csvDecoderEnv{
+		BaseEnv: env.NewProcessorEnv(config, metrics.NewEmptyMetrics()),
+
+		decoder: newCSVDecoder(&csvDecoderConfig{
+			columns: config.Columns,
+		}),
 	}
 }
 
-type csvDecoderWorker[T msgSer] struct {
-	pool.BaseWorker
+// ─── Worker ─────────────────────────────────────────────────────────────────|
 
-	decoder *csvDecoder
+type csvDecoderWorker[T msgSer] struct {
+	wp.BaseWorker[*csvDecoderEnv]
 }
 
 func newCSVDecoderWorkerMaker[T msgSer]() func() *csvDecoderWorker[T] {
 	return func() *csvDecoderWorker[T] {
 		return &csvDecoderWorker[T]{}
 	}
-}
-
-func (w *csvDecoderWorker[T]) Init(_ context.Context, args *csvDecoderWorkerArgs) error {
-	w.decoder = args.decoder
-	return nil
 }
 
 func (w *csvDecoderWorker[T]) Handle(ctx context.Context, msgIn *msg[T]) (*msg[*CSVMessage], error) {
@@ -223,7 +226,7 @@ func (w *csvDecoderWorker[T]) Handle(ctx context.Context, msgIn *msg[T]) (*msg[*
 	data := msgIn.GetBody().GetBytes()
 	csvMsg := NewCSVMessage()
 
-	if err := w.decoder.decode(data, csvMsg); err != nil {
+	if err := w.Env.decoder.decode(data, csvMsg); err != nil {
 		csvMsg.Destroy()
 
 		w.Tel.LogErrorCtx(ctx, "failed to decode CSV data", err)
@@ -237,17 +240,13 @@ func (w *csvDecoderWorker[T]) Handle(ctx context.Context, msgIn *msg[T]) (*msg[*
 	return msgOut, nil
 }
 
-func (w *csvDecoderWorker[T]) Close(_ context.Context) error {
-	return nil
-}
-
 // ─── Stage ──────────────────────────────────────────────────────────────────|
 
 var _ stage.Stage = (*CSVDecoderStage[msgSer])(nil)
 
 // CSVDecoderStage is a processor stage that decodes raw chunks of CSV data.
 type CSVDecoderStage[T msgSer] struct {
-	*stage.ProcessorStage[T, *CSVMessage, *csvDecoderWorkerArgs, *CSVConfig]
+	*stage.ProcessorStage[T, *CSVMessage, *csvDecoderEnv]
 }
 
 // NewCSVDecoderStage returns a new CSV decoder stage.
@@ -255,18 +254,11 @@ func NewCSVDecoderStage[T msgSer](
 	inputConnector msgConn[T], outputConnector msgConn[*CSVMessage], cfg *CSVConfig,
 ) *CSVDecoderStage[T] {
 
+	env := newCSVDecoderEnv(cfg)
+
 	return &CSVDecoderStage[T]{
 		ProcessorStage: stage.NewProcessorStage(
-			"csv_decoder", inputConnector, outputConnector, newCSVDecoderWorkerMaker[T](), cfg,
+			"csv_decoder", inputConnector, outputConnector, env, newCSVDecoderWorkerMaker[T](), cfg.Stage,
 		),
 	}
-}
-
-// Init initializes the stage.
-func (s *CSVDecoderStage[T]) Init(ctx context.Context) error {
-	decoder := newCSVDecoder(&csvDecoderConfig{
-		columns: s.Config().Columns,
-	})
-
-	return s.ProcessorStage.InitWithArgs(ctx, newCSVDecoderWorkerArgs(decoder))
 }

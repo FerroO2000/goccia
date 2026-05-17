@@ -6,24 +6,24 @@ import (
 
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/pool"
-	"github.com/FerroO2000/goccia/internal/telemetry"
-	"github.com/FerroO2000/goccia/internal/worker"
+	"github.com/FerroO2000/goccia/internal/stage/env"
+	"github.com/FerroO2000/goccia/internal/stage/worker"
 )
 
 // Runner defines the interface for a stage runner.
-type Runner[IArgs any] interface {
-	SetTelemetry(tel *telemetry.Telemetry)
-	Init(ctx context.Context, initArgs IArgs) error
+type Runner[Env env.Env] interface {
+	SetEnvironment(env Env)
+	Init(ctx context.Context) error
 	Run(ctx context.Context)
 	Close(ctx context.Context)
 	Inputs() []uintptr
 	Outputs() []uintptr
 }
 
-func newRunner[WArgs any, W worker.Worker[WArgs]](
-	workerRunnerFactory stageWorkerRunnerFactory[WArgs, W],
+func newRunner[Env env.Env, W worker.Worker[Env]](
+	workerRunnerFactory stageWorkerRunnerFactory[Env, W],
 	cfg *config.Stage,
-) Runner[WArgs] {
+) Runner[Env] {
 
 	switch cfg.RunningMode {
 	case config.StageRunningModeSingle:
@@ -39,25 +39,25 @@ func newRunner[WArgs any, W worker.Worker[WArgs]](
 
 // ─── Base ───────────────────────────────────────────────────────────────────|
 
-type baseRunner[WArgs any, W worker.Worker[WArgs]] struct {
-	workerRunnerFactory stageWorkerRunnerFactory[WArgs, W]
+type baseRunner[Env env.Env, W worker.Worker[Env]] struct {
+	workerRunnerFactory stageWorkerRunnerFactory[Env, W]
 }
 
-func newBaseRunner[WArgs any, W worker.Worker[WArgs]](
-	workerRunnerFactory stageWorkerRunnerFactory[WArgs, W],
-) *baseRunner[WArgs, W] {
+func newBaseRunner[Env env.Env, W worker.Worker[Env]](
+	workerRunnerFactory stageWorkerRunnerFactory[Env, W],
+) *baseRunner[Env, W] {
 
-	return &baseRunner[WArgs, W]{
+	return &baseRunner[Env, W]{
 		workerRunnerFactory: workerRunnerFactory,
 	}
 }
 
-func (br *baseRunner[WArgs, W]) SetTelemetry(tel *telemetry.Telemetry) {
-	br.workerRunnerFactory.setTelemetry(tel)
+func (br *baseRunner[Env, W]) SetEnvironment(env Env) {
+	br.workerRunnerFactory.setEnvironment(env)
 }
 
 // Inputs returns the input connector IDs.
-func (br *baseRunner[WArgs, W]) Inputs() []uintptr {
+func (br *baseRunner[Env, W]) Inputs() []uintptr {
 	connID := br.workerRunnerFactory.getInputConnectorID()
 	if connID != 0 {
 		return []uintptr{connID}
@@ -67,7 +67,7 @@ func (br *baseRunner[WArgs, W]) Inputs() []uintptr {
 }
 
 // Outputs returns the output connector IDs.
-func (br *baseRunner[WArgs, W]) Outputs() []uintptr {
+func (br *baseRunner[Env, W]) Outputs() []uintptr {
 	connID := br.workerRunnerFactory.getOutputConnectorID()
 	if connID != 0 {
 		return []uintptr{connID}
@@ -78,19 +78,19 @@ func (br *baseRunner[WArgs, W]) Outputs() []uintptr {
 
 // ─── Single ─────────────────────────────────────────────────────────────────|
 
-var _ Runner[any] = (*runnerSingle[any, worker.Worker[any]])(nil)
+var _ Runner[env.Env] = (*runnerSingle[env.Env, worker.Worker[env.Env]])(nil)
 
-type runnerSingle[WArgs any, W worker.Worker[WArgs]] struct {
-	*baseRunner[WArgs, W]
+type runnerSingle[Env env.Env, W worker.Worker[Env]] struct {
+	*baseRunner[Env, W]
 
-	workerRunner *worker.Runner[WArgs, W]
+	workerRunner *worker.Runner[Env, W]
 }
 
-func newRunnerSingle[WArgs any, W worker.Worker[WArgs]](
-	workerRunnerFactory stageWorkerRunnerFactory[WArgs, W],
-) *runnerSingle[WArgs, W] {
+func newRunnerSingle[Env env.Env, W worker.Worker[Env]](
+	workerRunnerFactory stageWorkerRunnerFactory[Env, W],
+) *runnerSingle[Env, W] {
 
-	return &runnerSingle[WArgs, W]{
+	return &runnerSingle[Env, W]{
 		baseRunner: newBaseRunner(workerRunnerFactory),
 
 		workerRunner: workerRunnerFactory.makeWorkerRunner(0),
@@ -98,33 +98,29 @@ func newRunnerSingle[WArgs any, W worker.Worker[WArgs]](
 }
 
 // Init initializes worker runner and the stage metrics.
-func (rs *runnerSingle[WArgs, W]) Init(ctx context.Context, initArgs WArgs) error {
-	if err := rs.workerRunner.Init(ctx, initArgs); err != nil {
-		return err
-	}
-
-	return rs.workerRunnerFactory.initMetrics()
+func (rs *runnerSingle[Env, W]) Init(ctx context.Context) error {
+	return rs.workerRunner.Init(ctx)
 }
 
 // Run runs the worker runner.
-func (rs *runnerSingle[WArgs, W]) Run(ctx context.Context) {
+func (rs *runnerSingle[Env, W]) Run(ctx context.Context) {
 	rs.workerRunner.Run(ctx)
 }
 
 // Close closes the worker runner and the output connector (if any).
-func (rs *runnerSingle[WArgs, W]) Close(ctx context.Context) {
+func (rs *runnerSingle[Env, W]) Close(ctx context.Context) {
 	rs.workerRunner.Close(ctx)
 	rs.workerRunnerFactory.closeIO()
 }
 
 // ─── Pool ───────────────────────────────────────────────────────────────────|
 
-var _ Runner[any] = (*runnerPool[any, worker.Worker[any]])(nil)
+var _ Runner[env.Env] = (*runnerPool[env.Env, worker.Worker[env.Env]])(nil)
 
-type runnerPool[WArgs any, W worker.Worker[WArgs]] struct {
-	*baseRunner[WArgs, W]
+type runnerPool[Env env.Env, W worker.Worker[Env]] struct {
+	*baseRunner[Env, W]
 
-	initArgs WArgs
+	initArgs Env
 
 	initialWorkerRunner      int
 	workerRunnerListenerDone chan struct{}
@@ -133,12 +129,12 @@ type runnerPool[WArgs any, W worker.Worker[WArgs]] struct {
 	scaler *pool.Scaler
 }
 
-func newRunnerPool[WArgs any, W worker.Worker[WArgs]](
-	workerRunnerFactory stageWorkerRunnerFactory[WArgs, W],
+func newRunnerPool[Env env.Env, W worker.Worker[Env]](
+	workerRunnerFactory stageWorkerRunnerFactory[Env, W],
 	cfg *config.Pool,
-) *runnerPool[WArgs, W] {
+) *runnerPool[Env, W] {
 
-	return &runnerPool[WArgs, W]{
+	return &runnerPool[Env, W]{
 		baseRunner: newBaseRunner(workerRunnerFactory),
 
 		initialWorkerRunner:      cfg.InitialWorkers,
@@ -149,21 +145,20 @@ func newRunnerPool[WArgs any, W worker.Worker[WArgs]](
 	}
 }
 
-func (rp *runnerPool[WArgs, W]) SetTelemetry(tel *telemetry.Telemetry) {
-	rp.baseRunner.SetTelemetry(tel)
-	rp.scaler.SetTelemetry(tel)
+func (rp *runnerPool[Env, W]) SetEnvironment(env Env) {
+	rp.baseRunner.SetEnvironment(env)
+	rp.scaler.SetTelemetry(env.Telemetry())
 }
 
 // Init initializes the scaler and the stage metrics.
-func (rp *runnerPool[WArgs, W]) Init(ctx context.Context, initArgs WArgs) error {
-	rp.initArgs = initArgs
+func (rp *runnerPool[Env, W]) Init(ctx context.Context) error {
 	rp.scaler.Init(ctx, rp.initialWorkerRunner)
-	return rp.workerRunnerFactory.initMetrics()
+	return nil
 }
 
 // runStartWorkerRunnerListener will trigger the creation of new worker runners
 // when the scaler mandates.
-func (rp *runnerPool[WArgs, W]) runStartWorkerRunnerListener(ctx context.Context) {
+func (rp *runnerPool[Env, W]) runStartWorkerRunnerListener(ctx context.Context) {
 	defer close(rp.workerRunnerListenerDone)
 	startCh := rp.scaler.GetStartCh()
 
@@ -181,7 +176,7 @@ func (rp *runnerPool[WArgs, W]) runStartWorkerRunnerListener(ctx context.Context
 
 // startWorkerRunner creates a new worker runner and starts it.
 // It will go through the full lifecycle of a worker runner (Init, Run, Close).
-func (rp *runnerPool[WArgs, W]) startWorkerRunner(ctx context.Context) {
+func (rp *runnerPool[Env, W]) startWorkerRunner(ctx context.Context) {
 	defer rp.workerRunnerWg.Done()
 
 	workerID := rp.scaler.NotifyWorkerStart()
@@ -194,7 +189,7 @@ func (rp *runnerPool[WArgs, W]) startWorkerRunner(ctx context.Context) {
 
 	workerRunner := rp.workerRunnerFactory.makeWorkerRunner(workerID)
 
-	if err := workerRunner.Init(ctx, rp.initArgs); err != nil {
+	if err := workerRunner.Init(ctx); err != nil {
 		return
 	}
 	defer workerRunner.Close(ctx)
@@ -204,7 +199,7 @@ func (rp *runnerPool[WArgs, W]) startWorkerRunner(ctx context.Context) {
 
 // Run runs the scaler, the bridge between the input/fan-out
 // and/or the output/fan-in connectors, and the start worker runner listener.
-func (rp *runnerPool[WArgs, W]) Run(ctx context.Context) {
+func (rp *runnerPool[Env, W]) Run(ctx context.Context) {
 	go rp.workerRunnerFactory.runIO(ctx)
 
 	go rp.scaler.Run(ctx)
@@ -213,7 +208,7 @@ func (rp *runnerPool[WArgs, W]) Run(ctx context.Context) {
 
 // Close closes the scaler, the bridge between the input/fan-out
 // and/or the output/fan-in connectors, and the output connector (if any).
-func (rp *runnerPool[WArgs, W]) Close(_ context.Context) {
+func (rp *runnerPool[Env, W]) Close(_ context.Context) {
 	<-rp.workerRunnerListenerDone
 	rp.scaler.Close()
 

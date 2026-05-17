@@ -10,7 +10,7 @@ import (
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/rob"
 	"github.com/FerroO2000/goccia/internal/stage"
-	"github.com/FerroO2000/goccia/internal/telemetry"
+	"github.com/FerroO2000/goccia/internal/stage/env"
 	"github.com/FerroO2000/goccia/processor/metrics"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -55,9 +55,11 @@ func (c *ROBConfig) Validate(ac *config.AnomalyCollector) {
 	config.CheckNotNegative(ac, "ResetTimeout", &c.ResetTimeout, DefaultROBConfigResetTimeout)
 }
 
-// ─── Arguments ──────────────────────────────────────────────────────────────|
+// ─── Environment ────────────────────────────────────────────────────────────|
 
-type robArgs[T message.ReOrderable] struct {
+type robEnv[T message.ReOrderable] struct {
+	*env.BaseEnv[*ROBConfig, *metrics.RobStage]
+
 	inConnector  msgConn[T]
 	outConnector msgConn[T]
 
@@ -66,71 +68,64 @@ type robArgs[T message.ReOrderable] struct {
 	resetTimeout time.Duration
 }
 
-func newROBArgs[T message.ReOrderable](
-	inConnector, outConnector msgConn[T], rob *rob.ROB[*msg[T]], resetTimeout time.Duration,
-) *robArgs[T] {
+func newROBEnv[T message.ReOrderable](config *ROBConfig, inConnector, outConnector msgConn[T]) *robEnv[T] {
+	robCfg := &rob.Config{
+		MaxSeqNum:           config.MaxSeqNum,
+		PrimaryBufferSize:   config.PrimaryBufferSize,
+		AuxiliaryBufferSize: config.AuxiliaryBufferSize,
+		FlushTreshold:       config.FlushTreshold,
+		TimeSmootherEnabled: config.TimeSmootherEnabled,
+		EstimatorAlpha:      config.EstimatorAlpha,
+		EstimatorBeta:       config.EstimatorBeta,
+	}
+	rob := rob.NewROB(outConnector, robCfg)
 
-	return &robArgs[T]{
+	return &robEnv[T]{
+		BaseEnv: env.NewProcessorEnv(config, metrics.NewRobStage()),
+
 		inConnector:  inConnector,
 		outConnector: outConnector,
 
-		rob:          rob,
-		resetTimeout: resetTimeout,
+		rob: rob,
+
+		resetTimeout: config.ResetTimeout,
 	}
 }
 
 // ─── Runner ─────────────────────────────────────────────────────────────────|
 
-var _ stage.Runner[*robArgs[message.ReOrderable]] = (*robRunner[message.ReOrderable])(nil)
+var _ stage.Runner[*robEnv[message.ReOrderable]] = (*robRunner[message.ReOrderable])(nil)
 
 type robRunner[T message.ReOrderable] struct {
-	tel *telemetry.Telemetry
-
-	inConnector  msgConn[T]
-	outConnector msgConn[T]
-
-	rob *rob.ROB[*msg[T]]
-
-	resetTimeout time.Duration
+	env *robEnv[T]
 
 	runDone chan struct{}
-
-	metrics *metrics.RobStage
 }
 
 func newROBRunner[T message.ReOrderable]() *robRunner[T] {
 	return &robRunner[T]{
 		runDone: make(chan struct{}),
-
-		metrics: metrics.NewRobStage(),
 	}
 }
 
-func (rr *robRunner[T]) SetTelemetry(tel *telemetry.Telemetry) {
-	rr.tel = tel
+func (rr *robRunner[T]) SetEnvironment(env *robEnv[T]) {
+	rr.env = env
 }
 
-func (rr *robRunner[T]) Init(_ context.Context, args *robArgs[T]) error {
-	rr.inConnector = args.inConnector
-	rr.outConnector = args.outConnector
-
-	rr.rob = args.rob
-
-	rr.resetTimeout = args.resetTimeout
-
-	return rr.metrics.InitMetrics(rr.tel)
+func (rr *robRunner[T]) Init(_ context.Context) error {
+	return nil
 }
 
 func (rr *robRunner[T]) Run(ctx context.Context) {
-	defer rr.tel.LogInfo("stopped")
-	rr.tel.LogInfo("running")
+	rr.env.Telemetry().LogInfo("running")
+	defer rr.env.Telemetry().LogInfo("stopped")
 
 	resetNeeded := false
 	for {
 		select {
 		case <-ctx.Done():
 			// Context is done, flush the ROB and return
-			rr.rob.FlushAndReset()
+			rr.env.rob.FlushAndReset()
 			return
 
 		default:
@@ -138,8 +133,8 @@ func (rr *robRunner[T]) Run(ctx context.Context) {
 
 		// Read the next message with a timeout context
 		// in order to reset the re-order buffer
-		deadlineCtx, cancelCtx := context.WithTimeout(ctx, rr.resetTimeout)
-		msgIn, err := rr.inConnector.Read(deadlineCtx)
+		deadlineCtx, cancelCtx := context.WithTimeout(ctx, rr.env.resetTimeout)
+		msgIn, err := rr.env.inConnector.Read(deadlineCtx)
 		cancelCtx()
 
 		if err != nil {
@@ -150,11 +145,11 @@ func (rr *robRunner[T]) Run(ctx context.Context) {
 			// This means the context is done.
 			// Check if the rob has to be reset
 			if resetNeeded {
-				rr.rob.FlushAndReset()
-				rr.metrics.IncrementResets()
+				rr.env.rob.FlushAndReset()
+				rr.env.Metrics.IncrementResets()
 				resetNeeded = false
 
-				rr.tel.LogInfo("resetting and flushing re-order buffer")
+				rr.env.Telemetry().LogInfo("resetting and flushing re-order buffer")
 			}
 
 			continue
@@ -172,17 +167,17 @@ func (rr *robRunner[T]) Run(ctx context.Context) {
 }
 
 func (rr *robRunner[T]) enqueue(ctx context.Context, msgIn *msg[T]) {
-	_, span := rr.tel.StartTrace(msgIn.LoadSpanContext(ctx), "enqueue message into re-order buffer")
+	_, span := rr.env.Telemetry().StartTrace(msgIn.LoadSpanContext(ctx), "enqueue message into re-order buffer")
 	defer span.End()
 
-	status, err := rr.rob.Enqueue(msgIn)
+	status, err := rr.env.rob.Enqueue(msgIn)
 	if err != nil {
 		if errors.Is(err, rob.ErrSeqNumOutOfWindow) {
-			rr.metrics.IncrementOutOfOrderSequenceNumber()
+			rr.env.Metrics.IncrementOutOfOrderSequenceNumber()
 		} else if errors.Is(err, rob.ErrSeqNumDuplicated) {
-			rr.metrics.IncrementDuplicatedSequenceNumber()
+			rr.env.Metrics.IncrementDuplicatedSequenceNumber()
 		} else if errors.Is(err, rob.ErrSeqNumTooBig) {
-			rr.metrics.IncrementInvalidSequenceNumber()
+			rr.env.Metrics.IncrementInvalidSequenceNumber()
 		}
 	}
 
@@ -190,11 +185,11 @@ func (rr *robRunner[T]) enqueue(ctx context.Context, msgIn *msg[T]) {
 
 	switch status {
 	case rob.EnqueueStatusInOrder:
-		rr.metrics.IncrementOrderedMessages()
+		rr.env.Metrics.IncrementOrderedMessages()
 	case rob.EnqueueStatusPrimary:
-		rr.metrics.IncrementPrimaryEnqueuedMessages()
+		rr.env.Metrics.IncrementPrimaryEnqueuedMessages()
 	case rob.EnqueueStatusAuxiliary:
-		rr.metrics.IncrementAuxiliaryEnqueuedMessages()
+		rr.env.Metrics.IncrementAuxiliaryEnqueuedMessages()
 	case rob.EnqueueStatusErr:
 		return
 	}
@@ -202,15 +197,15 @@ func (rr *robRunner[T]) enqueue(ctx context.Context, msgIn *msg[T]) {
 
 func (rr *robRunner[T]) Close(_ context.Context) {
 	<-rr.runDone
-	rr.outConnector.Close()
+	rr.env.outConnector.Close()
 }
 
 func (rr *robRunner[T]) Inputs() []uintptr {
-	return []uintptr{connector.GetConnectorID(rr.inConnector)}
+	return []uintptr{connector.GetConnectorID(rr.env.inConnector)}
 }
 
 func (rr *robRunner[T]) Outputs() []uintptr {
-	return []uintptr{connector.GetConnectorID(rr.outConnector)}
+	return []uintptr{connector.GetConnectorID(rr.env.outConnector)}
 }
 
 // ─── Stage ──────────────────────────────────────────────────────────────────|
@@ -220,9 +215,7 @@ var _ stage.Stage = (*ROBStage[message.ReOrderable])(nil)
 // ROBStage is the re-order buffer stage.
 // It can only be run in single-threaded mode.
 type ROBStage[T message.ReOrderable] struct {
-	*stage.ProcessorStage[T, T, *robArgs[T], *ROBConfig]
-
-	args *robArgs[T]
+	*stage.ProcessorStage[T, T, *robEnv[T]]
 }
 
 // NewROBStage returns a new re-order buffer stage.
@@ -230,27 +223,11 @@ func NewROBStage[T message.ReOrderable](
 	inConnector, outConnector msgConn[T], cfg *ROBConfig,
 ) *ROBStage[T] {
 
-	robCfg := &rob.Config{
-		MaxSeqNum:           cfg.MaxSeqNum,
-		PrimaryBufferSize:   cfg.PrimaryBufferSize,
-		AuxiliaryBufferSize: cfg.AuxiliaryBufferSize,
-		FlushTreshold:       cfg.FlushTreshold,
-		TimeSmootherEnabled: cfg.TimeSmootherEnabled,
-		EstimatorAlpha:      cfg.EstimatorAlpha,
-		EstimatorBeta:       cfg.EstimatorBeta,
-	}
-	rob := rob.NewROB(outConnector, robCfg)
+	env := newROBEnv(cfg, inConnector, outConnector)
 
 	return &ROBStage[T]{
-		ProcessorStage: stage.NewProcessorStageFromRunner[T, T]("rob", newROBRunner[T](), cfg),
-
-		args: newROBArgs(inConnector, outConnector, rob, cfg.ResetTimeout),
+		ProcessorStage: stage.NewProcessorStageFromRunner[T, T]("rob", env, newROBRunner[T]()),
 	}
-}
-
-// Init initializes the stage.
-func (rs *ROBStage[T]) Init(ctx context.Context) error {
-	return rs.ProcessorStage.InitWithArgs(ctx, rs.args)
 }
 
 // // ROBStage is the re-order buffer stage.

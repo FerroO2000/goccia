@@ -6,8 +6,10 @@ import (
 
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
-	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/metrics"
 	"github.com/FerroO2000/goccia/internal/stage"
+	"github.com/FerroO2000/goccia/internal/stage/env"
+	wp "github.com/FerroO2000/goccia/internal/stage/worker"
 	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
@@ -87,26 +89,28 @@ func (chb *CustomHandlerBase) SetTelemetry(tel *telemetry.Telemetry) {
 	chb.Telemetry = tel
 }
 
-// ─── Worker ─────────────────────────────────────────────────────────────────|
+// ─── Environment ────────────────────────────────────────────────────────────|
 
-type customWorkerArgs[In, Out msgBody] struct {
-	name    string
-	handler CustomHandler[In, Out]
+type customEnv[In, Out msgBody] struct {
+	*env.BaseEnv[*CustomConfig, *metrics.EmptyMetrics]
+
+	handler     CustomHandler[In, Out]
+	traceString string
 }
 
-func newCustomWorkerArgs[In, Out msgBody](name string, handler CustomHandler[In, Out]) *customWorkerArgs[In, Out] {
-	return &customWorkerArgs[In, Out]{
-		name:    name,
-		handler: handler,
+func newCustomEnv[In, Out msgBody](config *CustomConfig, handler CustomHandler[In, Out]) *customEnv[In, Out] {
+	return &customEnv[In, Out]{
+		BaseEnv: env.NewProcessorEnv(config, metrics.NewEmptyMetrics()),
+
+		handler:     handler,
+		traceString: fmt.Sprintf("handle %s message", config.Name),
 	}
 }
 
+// ─── Worker ─────────────────────────────────────────────────────────────────|
+
 type customWorker[In, Out msgBody] struct {
-	pool.BaseWorker
-
-	handler CustomHandler[In, Out]
-
-	traceString string
+	wp.BaseWorker[*customEnv[In, Out]]
 }
 
 func newCustomWorkerMaker[In, Out msgBody]() func() *customWorker[In, Out] {
@@ -115,21 +119,12 @@ func newCustomWorkerMaker[In, Out msgBody]() func() *customWorker[In, Out] {
 	}
 }
 
-func (cw *customWorker[In, Out]) Init(_ context.Context, args *customWorkerArgs[In, Out]) error {
-	cw.handler = args.handler
-	cw.handler.SetTelemetry(cw.Tel)
-
-	cw.traceString = fmt.Sprintf("handle %s message", args.name)
-
-	return nil
-}
-
 func (cw *customWorker[In, Out]) Handle(ctx context.Context, msgIn *msg[In]) (*msg[Out], error) {
-	ctx, span := cw.Tel.StartTrace(ctx, cw.traceString)
+	ctx, span := cw.Tel.StartTrace(ctx, cw.Env.traceString)
 	defer span.End()
 
 	// Call the provided handler
-	msgoutBody, err := cw.handler.Handle(ctx, msgIn.GetBody())
+	msgoutBody, err := cw.Env.handler.Handle(ctx, msgIn.GetBody())
 	if err != nil {
 		return &msg[Out]{}, err
 	}
@@ -140,19 +135,13 @@ func (cw *customWorker[In, Out]) Handle(ctx context.Context, msgIn *msg[In]) (*m
 	return msgOut, nil
 }
 
-func (cw *customWorker[In, Out]) Close(_ context.Context) error {
-	return nil
-}
-
 // ─── Stage ──────────────────────────────────────────────────────────────────|
 
 var _ stage.Stage = (*CustomStage[msgBody, msgBody])(nil)
 
 // CustomStage is a processor stage that uses a custom handler to process messages.
 type CustomStage[In, Out msgBody] struct {
-	*stage.ProcessorStage[In, Out, *customWorkerArgs[In, Out], *CustomConfig]
-
-	handler CustomHandler[In, Out]
+	*stage.ProcessorStage[In, Out, *customEnv[In, Out]]
 }
 
 // NewCustomStage returns a new custom processor stage.
@@ -160,21 +149,32 @@ func NewCustomStage[In, Out msgBody](
 	handler CustomHandler[In, Out], inputConnector msgConn[In], outputConnector msgConn[Out], cfg *CustomConfig,
 ) *CustomStage[In, Out] {
 
+	env := newCustomEnv(cfg, handler)
+
 	return &CustomStage[In, Out]{
 		ProcessorStage: stage.NewProcessorStage(
-			cfg.Name, inputConnector, outputConnector, newCustomWorkerMaker[In, Out](), cfg,
+			cfg.Name, inputConnector, outputConnector, env, newCustomWorkerMaker[In, Out](), cfg.Stage,
 		),
-
-		handler: handler,
 	}
 }
 
-// Init initializes the stage.
+// Init initializes the stage and the custom handler.
 func (cs *CustomStage[In, Out]) Init(ctx context.Context) error {
 	// Initialize the handler
-	if err := cs.handler.Init(ctx); err != nil {
+	handler := cs.Env().handler
+
+	handler.SetTelemetry(cs.Telemetry())
+	if err := handler.Init(ctx); err != nil {
 		return err
 	}
 
-	return cs.ProcessorStage.InitWithArgs(ctx, newCustomWorkerArgs(cs.Config().Name, cs.handler))
+	return cs.Init(ctx)
+}
+
+// Close closes the stage and the custom handler.
+func (cs *CustomStage[In, Out]) Close(ctx context.Context) {
+	// Close the custom handler
+	cs.Env().handler.Close()
+
+	cs.Close(ctx)
 }

@@ -3,129 +3,107 @@ package stage
 import (
 	"context"
 
-	"github.com/FerroO2000/goccia/internal/stage/metrics"
-	"github.com/FerroO2000/goccia/internal/telemetry"
-	"github.com/FerroO2000/goccia/internal/worker"
+	"github.com/FerroO2000/goccia/internal/stage/env"
+	"github.com/FerroO2000/goccia/internal/stage/worker"
 )
 
-type stageWorkerRunnerFactory[WArgs any, W worker.Worker[WArgs]] interface {
-	setTelemetry(tel *telemetry.Telemetry)
-	initMetrics() error
-	makeWorkerRunner(workerID int) *worker.Runner[WArgs, W]
+type stageWorkerRunnerFactory[Env env.Env, W worker.Worker[Env]] interface {
+	setEnvironment(env Env)
+	makeWorkerRunner(workerID int) *worker.Runner[Env, W]
 	runIO(ctx context.Context)
 	closeIO()
 	getInputConnectorID() uintptr
 	getOutputConnectorID() uintptr
 }
 
-type processorWorkerRunnerFactory[WArgs any, In, Out msgBody, W worker.Processor[WArgs, In, Out]] struct {
-	tel *telemetry.Telemetry
+type processorWorkerRunnerFactory[Env env.Env, In, Out msgBody, W worker.Processor[Env, In, Out]] struct {
+	env Env
 
 	input  stageInput[In]
 	output stageOutput[Out]
 
 	workerMaker func() W
-
-	metrics *metrics.ProcessorStage
 }
 
-func newProcessorWorkerRunnerFactory[WArgs any, In, Out msgBody, W worker.Processor[WArgs, In, Out]](
-	input stageInput[In], output stageOutput[Out],
-	workerMaker func() W,
-	metrics *metrics.ProcessorStage,
-) *processorWorkerRunnerFactory[WArgs, In, Out, W] {
+func newProcessorWorkerRunnerFactory[Env env.Env, In, Out msgBody, W worker.Processor[Env, In, Out]](
+	input stageInput[In], output stageOutput[Out], workerMaker func() W,
+) *processorWorkerRunnerFactory[Env, In, Out, W] {
 
-	return &processorWorkerRunnerFactory[WArgs, In, Out, W]{
+	return &processorWorkerRunnerFactory[Env, In, Out, W]{
 		input:  input,
 		output: output,
 
 		workerMaker: workerMaker,
-
-		metrics: metrics,
 	}
 }
 
-func (p *processorWorkerRunnerFactory[WArgs, In, Out, W]) setTelemetry(tel *telemetry.Telemetry) {
-	p.tel = tel
+func (p *processorWorkerRunnerFactory[Env, In, Out, W]) setEnvironment(env Env) {
+	p.env = env
 }
 
-func (p *processorWorkerRunnerFactory[WArgs, In, Out, W]) initMetrics() error {
-	return p.metrics.InitMetrics(p.tel)
-}
-
-func (p *processorWorkerRunnerFactory[WArgs, In, Out, W]) makeWorkerRunner(workerID int) *worker.Runner[WArgs, W] {
+func (p *processorWorkerRunnerFactory[Env, In, Out, W]) makeWorkerRunner(workerID int) *worker.Runner[Env, W] {
 	w := p.workerMaker()
 	reader := p.input.getWorkerRunnerReader()
 	writer := p.output.getWorkerRunnerWriter()
-	return worker.NewProcessorRunner(p.tel, p.metrics, workerID, w, reader, writer)
+	return worker.NewProcessorRunner(p.env, workerID, w, reader, writer)
 }
 
-func (p *processorWorkerRunnerFactory[WArgs, In, Out, W]) runIO(ctx context.Context) {
+func (p *processorWorkerRunnerFactory[Env, In, Out, W]) runIO(ctx context.Context) {
 	p.input.run(ctx)
 	p.output.run(ctx)
 }
 
-func (p *processorWorkerRunnerFactory[WArgs, In, Out, W]) closeIO() {
+func (p *processorWorkerRunnerFactory[Env, In, Out, W]) closeIO() {
 	p.output.close()
 }
 
-func (p *processorWorkerRunnerFactory[WArgs, In, Out, W]) getInputConnectorID() uintptr {
+func (p *processorWorkerRunnerFactory[Env, In, Out, W]) getInputConnectorID() uintptr {
 	return p.input.getConnectorID()
 }
 
-func (p *processorWorkerRunnerFactory[WArgs, In, Out, W]) getOutputConnectorID() uintptr {
+func (p *processorWorkerRunnerFactory[Env, In, Out, W]) getOutputConnectorID() uintptr {
 	return p.output.getConnectorID()
 }
 
-type egressWorkerRunnerFactory[WArgs any, In msgBody, W worker.Egress[WArgs, In]] struct {
-	tel *telemetry.Telemetry
+type egressWorkerRunnerFactory[Env env.Env, In msgBody, W worker.Egress[Env, In]] struct {
+	env Env
 
 	input stageInput[In]
 
 	workerMaker func() W
-
-	metrics *metrics.EgressStage
 }
 
-func newEgressWorkerRunnerFactory[WArgs any, In msgBody, W worker.Egress[WArgs, In]](
-	input stageInput[In],
-	workerMaker func() W,
-	metrics *metrics.EgressStage,
-) *egressWorkerRunnerFactory[WArgs, In, W] {
+func newEgressWorkerRunnerFactory[Env env.Env, In msgBody, W worker.Egress[Env, In]](
+	input stageInput[In], workerMaker func() W,
+) *egressWorkerRunnerFactory[Env, In, W] {
 
-	return &egressWorkerRunnerFactory[WArgs, In, W]{
+	return &egressWorkerRunnerFactory[Env, In, W]{
 		input: input,
 
 		workerMaker: workerMaker,
-
-		metrics: metrics,
 	}
 }
 
-func (ef *egressWorkerRunnerFactory[WArgs, In, W]) setTelemetry(tel *telemetry.Telemetry) {
-	ef.tel = tel
+func (ef *egressWorkerRunnerFactory[Env, In, W]) setEnvironment(env Env) {
+	ef.env = env
 }
 
-func (ef *egressWorkerRunnerFactory[WArgs, In, W]) initMetrics() error {
-	return ef.metrics.InitMetrics(ef.tel)
-}
-
-func (ef *egressWorkerRunnerFactory[WArgs, In, W]) makeWorkerRunner(workerID int) *worker.Runner[WArgs, W] {
+func (ef *egressWorkerRunnerFactory[Env, In, W]) makeWorkerRunner(workerID int) *worker.Runner[Env, W] {
 	w := ef.workerMaker()
 	reader := ef.input.getWorkerRunnerReader()
-	return worker.NewEgressRunner(ef.tel, ef.metrics, workerID, w, reader)
+	return worker.NewEgressRunner(ef.env, workerID, w, reader)
 }
 
-func (ef *egressWorkerRunnerFactory[WArgs, In, W]) runIO(ctx context.Context) {
+func (ef *egressWorkerRunnerFactory[Env, In, W]) runIO(ctx context.Context) {
 	ef.input.run(ctx)
 }
 
-func (ef *egressWorkerRunnerFactory[WArgs, In, W]) closeIO() {}
+func (ef *egressWorkerRunnerFactory[Env, In, W]) closeIO() {}
 
-func (ef *egressWorkerRunnerFactory[WArgs, In, W]) getInputConnectorID() uintptr {
+func (ef *egressWorkerRunnerFactory[Env, In, W]) getInputConnectorID() uintptr {
 	return ef.input.getConnectorID()
 }
 
-func (ef *egressWorkerRunnerFactory[WArgs, In, W]) getOutputConnectorID() uintptr {
+func (ef *egressWorkerRunnerFactory[Env, In, W]) getOutputConnectorID() uintptr {
 	return 0
 }

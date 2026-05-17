@@ -7,71 +7,69 @@ import (
 	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/stage"
-	"github.com/FerroO2000/goccia/internal/telemetry"
+	"github.com/FerroO2000/goccia/internal/stage/env"
 	"github.com/FerroO2000/goccia/processor/metrics"
 	"go.opentelemetry.io/otel/attribute"
 )
 
-// ─── Arguments ──────────────────────────────────────────────────────────────|
+// ─── Environment ────────────────────────────────────────────────────────────|
 
-type teeArgs[T msgBody] struct {
-	inConnector   msgConn[T]
-	outConnectors []msgConn[T]
-}
-
-func newTeeArgs[T msgBody](inConnector msgConn[T], outConnectors ...msgConn[T]) *teeArgs[T] {
-	return &teeArgs[T]{
-		inConnector:   inConnector,
-		outConnectors: outConnectors,
-	}
-}
-
-// ─── Runner ─────────────────────────────────────────────────────────────────|
-
-var _ stage.Runner[*teeArgs[msgBody]] = (*teeRunner[msgBody])(nil)
-
-type teeRunner[T msgBody] struct {
-	tel *telemetry.Telemetry
+type teeEnv[T msgBody] struct {
+	*env.BaseEnv[*config.Empty, *metrics.TeeStage]
 
 	inConnector   msgConn[T]
 	outConnectors []msgConn[T]
 
 	cloneCount int
+}
+
+func newTeeEnv[T msgBody](inConnector msgConn[T], outConnectors ...msgConn[T]) *teeEnv[T] {
+	return &teeEnv[T]{
+		BaseEnv: env.NewProcessorEnv(config.NewEmpty(), metrics.NewTeeStage()),
+
+		inConnector:   inConnector,
+		outConnectors: outConnectors,
+	}
+}
+
+func (te *teeEnv[T]) Init(ctx context.Context) error {
+	te.cloneCount = len(te.outConnectors)
+	if te.cloneCount == 0 {
+		return errors.New("no output connector specified")
+	}
+
+	return te.BaseEnv.Init(ctx)
+}
+
+// ─── Runner ─────────────────────────────────────────────────────────────────|
+
+var _ stage.Runner[*teeEnv[msgBody]] = (*teeRunner[msgBody])(nil)
+
+type teeRunner[T msgBody] struct {
+	env *teeEnv[T]
 
 	runDone chan struct{}
-
-	metrics *metrics.TeeStage
 }
 
 func newTeeRunner[T msgBody]() *teeRunner[T] {
 	return &teeRunner[T]{
 		runDone: make(chan struct{}),
-
-		metrics: metrics.NewTeeStage(),
 	}
 }
 
-func (tr *teeRunner[T]) SetTelemetry(tel *telemetry.Telemetry) {
-	tr.tel = tel
+func (tr *teeRunner[T]) SetEnvironment(env *teeEnv[T]) {
+	tr.env = env
 }
 
-func (tr *teeRunner[T]) Init(_ context.Context, args *teeArgs[T]) error {
-	tr.cloneCount = len(args.outConnectors)
-	if tr.cloneCount == 0 {
-		return errors.New("no output connector specified")
-	}
-
-	tr.inConnector = args.inConnector
-	tr.outConnectors = args.outConnectors
-
-	return tr.metrics.InitMetrics(tr.tel)
+func (tr *teeRunner[T]) Init(_ context.Context) error {
+	return nil
 }
 
 func (tr *teeRunner[T]) Run(ctx context.Context) {
 	defer close(tr.runDone)
 
 	for {
-		msgIn, err := tr.inConnector.Read(ctx)
+		msgIn, err := tr.env.inConnector.Read(ctx)
 		if err != nil {
 			// This means the input connector is closed
 			// and there are no more messages in it
@@ -84,41 +82,41 @@ func (tr *teeRunner[T]) Run(ctx context.Context) {
 
 func (tr *teeRunner[T]) clone(ctx context.Context, msgIn *msg[T]) {
 	// Extract the span context from the input message
-	ctx, span := tr.tel.StartTrace(msgIn.LoadSpanContext(ctx), "clone message")
+	ctx, span := tr.env.Telemetry().StartTrace(msgIn.LoadSpanContext(ctx), "clone message")
 	defer span.End()
 
-	span.SetAttributes(attribute.Int("clone_count", tr.cloneCount))
+	span.SetAttributes(attribute.Int("clone_count", tr.env.cloneCount))
 
-	for _, outConn := range tr.outConnectors {
+	for _, outConn := range tr.env.outConnectors {
 		// Clone the input message
 		msgOut := msgIn.Clone()
 
 		if err := outConn.Write(msgOut); err != nil {
 			// Destroy the cloned message, if the write fails
 			msgOut.Destroy()
-			tr.tel.LogError("failed to write into output connector", err)
+			tr.env.Telemetry().LogError("failed to write into output connector", err)
 		}
 	}
 
-	tr.metrics.IncrementClonedMessages()
+	tr.env.Metrics.IncrementClonedMessages()
 }
 
 func (tr *teeRunner[T]) Close(_ context.Context) {
 	<-tr.runDone
 
-	for _, outConn := range tr.outConnectors {
+	for _, outConn := range tr.env.outConnectors {
 		outConn.Close()
 	}
 }
 
 func (tr *teeRunner[T]) Inputs() []uintptr {
-	return []uintptr{connector.GetConnectorID(tr.inConnector)}
+	return []uintptr{connector.GetConnectorID(tr.env.inConnector)}
 }
 
 func (tr *teeRunner[T]) Outputs() []uintptr {
-	outputs := make([]uintptr, 0, len(tr.outConnectors))
+	outputs := make([]uintptr, 0, len(tr.env.outConnectors))
 
-	for _, outConn := range tr.outConnectors {
+	for _, outConn := range tr.env.outConnectors {
 		outputs = append(outputs, connector.GetConnectorID(outConn))
 	}
 
@@ -133,23 +131,17 @@ var _ stage.Stage = (*TeeStage[msgBody])(nil)
 // Under the hood, it does not perform an actual copy of the real message data (envelope).
 // It only copies the message's metadata and increments the reference counter of the enveloped message.
 type TeeStage[T msgBody] struct {
-	*stage.ProcessorStage[T, T, *teeArgs[T], *config.Dummy]
-
-	args *teeArgs[T]
+	*stage.ProcessorStage[T, T, *teeEnv[T]]
 }
 
 // NewTeeStage returns a new tee processor stage.
 func NewTeeStage[T msgBody](inConnector msgConn[T], outConnectors ...msgConn[T]) *TeeStage[T] {
+
+	env := newTeeEnv(inConnector, outConnectors...)
+
 	return &TeeStage[T]{
 		ProcessorStage: stage.NewProcessorStageFromRunner[T, T](
-			"tee", newTeeRunner[T](), &config.Dummy{},
+			"tee", env, newTeeRunner[T](),
 		),
-
-		args: newTeeArgs(inConnector, outConnectors...),
 	}
-}
-
-// Init initializes the stage.
-func (ts *TeeStage[T]) Init(ctx context.Context) error {
-	return ts.ProcessorStage.InitWithArgs(ctx, ts.args)
 }

@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 )
 
-// RobStage structs contains the metrics for the ROB_stage group.
+// RobStage structs contains the metrics for the rob_stage group.
 type RobStage struct {
 	orderedMessages           atomic.Int64
 	primaryEnqueuedMessages   atomic.Int64
