@@ -9,15 +9,15 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/FerroO2000/goccia/ingress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
+	"github.com/FerroO2000/goccia/internal/stage/env"
 	"github.com/FerroO2000/goccia/internal/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 )
 
-//////////////
-//  CONFIG  //
-//////////////
+// ─── Config ─────────────────────────────────────────────────────────────────|
 
 // Default values for the UDP stage configuration.
 const (
@@ -58,9 +58,7 @@ func (c *UDPConfig) Validate(ac *config.AnomalyCollector) {
 	config.CheckNotZero(ac, "BufferSize", &c.BufferSize, DefaultUDPConfigBufferSize)
 }
 
-///////////////
-//  MESSAGE  //
-///////////////
+// ─── Message ────────────────────────────────────────────────────────────────|
 
 var udpMessagePool sync.Pool
 
@@ -97,6 +95,18 @@ func (um *UDPMessage) Destroy() {
 // GetBytes returns the bytes of the UDP payload.
 func (um *UDPMessage) GetBytes() []byte {
 	return um.Payload
+}
+
+// ─── Environment ────────────────────────────────────────────────────────────|
+
+type udpEnv struct {
+	*env.BaseEnv[*UDPConfig, *metrics.UdpStage]
+
+	conn *net.UDPConn
+}
+
+func newUDPEnv(config *UDPConfig) *udpEnv {
+	return &udpEnv{}
 }
 
 //////////////

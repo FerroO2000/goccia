@@ -1,0 +1,47 @@
+package: metrics
+groups:
+  - name: ebpf_stage
+    metrics:
+      - name: received_records
+        type: counter
+      - name: parsing_errors
+        type: counter
+      - name: received_bytes
+        type: counter
+
+  - name: file_stage
+    metrics:
+      - name: readers
+        type: upDownCounter
+      - name: active_readers
+        type: upDownCounter
+      - name: read_bytes
+        type: counter
+
+  - name: kafka_stage
+    metrics:
+      - name: received_messages
+        type: counter
+      - name: received_bytes
+        type: counter
+
+  - name: tcp_stage
+    metrics:
+      - name: open_connections
+        type: upDownCounter
+      - name: received_messages
+        type: counter
+      - name: received_bytes
+        type: counter
+
+  - name: ticker_stage
+    metrics:
+      - name: triggered_messages
+        type: counter
+
+  - name: udp_stage
+    metrics:
+      - name: received_messages
+        type: counter
+      - name: received_bytes
+        type: counter
