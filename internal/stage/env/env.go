@@ -4,13 +4,13 @@ import (
 	"context"
 
 	"github.com/FerroO2000/goccia/internal/config"
-	"github.com/FerroO2000/goccia/internal/metrics"
+	metricsPkg "github.com/FerroO2000/goccia/internal/metrics"
 	stageMetrics "github.com/FerroO2000/goccia/internal/stage/metrics"
 	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
 type cfg = config.Config
-type met = metrics.Metrics
+type met = metricsPkg.Metrics
 
 type Env interface {
 	SetTelemetry(tel *telemetry.Telemetry)
@@ -18,6 +18,7 @@ type Env interface {
 	Init(ctx context.Context) error
 	Close(ctx context.Context)
 
+	GetIngressMetrics() *metricsPkg.EmptyMetrics
 	GetProcessorMetrics() *stageMetrics.ProcessorStage
 	GetEgressMetrics() *stageMetrics.EgressStage
 }
@@ -29,6 +30,7 @@ type BaseEnv[Cfg cfg, M met] struct {
 
 	Config Cfg
 
+	ingressMetrics   *metricsPkg.EmptyMetrics
 	processorMetrics *stageMetrics.ProcessorStage
 	egressMetrics    *stageMetrics.EgressStage
 
@@ -41,11 +43,18 @@ func newBaseEnv[Cfg cfg, M met](config Cfg, metrics M) *BaseEnv[Cfg, M] {
 
 		Config: config,
 
+		ingressMetrics:   nil,
 		processorMetrics: nil,
 		egressMetrics:    nil,
 
 		Metrics: metrics,
 	}
+}
+
+func NewIngressEnv[Cfg cfg, M met](config Cfg, metrics M) *BaseEnv[Cfg, M] {
+	env := newBaseEnv(config, metrics)
+	env.ingressMetrics = metricsPkg.NewEmptyMetrics()
+	return env
 }
 
 func NewProcessorEnv[Cfg cfg, M met](config Cfg, metrics M) *BaseEnv[Cfg, M] {
@@ -77,6 +86,10 @@ func (e *BaseEnv[Cfg, M]) validateConfig() {
 }
 
 func (e *BaseEnv[Cfg, M]) getStageMetrics() met {
+	if e.ingressMetrics != nil {
+		return e.ingressMetrics
+	}
+
 	if e.processorMetrics != nil {
 		return e.processorMetrics
 	}
@@ -110,6 +123,14 @@ func (e *BaseEnv[Cfg, M]) Init(_ context.Context) error {
 func (e *BaseEnv[Cfg, M]) Close(_ context.Context) {
 	e.Tel.LogDebug("closing environment")
 	defer e.Tel.LogDebug("closed environment")
+}
+
+func (e *BaseEnv[Cfg, M]) GetIngressMetrics() *metricsPkg.EmptyMetrics {
+	if e.ingressMetrics == nil {
+		panic("no ingress metrics")
+	}
+
+	return e.ingressMetrics
 }
 
 func (e *BaseEnv[Cfg, M]) GetProcessorMetrics() *stageMetrics.ProcessorStage {
