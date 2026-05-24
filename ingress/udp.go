@@ -201,32 +201,27 @@ func (ur *udpRunner) Init(_ context.Context) error {
 func (ur *udpRunner) Run(ctx context.Context) {
 	defer close(ur.runDone)
 
+	done := make(chan struct{})
+	defer close(done)
+
 	// Hacky method to close the connection when the context is done
 	go func() {
-		<-ctx.Done()
-		ur.conn.Close()
+		select {
+		case <-ctx.Done():
+			ur.conn.Close()
+		case <-done:
+		}
 	}()
 
 	buf := make([]byte, ur.Config.BufferSize)
 
 	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
 		// Read the UDP payload
 		n, err := ur.conn.Read(buf)
 		if err != nil {
-			// Check if the connection is closed
-			if errors.Is(err, net.ErrClosed) {
-				// Check if caused by context cancellation
-				select {
-				case <-ctx.Done():
-					return
-				default:
-				}
+			// Check if the connection is closed by the context
+			if errors.Is(err, net.ErrClosed) && ctx.Err() != nil {
+				return
 			}
 
 			ur.Tel.LogError("failed to read connection", err)

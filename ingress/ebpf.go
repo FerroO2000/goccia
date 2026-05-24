@@ -112,7 +112,7 @@ type ebpfEnv[T any, O any, OPtr ebpfObjsPtr[O]] struct {
 	objs OPtr
 	link link.Link
 
-	rb        *ringbuf.Reader
+	// rb        *ringbuf.Reader
 	eventSize int
 }
 
@@ -157,17 +157,6 @@ func (ee *ebpfEnv[T, O, OPtr]) Init(ctx context.Context) error {
 	}
 	ee.link = link
 
-	// Get the ring buffer
-	ringBufferMap := ee.Config.RingBufferGetter(objs)
-
-	// Open the ring buffer
-	rb, err := ringbuf.NewReader(ringBufferMap)
-	if err != nil {
-		ee.Tel.LogError("failed to create ring buffer", err)
-		return err
-	}
-	ee.rb = rb
-
 	// Calculate the event size if useUnsafe is enabled
 	if ee.Config.UseUnsafe {
 		var event T
@@ -178,9 +167,6 @@ func (ee *ebpfEnv[T, O, OPtr]) Init(ctx context.Context) error {
 }
 
 func (ee *ebpfEnv[T, O, OPtr]) Close(ctx context.Context) {
-	// Close the ring buffer
-	ee.rb.Close()
-
 	// Close the objects
 	ee.objs.Close()
 
@@ -196,6 +182,8 @@ type ebpfRunner[T any, O any, OPtr ebpfObjsPtr[O]] struct {
 	*ebpfEnv[T, O, OPtr]
 
 	outConnector msgConn[*EBPFMessage[T]]
+
+	reader *ringbuf.Reader
 
 	runDone chan struct{}
 }
@@ -213,28 +201,43 @@ func (er *ebpfRunner[T, O, OPtr]) SetEnvironment(env *ebpfEnv[T, O, OPtr]) {
 }
 
 func (er *ebpfRunner[T, O, OPtr]) Init(_ context.Context) error {
+	ringBufferMap := er.Config.RingBufferGetter(er.objs)
+
+	// Open the ring buffer
+	rb, err := ringbuf.NewReader(ringBufferMap)
+	if err != nil {
+		er.Tel.LogError("failed to create ring buffer", err)
+		return err
+	}
+	er.reader = rb
+
 	return nil
 }
 
 func (er *ebpfRunner[T, O, OPtr]) Run(ctx context.Context) {
 	defer close(er.runDone)
 
-	for {
+	done := make(chan struct{})
+	defer close(done)
+
+	go func() {
 		select {
 		case <-ctx.Done():
-			return
-		default:
+			er.reader.Close()
+		case <-done:
 		}
+	}()
 
-		record, err := er.rb.Read()
+	for {
+		record, err := er.reader.Read()
 		if err != nil {
-			// Check whether the ring buffer is closed
-			if errors.Is(err, ringbuf.ErrClosed) {
+			// Check whether the ring buffer is closed by the context
+			if errors.Is(err, ringbuf.ErrClosed) && ctx.Err() != nil {
 				return
 			}
 
 			er.Tel.LogError("failed to read from ring buffer", err)
-			continue
+			return
 		}
 
 		outMsg, err := er.handleRecord(ctx, &record)
