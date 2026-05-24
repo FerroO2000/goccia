@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/FerroO2000/goccia"
 	"github.com/FerroO2000/goccia/connector"
@@ -14,9 +15,6 @@ import (
 	"github.com/FerroO2000/goccia/ingress"
 	"github.com/FerroO2000/goccia/processor"
 	"github.com/squadracorsepolito/acmelib"
-
-	"net/http"
-	_ "net/http/pprof"
 )
 
 const connectorSize = 2048
@@ -69,14 +67,14 @@ func main() {
 		panic(err)
 	}
 
-	go func() {
-		http.ListenAndServe("localhost:6060", nil)
-	}()
-
 	go pipeline.Run(ctx)
-	defer pipeline.Close()
 
 	<-ctx.Done()
+
+	closeCtx, cancelCloseCtx := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelCloseCtx()
+
+	pipeline.Close(closeCtx)
 }
 
 // getMessages returns the acmelib representation of the CAN messages

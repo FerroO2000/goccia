@@ -60,18 +60,6 @@ func (c *UDPConfig) Validate(ac *config.AnomalyCollector) {
 
 // ─── Message ────────────────────────────────────────────────────────────────|
 
-var udpMessagePool sync.Pool
-
-func udpMessagePoolInit(payloadSize int) {
-	udpMessagePool = sync.Pool{
-		New: func() any {
-			return &UDPMessage{
-				Payload: make([]byte, payloadSize),
-			}
-		},
-	}
-}
-
 var _ msgSer = (*UDPMessage)(nil)
 
 // UDPMessage represents a UDP message.
@@ -80,21 +68,65 @@ type UDPMessage struct {
 	Payload []byte
 	// PayloadSize is the number of bytes of the payload.
 	PayloadSize int
+
+	pool *udpMessagePool
 }
 
-// NewUDPMessage returns a new UDP message.
-func NewUDPMessage() *UDPMessage {
-	return udpMessagePool.Get().(*UDPMessage)
+// NewUDPMessage returns a new UDP message, without using the message pool.
+func NewUDPMessage(payloadSize int) *UDPMessage {
+	return &UDPMessage{
+		Payload:     make([]byte, payloadSize),
+		PayloadSize: 0,
+
+		pool: nil,
+	}
 }
 
 // Destroy cleans up the message.
 func (um *UDPMessage) Destroy() {
-	udpMessagePool.Put(um)
+	if um.pool != nil {
+		um.pool.putMessage(um)
+	}
 }
 
 // GetBytes returns the bytes of the UDP payload.
 func (um *UDPMessage) GetBytes() []byte {
-	return um.Payload
+	return um.Payload[:um.PayloadSize]
+}
+
+// ─── Message Pool ───────────────────────────────────────────────────────────|
+
+type udpMessagePool struct {
+	pool        sync.Pool
+	payloadSize int
+}
+
+func newUDPMessagePool(payloadSize int) *udpMessagePool {
+	ump := &udpMessagePool{
+		payloadSize: payloadSize,
+	}
+
+	ump.pool.New = func() any {
+		return &UDPMessage{
+			Payload:     make([]byte, payloadSize),
+			PayloadSize: 0,
+
+			pool: ump,
+		}
+	}
+
+	return ump
+}
+
+func (ump *udpMessagePool) getMessage() *UDPMessage {
+	msg := ump.pool.Get().(*UDPMessage)
+	msg.Payload = msg.Payload[:ump.payloadSize]
+	return msg
+}
+
+func (ump *udpMessagePool) putMessage(um *UDPMessage) {
+	um.PayloadSize = 0
+	ump.pool.Put(um)
 }
 
 // ─── Environment ────────────────────────────────────────────────────────────|
@@ -102,18 +134,25 @@ func (um *UDPMessage) GetBytes() []byte {
 type udpEnv struct {
 	*env.BaseEnv[*UDPConfig, *metrics.UdpStage]
 
+	pool *udpMessagePool
+
 	conn *net.UDPConn
 }
 
 func newUDPEnv(config *UDPConfig) *udpEnv {
 	return &udpEnv{
 		BaseEnv: env.NewIngressEnv(config, metrics.NewUdpStage()),
-
-		conn: nil,
 	}
 }
 
 func (ue *udpEnv) Init(ctx context.Context) error {
+	if err := ue.BaseEnv.Init(ctx); err != nil {
+		return err
+	}
+
+	// Create the message pool
+	ue.pool = newUDPMessagePool(int(ue.Config.BufferSize))
+
 	// Parse the IP address
 	parsedAddr, err := netip.ParseAddr(ue.Config.IPAddr)
 	if err != nil {
@@ -128,7 +167,7 @@ func (ue *udpEnv) Init(ctx context.Context) error {
 	}
 	ue.conn = conn
 
-	return ue.BaseEnv.Init(ctx)
+	return nil
 }
 
 // ─── Runner ─────────────────────────────────────────────────────────────────|
@@ -209,7 +248,7 @@ func (ur *udpRunner) handleBuf(ctx context.Context, buf []byte) *msg[*UDPMessage
 	defer span.End()
 
 	// Create the UDP message
-	udpMsg := NewUDPMessage()
+	udpMsg := ur.pool.getMessage()
 
 	// Extract the payload from the buffer
 	payloadSize := len(buf)

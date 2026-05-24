@@ -5,21 +5,21 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"sync/atomic"
 	"unsafe"
 
+	"github.com/FerroO2000/goccia/connector"
+	"github.com/FerroO2000/goccia/ingress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
-	"github.com/FerroO2000/goccia/internal/telemetry"
+	stagePkg "github.com/FerroO2000/goccia/internal/stage"
+	"github.com/FerroO2000/goccia/internal/stage/env"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
 )
 
-//////////////
-//  CONFIG  //
-//////////////
+// ─── Config ─────────────────────────────────────────────────────────────────|
 
 type ebpfObjs interface {
 	Close() error
@@ -84,9 +84,7 @@ func NewEBPFConfig[O any, OPtr ebpfObjsPtr[O]](
 // Validate checks the configuration.
 func (c *EBPFConfig[O, OPtr]) Validate(_ *config.AnomalyCollector) {}
 
-///////////////
-//  MESSAGE  //
-///////////////
+// ─── Message ────────────────────────────────────────────────────────────────|
 
 var _ msgBody = (*EBPFMessage[any])(nil)
 
@@ -106,93 +104,121 @@ func NewEBPFMessage[T any](data T) *EBPFMessage[T] {
 // Destroy cleans up the message.
 func (m *EBPFMessage[T]) Destroy() {}
 
-//////////////
-//  SOURCE  //
-//////////////
+// ─── Environment ────────────────────────────────────────────────────────────|
 
-type ebpfSourceConfig struct {
-	ringBufferMap *ebpf.Map
-	useUnsafe     bool
-}
+type ebpfEnv[T any, O any, OPtr ebpfObjsPtr[O]] struct {
+	*env.BaseEnv[*EBPFConfig[O, OPtr], *metrics.EbpfStage]
 
-type ebpfSourceMetrics struct {
-	tel *telemetry.Telemetry
-
-	receivedRecords atomic.Int64
-	parsingErrors   atomic.Int64
-
-	receivedBytes atomic.Int64
-}
-
-func newEBPFSourceMetrics(tel *telemetry.Telemetry) *ebpfSourceMetrics {
-	return &ebpfSourceMetrics{
-		tel: tel,
-	}
-}
-
-func (esm *ebpfSourceMetrics) init() {
-	esm.tel.NewCounterMetric("received_records", func() int64 { return esm.receivedRecords.Load() })
-	esm.tel.NewCounterMetric("parsing_errors", func() int64 { return esm.parsingErrors.Load() })
-	esm.tel.NewCounterMetric("received_bytes", func() int64 { return esm.receivedBytes.Load() })
-}
-
-func (esm *ebpfSourceMetrics) incrementReceivedRecords() {
-	esm.receivedRecords.Add(1)
-}
-
-func (esm *ebpfSourceMetrics) incrementParsingErrors() {
-	esm.parsingErrors.Add(1)
-}
-
-func (esm *ebpfSourceMetrics) addReceivedBytes(amount int64) {
-	esm.receivedBytes.Add(amount)
-}
-
-type ebpfSource[T any] struct {
-	tel *telemetry.Telemetry
-
-	cfg *ebpfSourceConfig
+	objs OPtr
+	link link.Link
 
 	rb        *ringbuf.Reader
 	eventSize int
-
-	metrics *ebpfSourceMetrics
 }
 
-func newEBPFSource[T any]() *ebpfSource[T] {
-	return &ebpfSource[T]{}
+func newEBPFEnv[T any, O any, OPtr ebpfObjsPtr[O]](config *EBPFConfig[O, OPtr]) *ebpfEnv[T, O, OPtr] {
+	return &ebpfEnv[T, O, OPtr]{
+		BaseEnv: env.NewIngressEnv(config, metrics.NewEbpfStage()),
+	}
 }
 
-func (es *ebpfSource[T]) setTelemetry(tel *telemetry.Telemetry) {
-	es.tel = tel
-}
-
-func (es *ebpfSource[T]) init(cfg *ebpfSourceConfig) error {
-	// Open the ring buffer
-	rb, err := ringbuf.NewReader(cfg.ringBufferMap)
-	if err != nil {
-		es.tel.LogError("failed to create ring buffer", err)
-
+func (ee *ebpfEnv[T, O, OPtr]) Init(ctx context.Context) error {
+	if err := ee.BaseEnv.Init(ctx); err != nil {
 		return err
 	}
-	es.rb = rb
 
-	// Calculate the event size if useUnsafe is enabled
-	if cfg.useUnsafe {
-		var event T
-		es.eventSize = int(unsafe.Sizeof(event))
+	// Remove resource limits for locked memory
+	if err := rlimit.RemoveMemlock(); err != nil {
+		ee.Tel.LogError("failed to remove memlock limits", err)
+		return err
 	}
 
-	es.cfg = cfg
+	// Load the compiled eBPF ELF file
+	spec, err := ee.Config.LoadFn()
+	if err != nil {
+		ee.Tel.LogError("failed to load eBPF spec", err)
+		return err
+	}
 
-	// Initialize the metrics
-	es.metrics = newEBPFSourceMetrics(es.tel)
-	es.metrics.init()
+	// Load the eBPF objects
+	var dummyObjs O
+	objs := OPtr(&dummyObjs)
+	if err := spec.LoadAndAssign(objs, ee.Config.CollectionOptions); err != nil {
+		ee.Tel.LogError("failed to load eBPF objects", err)
+		return err
+	}
+	ee.objs = objs
+
+	// Get the link
+	link, err := ee.Config.LinkFn(objs)
+	if err != nil {
+		ee.Tel.LogError("failed to attach eBPF program", err)
+		return err
+	}
+	ee.link = link
+
+	// Get the ring buffer
+	ringBufferMap := ee.Config.RingBufferGetter(objs)
+
+	// Open the ring buffer
+	rb, err := ringbuf.NewReader(ringBufferMap)
+	if err != nil {
+		ee.Tel.LogError("failed to create ring buffer", err)
+		return err
+	}
+	ee.rb = rb
+
+	// Calculate the event size if useUnsafe is enabled
+	if ee.Config.UseUnsafe {
+		var event T
+		ee.eventSize = int(unsafe.Sizeof(event))
+	}
 
 	return nil
 }
 
-func (es *ebpfSource[T]) run(ctx context.Context, outConn msgConn[*EBPFMessage[T]]) {
+func (ee *ebpfEnv[T, O, OPtr]) Close(ctx context.Context) {
+	// Close the ring buffer
+	ee.rb.Close()
+
+	// Close the objects
+	ee.objs.Close()
+
+	// Close the ebpf link
+	ee.link.Close()
+
+	ee.BaseEnv.Close(ctx)
+}
+
+// ─── Runner ─────────────────────────────────────────────────────────────────|
+
+type ebpfRunner[T any, O any, OPtr ebpfObjsPtr[O]] struct {
+	*ebpfEnv[T, O, OPtr]
+
+	outConnector msgConn[*EBPFMessage[T]]
+
+	runDone chan struct{}
+}
+
+func newEBPFRunner[T any, O any, OPtr ebpfObjsPtr[O]](outConnector msgConn[*EBPFMessage[T]]) *ebpfRunner[T, O, OPtr] {
+	return &ebpfRunner[T, O, OPtr]{
+		outConnector: outConnector,
+
+		runDone: make(chan struct{}),
+	}
+}
+
+func (er *ebpfRunner[T, O, OPtr]) SetEnvironment(env *ebpfEnv[T, O, OPtr]) {
+	er.ebpfEnv = env
+}
+
+func (er *ebpfRunner[T, O, OPtr]) Init(_ context.Context) error {
+	return nil
+}
+
+func (er *ebpfRunner[T, O, OPtr]) Run(ctx context.Context) {
+	defer close(er.runDone)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -200,38 +226,38 @@ func (es *ebpfSource[T]) run(ctx context.Context, outConn msgConn[*EBPFMessage[T
 		default:
 		}
 
-		record, err := es.rb.Read()
+		record, err := er.rb.Read()
 		if err != nil {
 			// Check whether the ring buffer is closed
 			if errors.Is(err, ringbuf.ErrClosed) {
 				return
 			}
 
-			es.tel.LogError("failed to read from ring buffer", err)
+			er.Tel.LogError("failed to read from ring buffer", err)
 			continue
 		}
 
-		outMsg, err := es.handleRecord(ctx, &record)
+		outMsg, err := er.handleRecord(ctx, &record)
 		if err != nil {
-			es.tel.LogError("failed to handle record", err)
+			er.Tel.LogError("failed to handle record", err)
 			continue
 		}
 
-		if err := outConn.Write(outMsg); err != nil {
+		if err := er.outConnector.Write(outMsg); err != nil {
 			outMsg.Destroy()
-			es.tel.LogError("failed to write into output connector", err)
+			er.Tel.LogError("failed to write into output connector", err)
 		}
 	}
 }
 
-func (es *ebpfSource[T]) handleRecord(ctx context.Context, record *ringbuf.Record) (*msg[*EBPFMessage[T]], error) {
+func (er *ebpfRunner[T, O, OPtr]) handleRecord(ctx context.Context, record *ringbuf.Record) (*msg[*EBPFMessage[T]], error) {
 	// Create the trace for the incoming record
-	_, span := es.tel.StartTrace(ctx, "receive ebpf record")
+	_, span := er.Tel.StartTrace(ctx, "receive ebpf record")
 	defer span.End()
 
-	data, err := es.parseData(record.RawSample)
+	data, err := er.parseData(record.RawSample)
 	if err != nil {
-		es.metrics.incrementParsingErrors()
+		er.Metrics.IncrementParsingErrors()
 		return nil, err
 	}
 
@@ -243,20 +269,20 @@ func (es *ebpfSource[T]) handleRecord(ctx context.Context, record *ringbuf.Recor
 	msg.SaveSpan(span)
 
 	// Update metrics
-	es.metrics.incrementReceivedRecords()
+	er.Metrics.IncrementReceivedRecords()
 
 	return msg, nil
 }
 
-func (es *ebpfSource[T]) parseData(data []byte) (T, error) {
+func (er *ebpfRunner[T, O, OPtr]) parseData(data []byte) (T, error) {
 	var res T
 
 	dataLen := len(data)
-	es.metrics.addReceivedBytes(int64(dataLen))
+	er.Metrics.AddReceivedBytes(uint(dataLen))
 
-	if es.cfg.useUnsafe {
+	if er.Config.UseUnsafe {
 		// Use unsafe struct casting
-		if dataLen < es.eventSize {
+		if dataLen < er.eventSize {
 			return res, errors.New("not enough data")
 		}
 
@@ -271,94 +297,291 @@ func (es *ebpfSource[T]) parseData(data []byte) (T, error) {
 	return res, nil
 }
 
-func (es *ebpfSource[T]) close() {
-	// Close the ring buffer
-	es.rb.Close()
+func (er *ebpfRunner[T, O, OPtr]) Close(_ context.Context) {
+	<-er.runDone
+	er.outConnector.Close()
 }
 
-/////////////
-//  STAGE  //
-/////////////
+func (er *ebpfRunner[T, O, OPtr]) Inputs() []uintptr {
+	return []uintptr{}
+}
+
+func (er *ebpfRunner[T, O, OPtr]) Outputs() []uintptr {
+	return []uintptr{connector.GetConnectorID(er.outConnector)}
+}
+
+// ─── Stage ──────────────────────────────────────────────────────────────────|
 
 // EBPFStage is an ingress stage that reads data from an eBPF ring buffer.
-type EBPFStage[T, O any, OPtr ebpfObjsPtr[O]] struct {
-	*stage[*EBPFMessage[T], *EBPFConfig[O, OPtr]]
-
-	source *ebpfSource[T]
-
-	objs OPtr
-	link link.Link
+type EBPFStage[T any, O any, OPtr ebpfObjsPtr[O]] struct {
+	*stagePkg.IngressStage[*EBPFMessage[T], *ebpfEnv[T, O, OPtr]]
 }
 
 // NewEBPFStage creates a new ebpf ingress stage.
-func NewEBPFStage[T, O any, OPtr ebpfObjsPtr[O]](outputConnector msgConn[*EBPFMessage[T]], cfg *EBPFConfig[O, OPtr]) *EBPFStage[T, O, OPtr] {
-	source := newEBPFSource[T]()
+func NewEBPFStage[T any, O any, OPtr ebpfObjsPtr[O]](
+	outputConnector msgConn[*EBPFMessage[T]], cfg *EBPFConfig[O, OPtr],
+) *EBPFStage[T, O, OPtr] {
 
 	return &EBPFStage[T, O, OPtr]{
-		stage: newStage("ebpf", source, outputConnector, cfg),
-
-		source: source,
+		IngressStage: stagePkg.NewIngressStageFromRunner[*EBPFMessage[T]](
+			"ebpf", newEBPFEnv[T](cfg), newEBPFRunner[T, O, OPtr](outputConnector),
+		),
 	}
 }
 
-// Init initializes the stage.
-func (es *EBPFStage[T, O, OPtr]) Init(ctx context.Context) error {
-	// Remove resource limits for locked memory
-	if err := rlimit.RemoveMemlock(); err != nil {
-		es.tel.LogError("failed to remove memlock limits", err)
-		return err
-	}
+// //////////////
+// //  SOURCE  //
+// //////////////
 
-	// Load the compiled eBPF ELF file
-	spec, err := es.cfg.LoadFn()
-	if err != nil {
-		es.tel.LogError("failed to load eBPF spec", err)
-		return err
-	}
+// type ebpfSourceConfig struct {
+// 	ringBufferMap *ebpf.Map
+// 	useUnsafe     bool
+// }
 
-	// Load the eBPF objects
-	var dummyObjs O
-	objs := OPtr(&dummyObjs)
-	if err := spec.LoadAndAssign(objs, es.cfg.CollectionOptions); err != nil {
-		es.tel.LogError("failed to load eBPF objects", err)
-		return err
-	}
-	es.objs = objs
+// type ebpfSourceMetrics struct {
+// 	tel *telemetry.Telemetry
 
-	// Get the link
-	link, err := es.cfg.LinkFn(objs)
-	if err != nil {
-		es.tel.LogError("failed to attach eBPF program", err)
-		return err
-	}
-	es.link = link
+// 	receivedRecords atomic.Int64
+// 	parsingErrors   atomic.Int64
 
-	// Get the ring buffer map
-	ringBufferMap := es.cfg.RingBufferGetter(objs)
+// 	receivedBytes atomic.Int64
+// }
 
-	// Initialize the source
-	sourceCfg := &ebpfSourceConfig{
-		ringBufferMap: ringBufferMap,
-		useUnsafe:     es.cfg.UseUnsafe,
-	}
+// func newEBPFSourceMetrics(tel *telemetry.Telemetry) *ebpfSourceMetrics {
+// 	return &ebpfSourceMetrics{
+// 		tel: tel,
+// 	}
+// }
 
-	if err := es.source.init(sourceCfg); err != nil {
-		return err
-	}
+// func (esm *ebpfSourceMetrics) init() {
+// 	esm.tel.NewCounterMetric("received_records", func() int64 { return esm.receivedRecords.Load() })
+// 	esm.tel.NewCounterMetric("parsing_errors", func() int64 { return esm.parsingErrors.Load() })
+// 	esm.tel.NewCounterMetric("received_bytes", func() int64 { return esm.receivedBytes.Load() })
+// }
 
-	return es.stage.Init(ctx)
-}
+// func (esm *ebpfSourceMetrics) incrementReceivedRecords() {
+// 	esm.receivedRecords.Add(1)
+// }
 
-// Close closes the stage.
-func (es *EBPFStage[T, O, OPtr]) Close() {
-	// Close the source
-	es.source.close()
+// func (esm *ebpfSourceMetrics) incrementParsingErrors() {
+// 	esm.parsingErrors.Add(1)
+// }
 
-	// Close the objects
-	es.objs.Close()
+// func (esm *ebpfSourceMetrics) addReceivedBytes(amount int64) {
+// 	esm.receivedBytes.Add(amount)
+// }
 
-	// Close the ebpf link
-	es.link.Close()
+// type ebpfSource[T any] struct {
+// 	tel *telemetry.Telemetry
 
-	es.source.close()
-}
+// 	cfg *ebpfSourceConfig
+
+// 	rb        *ringbuf.Reader
+// 	eventSize int
+
+// 	metrics *ebpfSourceMetrics
+// }
+
+// func newEBPFSource[T any]() *ebpfSource[T] {
+// 	return &ebpfSource[T]{}
+// }
+
+// func (es *ebpfSource[T]) setTelemetry(tel *telemetry.Telemetry) {
+// 	es.tel = tel
+// }
+
+// func (es *ebpfSource[T]) init(cfg *ebpfSourceConfig) error {
+// 	// Open the ring buffer
+// 	rb, err := ringbuf.NewReader(cfg.ringBufferMap)
+// 	if err != nil {
+// 		es.tel.LogError("failed to create ring buffer", err)
+
+// 		return err
+// 	}
+// 	es.rb = rb
+
+// 	// Calculate the event size if useUnsafe is enabled
+// 	if cfg.useUnsafe {
+// 		var event T
+// 		es.eventSize = int(unsafe.Sizeof(event))
+// 	}
+
+// 	es.cfg = cfg
+
+// 	// Initialize the metrics
+// 	es.metrics = newEBPFSourceMetrics(es.tel)
+// 	es.metrics.init()
+
+// 	return nil
+// }
+
+// func (es *ebpfSource[T]) run(ctx context.Context, outConn msgConn[*EBPFMessage[T]]) {
+// 	for {
+// 		select {
+// 		case <-ctx.Done():
+// 			return
+// 		default:
+// 		}
+
+// 		record, err := es.rb.Read()
+// 		if err != nil {
+// 			// Check whether the ring buffer is closed
+// 			if errors.Is(err, ringbuf.ErrClosed) {
+// 				return
+// 			}
+
+// 			es.tel.LogError("failed to read from ring buffer", err)
+// 			continue
+// 		}
+
+// 		outMsg, err := es.handleRecord(ctx, &record)
+// 		if err != nil {
+// 			es.tel.LogError("failed to handle record", err)
+// 			continue
+// 		}
+
+// 		if err := outConn.Write(outMsg); err != nil {
+// 			outMsg.Destroy()
+// 			es.tel.LogError("failed to write into output connector", err)
+// 		}
+// 	}
+// }
+
+// func (es *ebpfSource[T]) handleRecord(ctx context.Context, record *ringbuf.Record) (*msg[*EBPFMessage[T]], error) {
+// 	// Create the trace for the incoming record
+// 	_, span := es.tel.StartTrace(ctx, "receive ebpf record")
+// 	defer span.End()
+
+// 	data, err := es.parseData(record.RawSample)
+// 	if err != nil {
+// 		es.metrics.incrementParsingErrors()
+// 		return nil, err
+// 	}
+
+// 	// Make the message
+// 	ebpfMsg := NewEBPFMessage(data)
+// 	msg := message.NewMessage(ebpfMsg)
+
+// 	// Save the span into the message
+// 	msg.SaveSpan(span)
+
+// 	// Update metrics
+// 	es.metrics.incrementReceivedRecords()
+
+// 	return msg, nil
+// }
+
+// func (es *ebpfSource[T]) parseData(data []byte) (T, error) {
+// 	var res T
+
+// 	dataLen := len(data)
+// 	es.metrics.addReceivedBytes(int64(dataLen))
+
+// 	if es.cfg.useUnsafe {
+// 		// Use unsafe struct casting
+// 		if dataLen < es.eventSize {
+// 			return res, errors.New("not enough data")
+// 		}
+
+// 		res = *(*T)(unsafe.Pointer(&data[0]))
+// 		return res, nil
+// 	}
+
+// 	if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &res); err != nil {
+// 		return res, err
+// 	}
+
+// 	return res, nil
+// }
+
+// func (es *ebpfSource[T]) close() {
+// 	// Close the ring buffer
+// 	es.rb.Close()
+// }
+
+// /////////////
+// //  STAGE  //
+// /////////////
+
+// // EBPFStage is an ingress stage that reads data from an eBPF ring buffer.
+// type EBPFStage[T, O any, OPtr ebpfObjsPtr[O]] struct {
+// 	*stage[*EBPFMessage[T], *EBPFConfig[O, OPtr]]
+
+// 	source *ebpfSource[T]
+
+// 	objs OPtr
+// 	link link.Link
+// }
+
+// // NewEBPFStage creates a new ebpf ingress stage.
+// func NewEBPFStage[T, O any, OPtr ebpfObjsPtr[O]](outputConnector msgConn[*EBPFMessage[T]], cfg *EBPFConfig[O, OPtr]) *EBPFStage[T, O, OPtr] {
+// 	source := newEBPFSource[T]()
+
+// 	return &EBPFStage[T, O, OPtr]{
+// 		stage: newStage("ebpf", source, outputConnector, cfg),
+
+// 		source: source,
+// 	}
+// }
+
+// // Init initializes the stage.
+// func (es *EBPFStage[T, O, OPtr]) Init(ctx context.Context) error {
+// 	// Remove resource limits for locked memory
+// 	if err := rlimit.RemoveMemlock(); err != nil {
+// 		es.tel.LogError("failed to remove memlock limits", err)
+// 		return err
+// 	}
+
+// 	// Load the compiled eBPF ELF file
+// 	spec, err := es.cfg.LoadFn()
+// 	if err != nil {
+// 		es.tel.LogError("failed to load eBPF spec", err)
+// 		return err
+// 	}
+
+// 	// Load the eBPF objects
+// 	var dummyObjs O
+// 	objs := OPtr(&dummyObjs)
+// 	if err := spec.LoadAndAssign(objs, es.cfg.CollectionOptions); err != nil {
+// 		es.tel.LogError("failed to load eBPF objects", err)
+// 		return err
+// 	}
+// 	es.objs = objs
+
+// 	// Get the link
+// 	link, err := es.cfg.LinkFn(objs)
+// 	if err != nil {
+// 		es.tel.LogError("failed to attach eBPF program", err)
+// 		return err
+// 	}
+// 	es.link = link
+
+// 	// Get the ring buffer map
+// 	ringBufferMap := es.cfg.RingBufferGetter(objs)
+
+// 	// Initialize the source
+// 	sourceCfg := &ebpfSourceConfig{
+// 		ringBufferMap: ringBufferMap,
+// 		useUnsafe:     es.cfg.UseUnsafe,
+// 	}
+
+// 	if err := es.source.init(sourceCfg); err != nil {
+// 		return err
+// 	}
+
+// 	return es.stage.Init(ctx)
+// }
+
+// // Close closes the stage.
+// func (es *EBPFStage[T, O, OPtr]) Close() {
+// 	// Close the source
+// 	es.source.close()
+
+// 	// Close the objects
+// 	es.objs.Close()
+
+// 	// Close the ebpf link
+// 	es.link.Close()
+
+// 	es.source.close()
+// }
