@@ -2,18 +2,18 @@ package ingress
 
 import (
 	"context"
-	"sync/atomic"
 	"time"
 
+	"github.com/FerroO2000/goccia/connector"
+	"github.com/FerroO2000/goccia/ingress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
-	"github.com/FerroO2000/goccia/internal/telemetry"
+	stagePkg "github.com/FerroO2000/goccia/internal/stage"
+	"github.com/FerroO2000/goccia/internal/stage/env"
 	"go.opentelemetry.io/otel/attribute"
 )
 
-//////////////
-//  CONFIG  //
-//////////////
+// ─── Config ─────────────────────────────────────────────────────────────────|
 
 // Default values for the Ticker stage configuration.
 const (
@@ -39,9 +39,7 @@ func (c *TickerConfig) Validate(ac *config.AnomalyCollector) {
 	config.CheckNotZero(ac, "Interval", &c.Interval, DefaultTickerConfigInterval)
 }
 
-///////////////
-//  MESSAGE  //
-///////////////
+// ─── Message ────────────────────────────────────────────────────────────────|
 
 var _ msgBody = (*TickerMessage)(nil)
 
@@ -58,56 +56,71 @@ func NewTickerMessage() *TickerMessage {
 // Destroy cleans up the message.
 func (tm *TickerMessage) Destroy() {}
 
-//////////////
-//  SOURCE  //
-//////////////
+// ─── Environment ────────────────────────────────────────────────────────────|
 
-var _ source[*TickerMessage] = (*tickerSource)(nil)
-
-type tickerSource struct {
-	tel *telemetry.Telemetry
-
-	ticker *time.Ticker
-
-	// Metrics
-	triggeredMessages atomic.Int64
+type tickerEnv struct {
+	*env.BaseEnv[*TickerConfig, *metrics.TickerStage]
 }
 
-func newTickerSource() *tickerSource {
-	return &tickerSource{}
+func newTickerEnv(config *TickerConfig) *tickerEnv {
+	return &tickerEnv{
+		BaseEnv: env.NewIngressEnv(config, metrics.NewTickerStage()),
+	}
 }
 
-func (ts *tickerSource) setTelemetry(tel *telemetry.Telemetry) {
-	ts.tel = tel
+// ─── Runner ─────────────────────────────────────────────────────────────────|
+
+var _ stagePkg.Runner[*tickerEnv] = (*tickerRunner)(nil)
+
+type tickerRunner struct {
+	*tickerEnv
+
+	outConnector msgConn[*TickerMessage]
+
+	runDone chan struct{}
 }
 
-func (ts *tickerSource) init(interval time.Duration) {
-	ts.ticker = time.NewTicker(interval)
+func newTickerRunner(outConnector msgConn[*TickerMessage]) *tickerRunner {
+	return &tickerRunner{
+		outConnector: outConnector,
+
+		runDone: make(chan struct{}),
+	}
 }
 
-func (ts *tickerSource) run(ctx context.Context, outConnector msgConn[*TickerMessage]) {
-	defer ts.ticker.Stop()
+func (tr *tickerRunner) SetEnvironment(env *tickerEnv) {
+	tr.tickerEnv = env
+}
+
+func (tr *tickerRunner) Init(_ context.Context) error {
+	return nil
+}
+
+func (tr *tickerRunner) Run(ctx context.Context) {
+	defer close(tr.runDone)
+
+	ticker := time.NewTicker(tr.Config.Interval)
+	defer ticker.Stop()
 
 	ticks := 0
-
 	for {
 		ticks++
 
 		select {
 		case <-ctx.Done():
 			return
-		case <-ts.ticker.C:
-			msgOut := ts.handleTrigger(ctx, ticks)
-			if err := outConnector.Write(msgOut); err != nil {
+		case <-ticker.C:
+			msgOut := tr.handleTrigger(ctx, ticks)
+			if err := tr.outConnector.Write(msgOut); err != nil {
 				msgOut.Destroy()
-				ts.tel.LogError("failed to write message to output connector", err)
+				tr.Tel.LogError("failed to write message to output connector", err)
 			}
 		}
 	}
 }
 
-func (ts *tickerSource) handleTrigger(ctx context.Context, tick int) *msg[*TickerMessage] {
-	_, span := ts.tel.StartTrace(ctx, "triggered ticker message")
+func (tr *tickerRunner) handleTrigger(ctx context.Context, tick int) *msg[*TickerMessage] {
+	_, span := tr.Tel.StartTrace(ctx, "triggered ticker message")
 	defer span.End()
 
 	tickerMsg := NewTickerMessage()
@@ -118,37 +131,134 @@ func (ts *tickerSource) handleTrigger(ctx context.Context, tick int) *msg[*Ticke
 	msg.SetReceiveTime(triggerTime)
 	msg.SetTimestamp(triggerTime)
 
+	tr.Metrics.IncrementTriggeredMessages()
+
 	span.SetAttributes(attribute.Int("tick_number", tick))
 	msg.SaveSpan(span)
 
 	return msg
 }
 
-/////////////
-//  STAGE  //
-/////////////
+func (tr *tickerRunner) Close(_ context.Context) {
+	<-tr.runDone
+	tr.outConnector.Close()
+}
+
+func (tr *tickerRunner) Inputs() []uintptr {
+	return []uintptr{}
+}
+
+func (tr *tickerRunner) Outputs() []uintptr {
+	return []uintptr{connector.GetConnectorID(tr.outConnector)}
+}
+
+// ─── Stage ──────────────────────────────────────────────────────────────────|
 
 // TickerStage is an ingress stage that ticks periodically.
 type TickerStage struct {
-	*stage[*TickerMessage, *TickerConfig]
-
-	source *tickerSource
+	*stagePkg.IngressStage[*TickerMessage, *tickerEnv]
 }
 
 // NewTickerStage returns a new Ticker stage.
 func NewTickerStage(outConnector msgConn[*TickerMessage], cfg *TickerConfig) *TickerStage {
-	source := newTickerSource()
-
 	return &TickerStage{
-		stage: newStage("ticker", source, outConnector, cfg),
-
-		source: source,
+		IngressStage: stagePkg.NewIngressStageFromRunner[*TickerMessage](
+			"ticker", newTickerEnv(cfg), newTickerRunner(outConnector),
+		),
 	}
 }
 
-// Init initializes the stage.
-func (s *TickerStage) Init(ctx context.Context) error {
-	s.source.init(s.cfg.Interval)
+// //////////////
+// //  SOURCE  //
+// //////////////
 
-	return s.stage.Init(ctx)
-}
+// var _ source[*TickerMessage] = (*tickerSource)(nil)
+
+// type tickerSource struct {
+// 	tel *telemetry.Telemetry
+
+// 	ticker *time.Ticker
+
+// 	// Metrics
+// 	triggeredMessages atomic.Int64
+// }
+
+// func newTickerSource() *tickerSource {
+// 	return &tickerSource{}
+// }
+
+// func (ts *tickerSource) setTelemetry(tel *telemetry.Telemetry) {
+// 	ts.tel = tel
+// }
+
+// func (ts *tickerSource) init(interval time.Duration) {
+// 	ts.ticker = time.NewTicker(interval)
+// }
+
+// func (ts *tickerSource) run(ctx context.Context, outConnector msgConn[*TickerMessage]) {
+// 	defer ts.ticker.Stop()
+
+// 	ticks := 0
+
+// 	for {
+// 		ticks++
+
+// 		select {
+// 		case <-ctx.Done():
+// 			return
+// 		case <-ts.ticker.C:
+// 			msgOut := ts.handleTrigger(ctx, ticks)
+// 			if err := outConnector.Write(msgOut); err != nil {
+// 				msgOut.Destroy()
+// 				ts.tel.LogError("failed to write message to output connector", err)
+// 			}
+// 		}
+// 	}
+// }
+
+// func (ts *tickerSource) handleTrigger(ctx context.Context, tick int) *msg[*TickerMessage] {
+// 	_, span := ts.tel.StartTrace(ctx, "triggered ticker message")
+// 	defer span.End()
+
+// 	tickerMsg := NewTickerMessage()
+// 	tickerMsg.TickNumber = tick
+
+// 	msg := message.NewMessage(tickerMsg)
+// 	triggerTime := time.Now()
+// 	msg.SetReceiveTime(triggerTime)
+// 	msg.SetTimestamp(triggerTime)
+
+// 	span.SetAttributes(attribute.Int("tick_number", tick))
+// 	msg.SaveSpan(span)
+
+// 	return msg
+// }
+
+// /////////////
+// //  STAGE  //
+// /////////////
+
+// // TickerStage is an ingress stage that ticks periodically.
+// type TickerStage struct {
+// 	*stage[*TickerMessage, *TickerConfig]
+
+// 	source *tickerSource
+// }
+
+// // NewTickerStage returns a new Ticker stage.
+// func NewTickerStage(outConnector msgConn[*TickerMessage], cfg *TickerConfig) *TickerStage {
+// 	source := newTickerSource()
+
+// 	return &TickerStage{
+// 		stage: newStage("ticker", source, outConnector, cfg),
+
+// 		source: source,
+// 	}
+// }
+
+// // Init initializes the stage.
+// func (s *TickerStage) Init(ctx context.Context) error {
+// 	s.source.init(s.cfg.Interval)
+
+// 	return s.stage.Init(ctx)
+// }
