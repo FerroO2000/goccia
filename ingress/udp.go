@@ -134,7 +134,7 @@ func (ump *udpMessagePool) putMessage(um *UDPMessage) {
 type udpEnv struct {
 	*env.BaseEnv[*UDPConfig, *metrics.UdpStage]
 
-	pool *udpMessagePool
+	messagePool *udpMessagePool
 
 	conn *net.UDPConn
 }
@@ -151,7 +151,7 @@ func (ue *udpEnv) Init(ctx context.Context) error {
 	}
 
 	// Create the message pool
-	ue.pool = newUDPMessagePool(int(ue.Config.BufferSize))
+	ue.messagePool = newUDPMessagePool(int(ue.Config.BufferSize))
 
 	// Parse the IP address
 	parsedAddr, err := netip.ParseAddr(ue.Config.IPAddr)
@@ -243,7 +243,7 @@ func (ur *udpRunner) handleBuf(ctx context.Context, buf []byte) *msg[*UDPMessage
 	defer span.End()
 
 	// Create the UDP message
-	udpMsg := ur.pool.getMessage()
+	udpMsg := ur.messagePool.getMessage()
 
 	// Extract the payload from the buffer
 	payloadSize := len(buf)
