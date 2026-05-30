@@ -14,54 +14,50 @@ import (
 
 // ─── Environment ────────────────────────────────────────────────────────────|
 
-type teeEnv[T msgBody] struct {
+type teeEnv struct {
 	*env.BaseEnv[*config.Empty, *metrics.TeeStage]
-
-	inConnector   msgConn[T]
-	outConnectors []msgConn[T]
-
-	cloneCount int
 }
 
-func newTeeEnv[T msgBody](inConnector msgConn[T], outConnectors ...msgConn[T]) *teeEnv[T] {
-	return &teeEnv[T]{
+func newTeeEnv() *teeEnv {
+	return &teeEnv{
 		BaseEnv: env.NewProcessorEnv(config.NewEmpty(), metrics.NewTeeStage()),
-
-		inConnector:   inConnector,
-		outConnectors: outConnectors,
 	}
-}
-
-func (te *teeEnv[T]) Init(ctx context.Context) error {
-	te.cloneCount = len(te.outConnectors)
-	if te.cloneCount == 0 {
-		return errors.New("no output connector specified")
-	}
-
-	return te.BaseEnv.Init(ctx)
 }
 
 // ─── Runner ─────────────────────────────────────────────────────────────────|
 
-var _ stage.Runner[*teeEnv[msgBody]] = (*teeRunner[msgBody])(nil)
+var _ stage.Runner[*teeEnv] = (*teeRunner[msgBody])(nil)
 
 type teeRunner[T msgBody] struct {
-	*teeEnv[T]
+	*teeEnv
+
+	inConnector   msgConn[T]
+	outConnectors []msgConn[T]
 
 	runDone chan struct{}
+
+	cloneCount int
 }
 
-func newTeeRunner[T msgBody]() *teeRunner[T] {
+func newTeeRunner[T msgBody](inConnector msgConn[T], outConnectors ...msgConn[T]) *teeRunner[T] {
 	return &teeRunner[T]{
+		inConnector:   inConnector,
+		outConnectors: outConnectors,
+
 		runDone: make(chan struct{}),
 	}
 }
 
-func (tr *teeRunner[T]) SetEnvironment(env *teeEnv[T]) {
+func (tr *teeRunner[T]) SetEnvironment(env *teeEnv) {
 	tr.teeEnv = env
 }
 
 func (tr *teeRunner[T]) Init(_ context.Context) error {
+	tr.cloneCount = len(tr.outConnectors)
+	if tr.cloneCount == 0 {
+		return errors.New("no output connector specified")
+	}
+
 	return nil
 }
 
@@ -131,17 +127,14 @@ var _ stage.Stage = (*TeeStage[msgBody])(nil)
 // Under the hood, it does not perform an actual copy of the real message data (envelope).
 // It only copies the message's metadata and increments the reference counter of the enveloped message.
 type TeeStage[T msgBody] struct {
-	*stage.ProcessorStage[T, T, *teeEnv[T]]
+	*stage.ProcessorStage[T, T, *teeEnv]
 }
 
 // NewTeeStage returns a new tee processor stage.
 func NewTeeStage[T msgBody](inConnector msgConn[T], outConnectors ...msgConn[T]) *TeeStage[T] {
-
-	env := newTeeEnv(inConnector, outConnectors...)
-
 	return &TeeStage[T]{
 		ProcessorStage: stage.NewProcessorStageFromRunner[T, T](
-			"tee", env, newTeeRunner[T](),
+			"tee", newTeeEnv(), newTeeRunner[T](inConnector, outConnectors...),
 		),
 	}
 }

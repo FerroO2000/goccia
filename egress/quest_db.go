@@ -257,6 +257,10 @@ func newQuestDBEnv(config *QuestDBConfig) *questDBEnv {
 }
 
 func (qe *questDBEnv) Init(ctx context.Context) error {
+	if err := qe.BaseEnv.Init(ctx); err != nil {
+		return err
+	}
+
 	// Create the sender pool
 	senderPool, err := qdb.PoolFromOptions(
 		qdb.WithAddress(qe.Config.Address),
@@ -269,16 +273,16 @@ func (qe *questDBEnv) Init(ctx context.Context) error {
 	}
 	qe.senderPool = senderPool
 
-	return qe.BaseEnv.Init(ctx)
+	return nil
 }
 
 func (qe *questDBEnv) Close(ctx context.Context) {
+	qe.BaseEnv.Close(ctx)
+
 	// Close the sender pool
 	if err := qe.senderPool.Close(ctx); err != nil {
 		qe.Tel.LogError("failed to close sender pool", err)
 	}
-
-	qe.BaseEnv.Close(ctx)
 }
 
 // ─── Worker ─────────────────────────────────────────────────────────────────|

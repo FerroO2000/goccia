@@ -23,6 +23,7 @@ func main() {
 	ctx, cancelCtx := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer cancelCtx()
 
+	// telemetry.SetLogMinSeverity(log.SeverityDebug)
 	telemetry.Init(ctx, "can-server-example")
 	defer telemetry.Close()
 

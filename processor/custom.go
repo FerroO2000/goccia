@@ -107,6 +107,22 @@ func newCustomEnv[In, Out msgBody](config *CustomConfig, handler CustomHandler[I
 	}
 }
 
+func (ce *customEnv[In, Out]) Init(ctx context.Context) error {
+	if err := ce.BaseEnv.Init(ctx); err != nil {
+		return err
+	}
+
+	ce.handler.SetTelemetry(ce.Telemetry())
+
+	return nil
+}
+
+func (ce *customEnv[In, Out]) Close(ctx context.Context) {
+	ce.BaseEnv.Close(ctx)
+
+	ce.handler.Close()
+}
+
 // ─── Worker ─────────────────────────────────────────────────────────────────|
 
 type customWorker[In, Out msgBody] struct {
@@ -158,23 +174,27 @@ func NewCustomStage[In, Out msgBody](
 	}
 }
 
-// Init initializes the stage and the custom handler.
-func (cs *CustomStage[In, Out]) Init(ctx context.Context) error {
-	// Initialize the handler
-	handler := cs.Env().handler
+// // Init initializes the stage and the custom handler.
+// func (cs *CustomStage[In, Out]) Init(ctx context.Context) error {
+// 	if err := cs.Init(ctx); err != nil {
+// 		return err
+// 	}
 
-	handler.SetTelemetry(cs.Telemetry())
-	if err := handler.Init(ctx); err != nil {
-		return err
-	}
+// 	// Initialize the handler
+// 	handler := cs.Env().handler
 
-	return cs.Init(ctx)
-}
+// 	handler.SetTelemetry(cs.Telemetry())
+// 	if err := handler.Init(ctx); err != nil {
+// 		return err
+// 	}
 
-// Close closes the stage and the custom handler.
-func (cs *CustomStage[In, Out]) Close(ctx context.Context) {
-	// Close the custom handler
-	cs.Env().handler.Close()
+// 	return nil
+// }
 
-	cs.Close(ctx)
-}
+// // Close closes the stage and the custom handler.
+// func (cs *CustomStage[In, Out]) Close(ctx context.Context) {
+// 	// Close the custom handler
+// 	cs.Env().handler.Close()
+
+// 	cs.Close(ctx)
+// }

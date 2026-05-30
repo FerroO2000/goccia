@@ -84,21 +84,42 @@ func (s *BaseStage[Env]) Env() Env {
 }
 
 func (s *BaseStage[Env]) Init(ctx context.Context) error {
+	s.Telemetry().LogDebug("initializing stage")
+
+	s.Telemetry().LogDebug("initializing environment")
 	if err := s.env.Init(ctx); err != nil {
 		return err
 	}
 
+	s.Telemetry().LogDebug("initializing runner")
 	s.runner.SetEnvironment(s.env)
-	return s.runner.Init(ctx)
+	if err := s.runner.Init(ctx); err != nil {
+		return err
+	}
+
+	s.Telemetry().LogInfo("stage initialized")
+
+	return nil
 }
 
 func (s *BaseStage[Env]) Run(ctx context.Context) {
+	s.Telemetry().LogInfo("running stage")
+
 	s.runner.Run(ctx)
+
+	s.Telemetry().LogInfo("stage stopped")
 }
 
 func (s *BaseStage[Env]) Close(ctx context.Context) {
+	s.Telemetry().LogDebug("closing stage")
+
+	s.Telemetry().LogDebug("closing runner")
 	s.runner.Close(ctx)
+
+	s.Telemetry().LogDebug("closing environment")
 	s.env.Close(ctx)
+
+	s.Telemetry().LogInfo("stage closed")
 }
 
 func (s *BaseStage[Env]) Inputs() []uintptr {

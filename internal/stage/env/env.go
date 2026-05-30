@@ -113,17 +113,11 @@ func (e *BaseEnv[Cfg, M]) initMetrics() error {
 }
 
 func (e *BaseEnv[Cfg, M]) Init(_ context.Context) error {
-	e.Tel.LogDebug("initializing environment")
-	defer e.Tel.LogDebug("initialized environment")
-
 	e.validateConfig()
 	return e.initMetrics()
 }
 
-func (e *BaseEnv[Cfg, M]) Close(_ context.Context) {
-	e.Tel.LogDebug("closing environment")
-	defer e.Tel.LogDebug("closed environment")
-}
+func (e *BaseEnv[Cfg, M]) Close(_ context.Context) {}
 
 func (e *BaseEnv[Cfg, M]) GetIngressMetrics() *metricsPkg.EmptyMetrics {
 	if e.ingressMetrics == nil {

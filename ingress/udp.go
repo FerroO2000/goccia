@@ -238,6 +238,8 @@ func (ur *udpRunner) Run(ctx context.Context) {
 }
 
 func (ur *udpRunner) handleBuf(ctx context.Context, buf []byte) *msg[*UDPMessage] {
+	ur.Tel.LogDebug("received UDP datagram")
+
 	// Create the trace for the incoming datagram
 	_, span := ur.Tel.StartTrace(ctx, "receive UDP datagram")
 	defer span.End()

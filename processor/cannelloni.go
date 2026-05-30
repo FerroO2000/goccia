@@ -229,6 +229,8 @@ func newCannelloniDecoderWorkerMaker[T msgSer]() func() *cannelloniDecoderWorker
 }
 
 func (cdw *cannelloniDecoderWorker[T]) Handle(ctx context.Context, msgIn *msg[T]) (*msg[*CannelloniMessage], error) {
+	cdw.Tel.LogDebug("handle cannelloni frame")
+
 	_, span := cdw.Tel.StartTrace(ctx, "handle cannelloni frame")
 	defer span.End()
 
@@ -370,6 +372,8 @@ func newCannelloniEncoderWorkerMaker() func() *cannelloniEncoderWorker {
 }
 
 func (cew *cannelloniEncoderWorker) Handle(ctx context.Context, msgIn *msg[*CannelloniMessage]) (*msg[*CannelloniEncodedMessage], error) {
+	cew.Tel.LogDebug("handle cannelloni frame")
+
 	// Extract the span context from the input message
 	_, span := cew.Tel.StartTrace(ctx, "handle cannelloni frame")
 	defer span.End()

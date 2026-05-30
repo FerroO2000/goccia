@@ -57,36 +57,15 @@ func (c *ROBConfig) Validate(ac *config.AnomalyCollector) {
 
 // ─── Environment ────────────────────────────────────────────────────────────|
 
-type robEnv[T message.ReOrderable] struct {
+type robEnv struct {
 	*env.BaseEnv[*ROBConfig, *metrics.RobStage]
-
-	inConnector  msgConn[T]
-	outConnector msgConn[T]
-
-	rob *rob.ROB[*msg[T]]
 
 	resetTimeout time.Duration
 }
 
-func newROBEnv[T message.ReOrderable](config *ROBConfig, inConnector, outConnector msgConn[T]) *robEnv[T] {
-	robCfg := &rob.Config{
-		MaxSeqNum:           config.MaxSeqNum,
-		PrimaryBufferSize:   config.PrimaryBufferSize,
-		AuxiliaryBufferSize: config.AuxiliaryBufferSize,
-		FlushTreshold:       config.FlushTreshold,
-		TimeSmootherEnabled: config.TimeSmootherEnabled,
-		EstimatorAlpha:      config.EstimatorAlpha,
-		EstimatorBeta:       config.EstimatorBeta,
-	}
-	rob := rob.NewROB(outConnector, robCfg)
-
-	return &robEnv[T]{
+func newROBEnv(config *ROBConfig) *robEnv {
+	return &robEnv{
 		BaseEnv: env.NewProcessorEnv(config, metrics.NewRobStage()),
-
-		inConnector:  inConnector,
-		outConnector: outConnector,
-
-		rob: rob,
 
 		resetTimeout: config.ResetTimeout,
 	}
@@ -94,33 +73,52 @@ func newROBEnv[T message.ReOrderable](config *ROBConfig, inConnector, outConnect
 
 // ─── Runner ─────────────────────────────────────────────────────────────────|
 
-var _ stage.Runner[*robEnv[message.ReOrderable]] = (*robRunner[message.ReOrderable])(nil)
+var _ stage.Runner[*robEnv] = (*robRunner[message.ReOrderable])(nil)
 
 type robRunner[T message.ReOrderable] struct {
-	*robEnv[T]
+	*robEnv
+
+	inConnector  msgConn[T]
+	outConnector msgConn[T]
 
 	runDone chan struct{}
+
+	rob *rob.ROB[*msg[T]]
 }
 
-func newROBRunner[T message.ReOrderable]() *robRunner[T] {
+func newROBRunner[T message.ReOrderable](inConnector, outConnector msgConn[T]) *robRunner[T] {
 	return &robRunner[T]{
+		inConnector:  inConnector,
+		outConnector: outConnector,
+
 		runDone: make(chan struct{}),
 	}
 }
 
-func (rr *robRunner[T]) SetEnvironment(env *robEnv[T]) {
+func (rr *robRunner[T]) SetEnvironment(env *robEnv) {
 	rr.robEnv = env
 }
 
 func (rr *robRunner[T]) Init(_ context.Context) error {
+	robCfg := &rob.Config{
+		MaxSeqNum:           rr.Config.MaxSeqNum,
+		PrimaryBufferSize:   rr.Config.PrimaryBufferSize,
+		AuxiliaryBufferSize: rr.Config.AuxiliaryBufferSize,
+		FlushTreshold:       rr.Config.FlushTreshold,
+		TimeSmootherEnabled: rr.Config.TimeSmootherEnabled,
+		EstimatorAlpha:      rr.Config.EstimatorAlpha,
+		EstimatorBeta:       rr.Config.EstimatorBeta,
+	}
+	rr.rob = rob.NewROB(rr.outConnector, robCfg)
+
 	return nil
 }
 
 func (rr *robRunner[T]) Run(ctx context.Context) {
-	rr.Telemetry().LogInfo("running")
-	defer rr.Telemetry().LogInfo("stopped")
+	defer close(rr.runDone)
 
 	resetNeeded := false
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -167,6 +165,8 @@ func (rr *robRunner[T]) Run(ctx context.Context) {
 }
 
 func (rr *robRunner[T]) enqueue(ctx context.Context, msgIn *msg[T]) {
+	rr.Tel.LogDebug("enqueued message into re-order buffer")
+
 	_, span := rr.Telemetry().StartTrace(msgIn.LoadSpanContext(ctx), "enqueue message into re-order buffer")
 	defer span.End()
 
@@ -215,7 +215,7 @@ var _ stage.Stage = (*ROBStage[message.ReOrderable])(nil)
 // ROBStage is the re-order buffer stage.
 // It can only be run in single-threaded mode.
 type ROBStage[T message.ReOrderable] struct {
-	*stage.ProcessorStage[T, T, *robEnv[T]]
+	*stage.ProcessorStage[T, T, *robEnv]
 }
 
 // NewROBStage returns a new re-order buffer stage.
@@ -223,10 +223,10 @@ func NewROBStage[T message.ReOrderable](
 	inConnector, outConnector msgConn[T], cfg *ROBConfig,
 ) *ROBStage[T] {
 
-	env := newROBEnv(cfg, inConnector, outConnector)
-
 	return &ROBStage[T]{
-		ProcessorStage: stage.NewProcessorStageFromRunner[T, T]("rob", env, newROBRunner[T]()),
+		ProcessorStage: stage.NewProcessorStageFromRunner[T, T](
+			"rob", newROBEnv(cfg), newROBRunner(inConnector, outConnector),
+		),
 	}
 }
 

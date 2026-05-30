@@ -93,12 +93,13 @@ func newRunnerSingle[Env env.Env, W worker.Worker[Env]](
 	return &runnerSingle[Env, W]{
 		baseRunner: newBaseRunner(workerRunnerFactory),
 
-		workerRunner: workerRunnerFactory.makeWorkerRunner(0),
+		workerRunner: nil,
 	}
 }
 
 // Init initializes worker runner and the stage metrics.
 func (rs *runnerSingle[Env, W]) Init(ctx context.Context) error {
+	rs.workerRunner = rs.workerRunnerFactory.makeWorkerRunner(0)
 	return rs.workerRunner.Init(ctx)
 }
 

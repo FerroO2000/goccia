@@ -49,7 +49,7 @@ func (p *processorWorkerRunnerFactory[Env, In, Out, W]) makeWorkerRunner(workerI
 }
 
 func (p *processorWorkerRunnerFactory[Env, In, Out, W]) runIO(ctx context.Context) {
-	p.input.run(ctx)
+	go p.input.run(ctx)
 	p.output.run(ctx)
 }
 
