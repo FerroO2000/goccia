@@ -309,62 +309,62 @@ func newTCPRunner(outConnector msgConn[*TCPMessage]) *tcpRunner {
 	}
 }
 
-func (ts *tcpRunner) SetEnvironment(env *tcpEnv) {
-	ts.tcpEnv = env
+func (tr *tcpRunner) SetEnvironment(env *tcpEnv) {
+	tr.tcpEnv = env
 }
 
-func (ts *tcpRunner) Init(_ context.Context) error {
-	fanInBufSize := uint64(ts.Config.OutputQueueSize)
-	ts.connFanIn = rb.NewRingBuffer[*msg[*TCPMessage]](fanInBufSize, rb.BufferKindSPMC)
+func (tr *tcpRunner) Init(_ context.Context) error {
+	fanInBufSize := uint64(tr.Config.OutputQueueSize)
+	tr.connFanIn = rb.NewRingBuffer[*msg[*TCPMessage]](fanInBufSize, rb.BufferKindSPMC)
 
 	return nil
 }
 
-func (ts *tcpRunner) runIO(ctx context.Context) {
-	defer ts.outConnector.Close()
+func (tr *tcpRunner) runIO(ctx context.Context) {
+	defer tr.outConnector.Close()
 
 	for {
-		msg, err := ts.connFanIn.Read(ctx)
+		msg, err := tr.connFanIn.Read(ctx)
 		if err != nil {
 			return
 		}
 
-		if err := ts.outConnector.Write(msg); err != nil {
+		if err := tr.outConnector.Write(msg); err != nil {
 			msg.Destroy()
 		}
 	}
 }
 
-func (ts *tcpRunner) Run(ctx context.Context) {
-	defer close(ts.runDone)
+func (tr *tcpRunner) Run(ctx context.Context) {
+	defer close(tr.runDone)
 
 	go func() {
 		<-ctx.Done()
-		ts.listener.Close()
+		tr.listener.Close()
 	}()
 
-	go ts.runIO(ctx)
+	go tr.runIO(ctx)
 
 	for {
-		conn, err := ts.listener.Accept()
+		conn, err := tr.listener.Accept()
 		if err != nil {
 			// Check if the error is because the context is done
 			if ctx.Err() != nil {
 				return
 			}
 
-			ts.Tel.LogWarn("failed to accept connection", err)
+			tr.Tel.LogWarn("failed to accept connection", err)
 			continue
 		}
 
 		// Spawn a goroutine to handle the connection
-		ts.connWG.Add(1)
-		go ts.handleConn(ctx, conn)
+		tr.connWG.Add(1)
+		go tr.handleConn(ctx, conn)
 	}
 }
 
-func (ts *tcpRunner) handleConn(ctx context.Context, conn net.Conn) {
-	defer ts.connWG.Done()
+func (tr *tcpRunner) handleConn(ctx context.Context, conn net.Conn) {
+	defer tr.connWG.Done()
 
 	defer conn.Close()
 
@@ -383,23 +383,23 @@ func (ts *tcpRunner) handleConn(ctx context.Context, conn net.Conn) {
 	}()
 
 	// Handle the open connections metric
-	ts.Metrics.IncrementOpenConnections()
-	defer ts.Metrics.DecrementOpenConnections()
+	tr.Metrics.IncrementOpenConnections()
+	defer tr.Metrics.DecrementOpenConnections()
 
 	// Get the buffer from the pool
-	buf := ts.bufPool.Get().([]byte)
-	defer ts.bufPool.Put(buf)
+	buf := tr.bufPool.Get().([]byte)
+	defer tr.bufPool.Put(buf)
 
 	// Preallocate the accumulator
-	accBaseCap := min(4*ts.bufferSize, ts.maxMsgSize)
+	accBaseCap := min(4*tr.bufferSize, tr.maxMsgSize)
 	acc := make([]byte, 0, accBaseCap)
 
 	minAccLen := 0
-	switch ts.framingMode {
+	switch tr.framingMode {
 	case TCPFramingModeDelimited:
-		minAccLen = ts.delimiterLen
+		minAccLen = tr.delimiterLen
 	case TCPFramingModeLengthPrefixed:
-		minAccLen = ts.headerLen
+		minAccLen = tr.headerLen
 	}
 
 loop:
@@ -411,7 +411,7 @@ loop:
 		}
 
 		// Set the read deadline
-		conn.SetReadDeadline(time.Now().Add(ts.readTimeout))
+		conn.SetReadDeadline(time.Now().Add(tr.readTimeout))
 
 		// Read the TCP stream
 		n, err := conn.Read(buf)
@@ -434,7 +434,7 @@ loop:
 
 			// For any other error, break the loop and close the server connection.
 			// This is likely be caused by the read deadline being exceeded.
-			ts.Tel.LogError("failed to read connection", err)
+			tr.Tel.LogError("failed to read connection", err)
 			return
 		}
 
@@ -442,8 +442,8 @@ loop:
 		acc = append(acc, buf[:n]...)
 
 		// Prevent accumulator from growing too large
-		if len(acc) > ts.maxMsgSize {
-			ts.Tel.LogWarn("message too large, closing connection")
+		if len(acc) > tr.maxMsgSize {
+			tr.Tel.LogWarn("message too large, closing connection")
 			return
 		}
 
@@ -459,15 +459,15 @@ loop:
 			// Get the length of the message.
 			msgLen := 0
 			totLen := 0
-			switch ts.framingMode {
+			switch tr.framingMode {
 			case TCPFramingModeDelimited:
 				// Search for the delimiter
-				msgLen = bytes.Index(acc, ts.delimiter)
-				totLen = msgLen + ts.delimiterLen
+				msgLen = bytes.Index(acc, tr.delimiter)
+				totLen = msgLen + tr.delimiterLen
 
 			case TCPFramingModeLengthPrefixed:
-				msgLen = ts.parseHeader(acc[:ts.headerLen])
-				totLen = msgLen + ts.headerLen
+				msgLen = tr.parseHeader(acc[:tr.headerLen])
+				totLen = msgLen + tr.headerLen
 			}
 
 			if msgLen == -1 || accLen < totLen {
@@ -480,11 +480,11 @@ loop:
 			msg := acc[:totLen]
 
 			// Handle the message and send the result to the output connector
-			outMsg := ts.handleMessage(ctx, msg)
+			outMsg := tr.handleMessage(ctx, msg)
 			outMsg.GetBody().RemoteAddr = conn.RemoteAddr().String()
-			if err := ts.connFanIn.Write(outMsg); err != nil {
+			if err := tr.connFanIn.Write(outMsg); err != nil {
 				outMsg.Destroy()
-				ts.Tel.LogError("failed to write message to fan in connector", err)
+				tr.Tel.LogError("failed to write message to fan in connector", err)
 			}
 
 			// Remove the message from the accumulator
@@ -498,44 +498,44 @@ loop:
 		}
 
 		// Prevent accumulator from growing too large, as before
-		if len(acc) > ts.maxMsgSize {
-			ts.Tel.LogWarn("message too large, closing connection")
+		if len(acc) > tr.maxMsgSize {
+			tr.Tel.LogWarn("message too large, closing connection")
 			return
 		}
 	}
 }
 
-func (ts *tcpRunner) parseHeader(header []byte) int {
-	if len(header) < ts.headerLen {
+func (tr *tcpRunner) parseHeader(header []byte) int {
+	if len(header) < tr.headerLen {
 		return -1
 	}
 
-	msgLenField := header[ts.msgLenFieldOffset : ts.msgLenFieldOffset+ts.msgLenFieldLen]
+	msgLenField := header[tr.msgLenFieldOffset : tr.msgLenFieldOffset+tr.msgLenFieldLen]
 
 	buf := msgLenField
 	// Check if the message length field should be extended
-	if ts.msgLenFieldLen != ts.msgLenFieldParseLen {
-		buf = make([]byte, ts.msgLenFieldParseLen)
+	if tr.msgLenFieldLen != tr.msgLenFieldParseLen {
+		buf = make([]byte, tr.msgLenFieldParseLen)
 
-		switch ts.msgLenFieldEndianess {
+		switch tr.msgLenFieldEndianess {
 		case LittleEndian:
 			copy(buf, msgLenField)
 		case BigEndian:
-			copy(buf[ts.msgLenFieldParseLen-ts.msgLenFieldLen:], msgLenField)
+			copy(buf[tr.msgLenFieldParseLen-tr.msgLenFieldLen:], msgLenField)
 		}
 	}
 
-	switch ts.msgLenFieldEndianess {
+	switch tr.msgLenFieldEndianess {
 	case LittleEndian:
-		return ts.parseLittleEndianMsgLen(buf)
+		return tr.parseLittleEndianMsgLen(buf)
 	case BigEndian:
-		return ts.parseBigEndianMsgLen(buf)
+		return tr.parseBigEndianMsgLen(buf)
 	}
 
 	return 0
 }
 
-func (ts *tcpRunner) parseLittleEndianMsgLen(buf []byte) int {
+func (tr *tcpRunner) parseLittleEndianMsgLen(buf []byte) int {
 	switch len(buf) {
 	case 1:
 		return int(buf[0])
@@ -550,7 +550,7 @@ func (ts *tcpRunner) parseLittleEndianMsgLen(buf []byte) int {
 	}
 }
 
-func (ts *tcpRunner) parseBigEndianMsgLen(buf []byte) int {
+func (tr *tcpRunner) parseBigEndianMsgLen(buf []byte) int {
 	switch len(buf) {
 	case 1:
 		return int(buf[0])
@@ -565,9 +565,9 @@ func (ts *tcpRunner) parseBigEndianMsgLen(buf []byte) int {
 	}
 }
 
-func (ts *tcpRunner) handleMessage(ctx context.Context, rawMsg []byte) *msg[*TCPMessage] {
+func (tr *tcpRunner) handleMessage(ctx context.Context, rawMsg []byte) *msg[*TCPMessage] {
 	// Create the trace for the incoming message
-	_, span := ts.Tel.StartTrace(ctx, "receive TCP message")
+	_, span := tr.Tel.StartTrace(ctx, "receive TCP message")
 	defer span.End()
 
 	// Create the TCP message
@@ -591,26 +591,26 @@ func (ts *tcpRunner) handleMessage(ctx context.Context, rawMsg []byte) *msg[*TCP
 	msg.SaveSpan(span)
 
 	// Update metrics
-	ts.Metrics.AddReceivedBytes(uint(msgSize))
-	ts.Metrics.IncrementReceivedMessages()
+	tr.Metrics.AddReceivedBytes(uint(msgSize))
+	tr.Metrics.IncrementReceivedMessages()
 
 	return msg
 }
 
-func (ts *tcpRunner) Close(_ context.Context) {
-	<-ts.runDone
+func (tr *tcpRunner) Close(_ context.Context) {
+	<-tr.runDone
 
-	ts.connWG.Wait()
+	tr.connWG.Wait()
 
-	ts.connFanIn.Close()
+	tr.connFanIn.Close()
 }
 
-func (ts *tcpRunner) Inputs() []uintptr {
+func (tr *tcpRunner) Inputs() []uintptr {
 	return []uintptr{}
 }
 
-func (ts *tcpRunner) Outputs() []uintptr {
-	return []uintptr{connector.GetConnectorID(ts.outConnector)}
+func (tr *tcpRunner) Outputs() []uintptr {
+	return []uintptr{connector.GetConnectorID(tr.outConnector)}
 }
 
 // ─── Stage ──────────────────────────────────────────────────────────────────|
