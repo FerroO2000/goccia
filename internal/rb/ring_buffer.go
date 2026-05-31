@@ -159,23 +159,15 @@ func (rb *RingBuffer[T]) len() uint64 {
 }
 
 func (rb *RingBuffer[T]) wait(ctx context.Context, cond *sync.Cond) error {
-	done := make(chan struct{})
-
-	go func() {
-		defer close(done)
-		cond.Wait()
-	}()
-
-	select {
-	case <-done:
-		return nil
-
-	case <-ctx.Done():
-		// Wake up the waiting goroutine
+	stopBroadcast := context.AfterFunc(ctx, func() {
+		cond.L.Lock()
+		defer cond.L.Unlock()
 		cond.Broadcast()
-		<-done
-		return ctx.Err()
-	}
+	})
+	defer stopBroadcast()
+
+	cond.Wait()
+	return ctx.Err()
 }
 
 func (rb *RingBuffer[T]) Write(item T) error {

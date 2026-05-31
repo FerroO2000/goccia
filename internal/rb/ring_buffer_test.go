@@ -243,6 +243,54 @@ func testRingBuffer(t *testing.T, kind BufferKind, capacity, prodNum, consNum, t
 	t.Logf("Processed %d items in %v (%d items/sec)", totalItems, duration, itemsPerSec)
 }
 
+func Test_RingBuffer_ReadCanceledContextDoesNotBlock(t *testing.T) {
+	for _, kind := range []BufferKind{BufferKindSPSC, BufferKindSPMC, BufferKindMPSC} {
+		t.Run(kind.String(), func(t *testing.T) {
+			rb := NewRingBuffer[int](1, kind)
+
+			ctx, cancelCtx := context.WithCancel(t.Context())
+			cancelCtx()
+
+			readDone := make(chan error, 1)
+			go func() {
+				_, err := rb.Read(ctx)
+				readDone <- err
+			}()
+
+			select {
+			case err := <-readDone:
+				assert.ErrorIs(t, err, context.Canceled)
+			case <-time.After(time.Second):
+				t.Fatal("read blocked after its context was canceled")
+			}
+		})
+	}
+}
+
+func Test_RingBuffer_CloseUnblocksDetachedRead(t *testing.T) {
+	for _, kind := range []BufferKind{BufferKindSPSC, BufferKindSPMC, BufferKindMPSC} {
+		t.Run(kind.String(), func(t *testing.T) {
+			rb := NewRingBuffer[int](1, kind)
+
+			readDone := make(chan error, 1)
+			go func() {
+				_, err := rb.Read(context.WithoutCancel(t.Context()))
+				readDone <- err
+			}()
+
+			time.Sleep(10 * time.Millisecond)
+			rb.Close()
+
+			select {
+			case err := <-readDone:
+				assert.ErrorIs(t, err, ErrClosed)
+			case <-time.After(time.Second):
+				t.Fatal("read blocked after the buffer was closed")
+			}
+		})
+	}
+}
+
 ///////////////
 // BENCHMARK //
 ///////////////

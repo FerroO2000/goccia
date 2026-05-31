@@ -198,7 +198,7 @@ func (rp *runnerPool[Env, W]) startWorkerRunner(ctx context.Context) {
 	}
 	defer workerRunner.Close(context.WithoutCancel(ctx))
 
-	workerRunner.RunPooled(ctx, stopCh, rp.scaler.GetPendingCounter())
+	workerRunner.RunPooled(context.WithoutCancel(ctx), stopCh, rp.scaler.GetPendingCounter())
 }
 
 // Run runs the scaler, the input/fan-out and output/fan-in bridges,
@@ -213,7 +213,7 @@ func (rp *runnerPool[Env, W]) Run(ctx context.Context) {
 
 	go func() {
 		defer close(rp.outputRunnerDone)
-		rp.workerRunnerFactory.runOutput(ctx)
+		rp.workerRunnerFactory.runOutput(context.WithoutCancel(ctx))
 	}()
 
 	go rp.scaler.Run(ctx)
