@@ -315,7 +315,7 @@ func (tr *tcpRunner) SetEnvironment(env *tcpEnv) {
 
 func (tr *tcpRunner) Init(_ context.Context) error {
 	fanInBufSize := uint64(tr.Config.OutputQueueSize)
-	tr.connFanIn = rb.NewRingBuffer[*msg[*TCPMessage]](fanInBufSize, rb.BufferKindSPMC)
+	tr.connFanIn = rb.NewRingBuffer[*msg[*TCPMessage]](fanInBufSize, rb.BufferKindMPSC)
 
 	return nil
 }
@@ -338,12 +338,22 @@ func (tr *tcpRunner) runIO(ctx context.Context) {
 func (tr *tcpRunner) Run(ctx context.Context) {
 	defer close(tr.runDone)
 
+	runIODone := make(chan struct{})
+	go func() {
+		defer close(runIODone)
+		tr.runIO(context.WithoutCancel(ctx))
+	}()
+
+	defer func() {
+		tr.connWG.Wait()
+		tr.connFanIn.Close()
+		<-runIODone
+	}()
+
 	go func() {
 		<-ctx.Done()
 		tr.listener.Close()
 	}()
-
-	go tr.runIO(ctx)
 
 	for {
 		conn, err := tr.listener.Accept()
@@ -599,10 +609,6 @@ func (tr *tcpRunner) handleMessage(ctx context.Context, rawMsg []byte) *msg[*TCP
 
 func (tr *tcpRunner) Close(_ context.Context) {
 	<-tr.runDone
-
-	tr.connWG.Wait()
-
-	tr.connFanIn.Close()
 }
 
 func (tr *tcpRunner) Inputs() []uintptr {

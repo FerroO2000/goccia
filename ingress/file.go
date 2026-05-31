@@ -506,7 +506,7 @@ func (fs *fileRunner) SetEnvironment(env *fileEnv) {
 }
 
 func (fs *fileRunner) Init(_ context.Context) error {
-	fs.fanIn = rb.NewRingBuffer[*msg[*FileMessage]](512, rb.BufferKindSPMC)
+	fs.fanIn = rb.NewRingBuffer[*msg[*FileMessage]](512, rb.BufferKindMPSC)
 
 	return nil
 }
@@ -595,7 +595,22 @@ func (fs *fileRunner) runIO(ctx context.Context) {
 func (fs *fileRunner) Run(ctx context.Context) {
 	defer close(fs.runDone)
 
-	go fs.runIO(ctx)
+	runIODone := make(chan struct{})
+	go func() {
+		defer close(runIODone)
+		fs.runIO(context.WithoutCancel(ctx))
+	}()
+
+	defer func() {
+		fs.watcher.Close()
+
+		for _, reader := range fs.readers {
+			reader.close()
+		}
+
+		fs.fanIn.Close()
+		<-runIODone
+	}()
 
 	// Before starting the watcher, read all the existing files
 	fs.readExistingFiles(ctx)
@@ -661,14 +676,6 @@ func (fs *fileRunner) handleEvent(ctx context.Context, event fsnotify.Event) {
 
 func (fs *fileRunner) Close(_ context.Context) {
 	<-fs.runDone
-
-	fs.watcher.Close()
-
-	for _, reader := range fs.readers {
-		reader.close()
-	}
-
-	fs.fanIn.Close()
 }
 
 func (fs *fileRunner) Inputs() []uintptr {
