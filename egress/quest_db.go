@@ -311,6 +311,10 @@ func (qw *questDBWorker) Init(ctx context.Context) error {
 }
 
 func (qw *questDBWorker) Deliver(ctx context.Context, msgIn *msg[*QuestDBMessage]) error {
+	// The pipeline cancels the stage context before queued messages are drained.
+	// Keep QuestDB auto-flush requests alive while finishing that work.
+	ctx = context.WithoutCancel(ctx)
+
 	ctx, span := qw.Tel.StartTrace(ctx, "deliver QuestDB rows")
 	defer span.End()
 
@@ -358,7 +362,6 @@ func (qw *questDBWorker) Deliver(ctx context.Context, msgIn *msg[*QuestDBMessage
 }
 
 func (qw *questDBWorker) Close(ctx context.Context) error {
-	// Close the sender
 	if err := qw.sender.Close(ctx); err != nil {
 		return err
 	}

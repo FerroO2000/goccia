@@ -1,4 +1,4 @@
-package pool
+package scaler
 
 import (
 	"context"

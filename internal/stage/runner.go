@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"github.com/FerroO2000/goccia/internal/config"
-	"github.com/FerroO2000/goccia/internal/pool"
 	"github.com/FerroO2000/goccia/internal/stage/env"
+	"github.com/FerroO2000/goccia/internal/stage/scaler"
 	"github.com/FerroO2000/goccia/internal/stage/worker"
 )
 
@@ -111,7 +111,7 @@ func (rs *runnerSingle[Env, W]) Run(ctx context.Context) {
 // Close closes the worker runner and the output connector (if any).
 func (rs *runnerSingle[Env, W]) Close(ctx context.Context) {
 	rs.workerRunner.Close(ctx)
-	rs.workerRunnerFactory.closeIO()
+	rs.workerRunnerFactory.closeOutput()
 }
 
 // ─── Pool ───────────────────────────────────────────────────────────────────|
@@ -123,11 +123,13 @@ type runnerPool[Env env.Env, W worker.Worker[Env]] struct {
 
 	initArgs Env
 
-	initialWorkerRunner      int
-	workerRunnerListenerDone chan struct{}
-	workerRunnerWg           *sync.WaitGroup
+	initialWorkerRunner int
+	workerRunnerWg      *sync.WaitGroup
+	inputRunnerDone     chan struct{}
+	outputRunnerDone    chan struct{}
+	runDone             chan struct{}
 
-	scaler *pool.Scaler
+	scaler *scaler.Scaler
 }
 
 func newRunnerPool[Env env.Env, W worker.Worker[Env]](
@@ -138,11 +140,13 @@ func newRunnerPool[Env env.Env, W worker.Worker[Env]](
 	return &runnerPool[Env, W]{
 		baseRunner: newBaseRunner(workerRunnerFactory),
 
-		initialWorkerRunner:      cfg.InitialWorkers,
-		workerRunnerListenerDone: make(chan struct{}),
-		workerRunnerWg:           &sync.WaitGroup{},
+		initialWorkerRunner: cfg.InitialWorkers,
+		workerRunnerWg:      &sync.WaitGroup{},
+		inputRunnerDone:     make(chan struct{}),
+		outputRunnerDone:    make(chan struct{}),
+		runDone:             make(chan struct{}),
 
-		scaler: pool.NewScaler(nil, cfg),
+		scaler: scaler.NewScaler(nil, cfg),
 	}
 }
 
@@ -160,7 +164,6 @@ func (rp *runnerPool[Env, W]) Init(ctx context.Context) error {
 // runStartWorkerRunnerListener will trigger the creation of new worker runners
 // when the scaler mandates.
 func (rp *runnerPool[Env, W]) runStartWorkerRunnerListener(ctx context.Context) {
-	defer close(rp.workerRunnerListenerDone)
 	startCh := rp.scaler.GetStartCh()
 
 	for {
@@ -193,27 +196,41 @@ func (rp *runnerPool[Env, W]) startWorkerRunner(ctx context.Context) {
 	if err := workerRunner.Init(ctx); err != nil {
 		return
 	}
-	defer workerRunner.Close(ctx)
+	defer workerRunner.Close(context.WithoutCancel(ctx))
 
 	workerRunner.RunPooled(ctx, stopCh, rp.scaler.GetPendingCounter())
 }
 
-// Run runs the scaler, the bridge between the input/fan-out
-// and/or the output/fan-in connectors, and the start worker runner listener.
+// Run runs the scaler, the input/fan-out and output/fan-in bridges,
+// and the start worker runner listener.
 func (rp *runnerPool[Env, W]) Run(ctx context.Context) {
-	go rp.workerRunnerFactory.runIO(ctx)
+	defer close(rp.runDone)
+
+	go func() {
+		defer close(rp.inputRunnerDone)
+		rp.workerRunnerFactory.runInput(ctx)
+	}()
+
+	go func() {
+		defer close(rp.outputRunnerDone)
+		rp.workerRunnerFactory.runOutput(ctx)
+	}()
 
 	go rp.scaler.Run(ctx)
 	rp.runStartWorkerRunnerListener(ctx)
-}
 
-// Close closes the scaler, the bridge between the input/fan-out
-// and/or the output/fan-in connectors, and the output connector (if any).
-func (rp *runnerPool[Env, W]) Close(_ context.Context) {
-	<-rp.workerRunnerListenerDone
-	rp.scaler.Close()
+	<-rp.inputRunnerDone
 
 	rp.workerRunnerWg.Wait()
 
-	rp.workerRunnerFactory.closeIO()
+	rp.workerRunnerFactory.closeOutput()
+	<-rp.outputRunnerDone
+
+	rp.scaler.Close()
+}
+
+// Close waits for Run to finish draining the input bridge, workers, and output
+// bridge in ownership order.
+func (rp *runnerPool[Env, W]) Close(_ context.Context) {
+	<-rp.runDone
 }

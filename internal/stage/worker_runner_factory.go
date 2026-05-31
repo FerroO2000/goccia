@@ -10,8 +10,9 @@ import (
 type stageWorkerRunnerFactory[Env env.Env, W worker.Worker[Env]] interface {
 	setEnvironment(env Env)
 	makeWorkerRunner(workerID int) *worker.Runner[Env, W]
-	runIO(ctx context.Context)
-	closeIO()
+	runInput(ctx context.Context)
+	runOutput(ctx context.Context)
+	closeOutput()
 	getInputConnectorID() uintptr
 	getOutputConnectorID() uintptr
 }
@@ -48,12 +49,15 @@ func (p *processorWorkerRunnerFactory[Env, In, Out, W]) makeWorkerRunner(workerI
 	return worker.NewProcessorRunner(p.env, workerID, w, reader, writer)
 }
 
-func (p *processorWorkerRunnerFactory[Env, In, Out, W]) runIO(ctx context.Context) {
-	go p.input.run(ctx)
+func (p *processorWorkerRunnerFactory[Env, In, Out, W]) runInput(ctx context.Context) {
+	p.input.run(ctx)
+}
+
+func (p *processorWorkerRunnerFactory[Env, In, Out, W]) runOutput(ctx context.Context) {
 	p.output.run(ctx)
 }
 
-func (p *processorWorkerRunnerFactory[Env, In, Out, W]) closeIO() {
+func (p *processorWorkerRunnerFactory[Env, In, Out, W]) closeOutput() {
 	p.output.close()
 }
 
@@ -94,11 +98,13 @@ func (ef *egressWorkerRunnerFactory[Env, In, W]) makeWorkerRunner(workerID int) 
 	return worker.NewEgressRunner(ef.env, workerID, w, reader)
 }
 
-func (ef *egressWorkerRunnerFactory[Env, In, W]) runIO(ctx context.Context) {
+func (ef *egressWorkerRunnerFactory[Env, In, W]) runInput(ctx context.Context) {
 	ef.input.run(ctx)
 }
 
-func (ef *egressWorkerRunnerFactory[Env, In, W]) closeIO() {}
+func (ef *egressWorkerRunnerFactory[Env, In, W]) runOutput(_ context.Context) {}
+
+func (ef *egressWorkerRunnerFactory[Env, In, W]) closeOutput() {}
 
 func (ef *egressWorkerRunnerFactory[Env, In, W]) getInputConnectorID() uintptr {
 	return ef.input.getConnectorID()

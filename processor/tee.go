@@ -134,7 +134,7 @@ type TeeStage[T msgBody] struct {
 func NewTeeStage[T msgBody](inConnector msgConn[T], outConnectors ...msgConn[T]) *TeeStage[T] {
 	return &TeeStage[T]{
 		ProcessorStage: stage.NewProcessorStageFromRunner[T, T](
-			"tee", newTeeEnv(), newTeeRunner[T](inConnector, outConnectors...),
+			"tee", newTeeEnv(), newTeeRunner(inConnector, outConnectors...),
 		),
 	}
 }
