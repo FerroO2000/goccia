@@ -18,7 +18,7 @@
         <link rel="prev" href="../../getting-started/">
       
       
-        <link rel="next" href="../../examples/">
+        <link rel="next" href="../connectors/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>Pipeline concepts - Goccia</title>
+        <title>Pipeline Concepts - Goccia</title>
       
     
     
@@ -125,7 +125,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Pipeline concepts
+              Pipeline Concepts
             
           </span>
         </div>
@@ -281,7 +281,7 @@
   <span class="md-ellipsis">
     
   
-  Get started
+  Get Started
 
     
   </span>
@@ -295,6 +295,53 @@
     
       
       
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Concepts
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Concepts
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
   
   
     
@@ -318,7 +365,7 @@
   <span class="md-ellipsis">
     
   
-  Pipeline concepts
+  Pipeline
 
     
   </span>
@@ -337,7 +384,7 @@
   <span class="md-ellipsis">
     
   
-  Pipeline concepts
+  Pipeline
 
     
   </span>
@@ -366,10 +413,66 @@
   <a href="#stage-graph" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Stage graph
+        Stage Graph
       </span>
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Stage Graph">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#building-the-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Building the Graph
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Pipeline Lifecycle
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pipeline Lifecycle">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#initialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Initialization
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Running
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -385,10 +488,93 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#context-cancellation-chain" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Context Cancellation Chain
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Context Cancellation Chain">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#context-roles" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Context Roles
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-stage-completion-signal" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Per-Stage Completion Signal
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#linear-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Linear Example
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fan-in-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fan-In Example
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fan-out-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fan-Out Example
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#graceful-shutdown" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Graceful shutdown
+        Graceful Shutdown
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#closing-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Closing Resources
       </span>
     </span>
   </a>
@@ -398,6 +584,72 @@
     </ul>
   
 </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../connectors/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Connectors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stages/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-boxes" viewBox="0 0 24 24"><path d="M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3zM7 16.5l-4.74-2.85M7 16.5l5-3M7 16.5v5.17M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5zM17 16.5l-5-3M17 16.5l4.74-2.85M17 16.5v5.17"/><path d="M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0zM12 8 7.26 5.15M12 8l4.74-2.85M12 13.5V8"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Stages
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
       
     </li>
   
@@ -475,10 +727,66 @@
   <a href="#stage-graph" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Stage graph
+        Stage Graph
       </span>
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Stage Graph">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#building-the-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Building the Graph
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Pipeline Lifecycle
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pipeline Lifecycle">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#initialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Initialization
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Running
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -494,10 +802,93 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#context-cancellation-chain" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Context Cancellation Chain
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Context Cancellation Chain">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#context-roles" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Context Roles
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-stage-completion-signal" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Per-Stage Completion Signal
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#linear-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Linear Example
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fan-in-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fan-In Example
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fan-out-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fan-Out Example
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#graceful-shutdown" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Graceful shutdown
+        Graceful Shutdown
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#closing-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Closing Resources
       </span>
     </span>
   </a>
@@ -522,6 +913,51 @@
   
 
 
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="././" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Concepts
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
               
               <article class="md-content__inner md-typeset">
                 
@@ -530,38 +966,281 @@
   
 
 
-<h1 id="pipeline-concepts">Pipeline concepts<a class="headerlink" href="#pipeline-concepts" title="Permanent link">&para;</a></h1>
-<h2 id="stage-graph">Stage graph<a class="headerlink" href="#stage-graph" title="Permanent link">&para;</a></h2>
+<h1 id="pipeline-concepts">Pipeline Concepts<a class="headerlink" href="#pipeline-concepts" title="Permanent link">&para;</a></h1>
+<p>The pipeline coordinates a graph of <a href="../stages/">stages</a>. Its most important
+responsibility is graceful shutdown: upstream stages stop producing first,
+while downstream stages remain alive long enough to consume every queued and
+in-flight message.</p>
+<h2 id="stage-graph">Stage Graph<a class="headerlink" href="#stage-graph" title="Permanent link">&para;</a></h2>
 <p>Goccia models a pipeline as a directed acyclic graph:</p>
 <pre class="mermaid"><code>flowchart LR
   A[Ingress] --&gt; B[Processor]
   B --&gt; C[Processor]
   C --&gt; D[Egress]</code></pre>
-<p>A connector identifies each edge. The graph determines initialization order
-and shutdown propagation.</p>
-<h2 id="backpressure">Backpressure<a class="headerlink" href="#backpressure" title="Permanent link">&para;</a></h2>
-<p>Connectors are bounded queues. When a queue is full, its producer waits until a
-consumer reads a message. This bounds memory usage and propagates pressure
-upstream instead of silently dropping work.</p>
-<h2 id="graceful-shutdown">Graceful shutdown<a class="headerlink" href="#graceful-shutdown" title="Permanent link">&para;</a></h2>
-<p>Shutdown follows message flow:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>stop producers
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>-&gt; drain queued and in-flight messages
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>-&gt; stop consumers
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>-&gt; release resources
+<p>A <a href="../connectors/">connector</a> identifies each edge. Each node is a
+<a href="../stages/">stage</a>. The graph determines initialization order and shutdown
+propagation.</p>
+<h3 id="building-the-graph">Building the Graph<a class="headerlink" href="#building-the-graph" title="Permanent link">&para;</a></h3>
+<p>When <code>Pipeline.Init()</code> runs, the pipeline builds the graph from connector
+identity:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>stage output connector ID
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>-&gt; matching downstream input connector ID
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>-&gt; parent-child edge
 </span></code></pre></div>
-<p>For a pooled processor, Goccia introduces internal fan-out and fan-in queues:</p>
+<p>A stage with no parent is an ingress node. The graph can have more than one
+ingress node, fan-out branches, and fan-in joins:</p>
 <pre class="mermaid"><code>flowchart LR
-  input[External input] --&gt; fanout[Fan-out queue]
-  fanout --&gt; workers[Worker pool]
+  A[Ingress A] --&gt; C[Processor C]
+  B[Ingress B] --&gt; D[Processor D]
+  C --&gt; E[Processor E]
+  D --&gt; E
+  E --&gt; F[Egress F]</code></pre>
+<p>The pipeline traverses this graph in topological order: every parent appears
+before its children. Initialization and final cleanup use this order.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Add stages in upstream-to-downstream order. Graph construction resolves
+each input by looking up an output connector that has already been
+registered.</p>
+</div>
+<h2 id="pipeline-lifecycle">Pipeline Lifecycle<a class="headerlink" href="#pipeline-lifecycle" title="Permanent link">&para;</a></h2>
+<p>A pipeline moves through four phases:</p>
+<pre class="mermaid"><code>flowchart LR
+  idle[Idle] --&gt;|AddStage| idle
+  idle --&gt;|Init| initialized[Initialized]
+  initialized --&gt;|Run| running[Running]
+  running --&gt;|Close| closed[Closed]</code></pre>
+<p>The typical application flow is:</p>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nx">pipeline</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">goccia</span><span class="p">.</span><span class="nx">NewPipeline</span><span class="p">()</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nx">pipeline</span><span class="p">.</span><span class="nx">AddStage</span><span class="p">(</span><span class="nx">source</span><span class="p">)</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nx">pipeline</span><span class="p">.</span><span class="nx">AddStage</span><span class="p">(</span><span class="nx">processor</span><span class="p">)</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nx">pipeline</span><span class="p">.</span><span class="nx">AddStage</span><span class="p">(</span><span class="nx">destination</span><span class="p">)</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">Init</span><span class="p">(</span><span class="nx">ctx</span><span class="p">);</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">}</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="k">go</span><span class="w"> </span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">Run</span><span class="p">(</span><span class="nx">ctx</span><span class="p">)</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="o">&lt;-</span><span class="nx">ctx</span><span class="p">.</span><span class="nx">Done</span><span class="p">()</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="nx">pipeline</span><span class="p">.</span><span class="nx">Close</span><span class="p">(</span><span class="nx">closeCtx</span><span class="p">)</span>
+</span></code></pre></div>
+<p><code>Run()</code> blocks until every stage has returned from its own <code>Run()</code> method.
+Applications commonly start it in a goroutine and call <code>Close()</code> after
+receiving a shutdown signal.</p>
+<h3 id="initialization">Initialization<a class="headerlink" href="#initialization" title="Permanent link">&para;</a></h3>
+<p><code>Pipeline.Init(ctx)</code>:</p>
+<ol>
+<li>Builds the stage graph.</li>
+<li>Traverses stages from upstream to downstream.</li>
+<li>Calls <code>Init(ctx)</code> on each stage.</li>
+</ol>
+<p>Each stage initializes its environment before its runner. This is where
+configuration validation, metrics setup, and stage-specific resources are
+created.</p>
+<h3 id="running">Running<a class="headerlink" href="#running" title="Permanent link">&para;</a></h3>
+<p><code>Pipeline.Run(ctx)</code> starts one run goroutine for every stage. Processor and
+egress stages also receive a small watcher goroutine that controls when their
+run context is canceled.</p>
+<p>All stage run goroutines start together. Shutdown order is enforced later by
+context cancellation and <code>runDoneCh</code>, not by delaying the startup of
+downstream stages.</p>
+<h2 id="backpressure">Backpressure<a class="headerlink" href="#backpressure" title="Permanent link">&para;</a></h2>
+<p><a href="../connectors/">Connectors</a> are bounded queues. When a queue is full, its
+producer waits until a consumer reads a message. This bounds memory usage and
+propagates pressure upstream instead of silently dropping work.</p>
+<p>Backpressure is why shutdown cannot cancel every stage at once. If an upstream
+stage is blocked in <code>Write()</code>, its downstream consumer must remain alive until
+the write completes or the connector closes.</p>
+<h2 id="context-cancellation-chain">Context Cancellation Chain<a class="headerlink" href="#context-cancellation-chain" title="Permanent link">&para;</a></h2>
+<p>Shutdown cancellation propagates through the graph in the same direction as
+messages:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>ingress stops
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>-&gt; its Run returns
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>-&gt; direct children are canceled
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>-&gt; children drain and return
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>-&gt; their children are canceled
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>-&gt; repeat until every leaf has stopped
+</span></code></pre></div>
+<p>This is not Go's ordinary parent-context propagation. The pipeline constructs
+the cancellation chain deliberately.</p>
+<h3 id="context-roles">Context Roles<a class="headerlink" href="#context-roles" title="Permanent link">&para;</a></h3>
+<p><code>Pipeline.Run(ctx)</code> creates two context families:</p>
+<table>
+<thead>
+<tr>
+<th>Context</th>
+<th>Used by</th>
+<th>Cancellation behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Root run context</td>
+<td>Ingress stages</td>
+<td>Derived from the caller's <code>ctx</code>; canceled by the caller or <code>Pipeline.Close()</code></td>
+</tr>
+<tr>
+<td>Detached stage context</td>
+<td>Processor and egress stages</td>
+<td>Detached from the caller's cancellation, then wrapped with a dedicated cancel function</td>
+</tr>
+</tbody>
+</table>
+<p>In simplified form:</p>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nx">runRootCtx</span><span class="p">,</span><span class="w"> </span><span class="nx">cancelRunRootCtx</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">WithCancel</span><span class="p">(</span><span class="nx">ctx</span><span class="p">)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nx">detachedCtx</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">WithoutCancel</span><span class="p">(</span><span class="nx">ctx</span><span class="p">)</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">for</span><span class="w"> </span><span class="nx">each</span><span class="w"> </span><span class="nx">stage</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nx">runCtx</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">runRootCtx</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">stage</span><span class="w"> </span><span class="nx">is</span><span class="w"> </span><span class="nx">not</span><span class="w"> </span><span class="nx">ingress</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">        </span><span class="nx">runCtx</span><span class="p">,</span><span class="w"> </span><span class="nx">stage</span><span class="p">.</span><span class="nx">cancelRunCtx</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">WithCancel</span><span class="p">(</span><span class="nx">detachedCtx</span><span class="p">)</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="k">go</span><span class="w"> </span><span class="nx">runStage</span><span class="p">(</span><span class="nx">runCtx</span><span class="p">,</span><span class="w"> </span><span class="nx">stage</span><span class="p">)</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>The detached downstream contexts are essential. When the external signal
+cancels <code>ctx</code>, ingress stages should stop reading from external sources.
+Processors and egress stages must stay alive because ingress stages may still
+be finishing blocked writes or publishing final messages.</p>
+<h3 id="per-stage-completion-signal">Per-Stage Completion Signal<a class="headerlink" href="#per-stage-completion-signal" title="Permanent link">&para;</a></h3>
+<p>Every graph node owns a <code>runDoneCh</code>. A stage closes this channel only after its
+<code>Run()</code> method has returned:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>stage.Run(ctx)
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>-&gt; stage drains its local work
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>-&gt; stage.Run returns
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>-&gt; close stage.runDoneCh
+</span></code></pre></div>
+<p>For a non-ingress stage, the pipeline starts a watcher:</p>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">for</span><span class="w"> </span><span class="nx">parent</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">stage</span><span class="p">.</span><span class="nx">parents</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="o">&lt;-</span><span class="nx">parent</span><span class="p">.</span><span class="nx">runDoneCh</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="p">}</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="nx">stage</span><span class="p">.</span><span class="nx">cancelRun</span><span class="p">()</span>
+</span></code></pre></div>
+<p>The watcher waits for every immediate parent. Only then does it cancel the
+stage's dedicated run context.</p>
+<h3 id="linear-example">Linear Example<a class="headerlink" href="#linear-example" title="Permanent link">&para;</a></h3>
+<p>Consider a simple pipeline:</p>
+<pre class="mermaid"><code>flowchart LR
+  A[Ingress A] --&gt; B[Processor B]
+  B --&gt; C[Egress C]</code></pre>
+<p>When the application receives a shutdown signal:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>external context is canceled
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>-&gt; A run context is canceled
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>-&gt; A stops reading its external source
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>-&gt; A finishes any current output write
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>-&gt; A.Run returns and closes A.runDoneCh
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>-&gt; B watcher cancels B run context
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>-&gt; B drains queued and in-flight messages
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>-&gt; B.Run returns and closes B.runDoneCh
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>-&gt; C watcher cancels C run context
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>-&gt; C drains final deliveries
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>-&gt; C.Run returns and closes C.runDoneCh
+</span></code></pre></div>
+<p>At each step, the downstream consumer stays active until its upstream producer
+has finished.</p>
+<h3 id="fan-in-example">Fan-In Example<a class="headerlink" href="#fan-in-example" title="Permanent link">&para;</a></h3>
+<p>A fan-in stage must not stop when only one parent finishes:</p>
+<pre class="mermaid"><code>flowchart LR
+  A[Ingress A] --&gt; C[Processor C]
+  B[Ingress B] --&gt; C
+  C --&gt; D[Egress D]</code></pre>
+<p>The cancellation chain is:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>A.Run returns ----\
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>                   -&gt; wait for both parents -&gt; cancel C
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>B.Run returns ----/
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>C.Run drains and returns
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>-&gt; cancel D
+</span></code></pre></div>
+<p>If <code>A</code> finishes before <code>B</code>, <code>C</code> remains active so it can continue consuming
+messages from <code>B</code>. The same rule applies at every join in a larger graph.</p>
+<h3 id="fan-out-example">Fan-Out Example<a class="headerlink" href="#fan-out-example" title="Permanent link">&para;</a></h3>
+<p>When one parent has multiple children, each child has its own watcher and
+dedicated run context:</p>
+<pre class="mermaid"><code>flowchart LR
+  A[Processor A] --&gt; B[Egress B]
+  A --&gt; C[Egress C]</code></pre>
+<p>After <code>A.Run()</code> returns, both <code>B</code> and <code>C</code> can begin draining independently.
+One branch does not wait for the other branch unless they meet again at a
+downstream fan-in node.</p>
+<h2 id="graceful-shutdown">Graceful Shutdown<a class="headerlink" href="#graceful-shutdown" title="Permanent link">&para;</a></h2>
+<p>The pipeline-level cancellation wave composes with each stage's local drain
+rules:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>stop upstream producer
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>-&gt; let producer publish final output
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>-&gt; cancel direct downstream consumers
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>-&gt; let consumers drain queued and in-flight work
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>-&gt; continue downstream
+</span></code></pre></div>
+<p>For a <a href="../stages/#pooled-execution-mode">pooled processor stage</a>, the local
+drain adds internal fan-out and fan-in queues:</p>
+<pre class="mermaid"><code>flowchart LR
+  input[External input] --&gt; inbridge[Input bridge]
+  inbridge --&gt; fanout[Fan-out queue]
+  fanout --&gt; workers[Worker executors]
   workers --&gt; fanin[Fan-in queue]
-  fanin --&gt; output[External output]</code></pre>
-<p>The fan-out bridge closes the internal input queue after its external input
-stops. Workers consume the remaining messages and then exit. Only after all
-workers finish does the runner close the fan-in queue, allowing the output
-bridge to drain and stop.</p>
+  fanin --&gt; outbridge[Output bridge]
+  outbridge --&gt; output[External output]</code></pre>
+<p>After the stage run context is canceled:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>input bridge stops and closes fan-out
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>-&gt; worker executors drain fan-out and finish in-flight work
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>-&gt; runner waits for every executor
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>-&gt; runner closes fan-in
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>-&gt; output bridge drains fan-in
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>-&gt; output bridge closes the external output connector
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>-&gt; stage Run returns
+</span></code></pre></div>
 <p>This ordering keeps downstream consumers alive while producers can still be
 blocked by backpressure.</p>
+<h2 id="closing-resources">Closing Resources<a class="headerlink" href="#closing-resources" title="Permanent link">&para;</a></h2>
+<p><code>Pipeline.Close(ctx)</code> starts the shutdown if it has not already begun:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>cancel root run context
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>-&gt; wait for each stage Run to return
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>-&gt; call each stage Close(ctx) in topological order
+</span></code></pre></div>
+<p>The root cancellation affects ingress stages directly. The downstream
+cancellation chain then proceeds through <code>runDoneCh</code> as described above.</p>
+<p><code>Run()</code> and <code>Close()</code> have different responsibilities:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Run()</code></td>
+<td>Process messages and complete the graceful drain</td>
+</tr>
+<tr>
+<td><code>Close(ctx)</code></td>
+<td>Release resources after draining has completed</td>
+</tr>
+</tbody>
+</table>
+<p>For example, an ingress runner closes its output connector during cleanup, and
+an egress environment may flush or close an external client.</p>
+<p>The context passed to <code>Pipeline.Close(ctx)</code> is the application's cleanup
+context. It is separate from the canceled run context so resource cleanup can
+still perform final operations. Applications can give it a deadline:</p>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nx">closeCtx</span><span class="p">,</span><span class="w"> </span><span class="nx">cancelClose</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">WithTimeout</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">(),</span><span class="w"> </span><span class="mi">10</span><span class="o">*</span><span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">)</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">defer</span><span class="w"> </span><span class="nx">cancelClose</span><span class="p">()</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="nx">pipeline</span><span class="p">.</span><span class="nx">Close</span><span class="p">(</span><span class="nx">closeCtx</span><span class="p">)</span>
+</span></code></pre></div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Canceling the run context stops and drains stage execution. Call
+<code>Pipeline.Close()</code> as well so the pipeline waits for that drain and releases
+stage resources.</p>
+</div>
+<p>Next, read about the <a href="../connectors/">connectors</a> that define graph edges and
+carry messages between stages.</p>
 
 
 
@@ -602,7 +1281,7 @@ blocked by backpressure.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../getting-started/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Get started">
+          <a href="../../getting-started/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Get Started">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -612,20 +1291,20 @@ blocked by backpressure.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Get started
+                Get Started
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../examples/" class="md-footer__link md-footer__link--next" aria-label="Next: Examples">
+          <a href="../connectors/" class="md-footer__link md-footer__link--next" aria-label="Next: Connectors">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Examples
+                Connectors
               </div>
             </div>
             <div class="md-footer__button md-icon">

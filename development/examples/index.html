@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://ferroo2000.github.io/goccia/development/examples/">
       
       
-        <link rel="prev" href="../concepts/pipeline/">
+        <link rel="prev" href="../concepts/stages/">
       
       
       
@@ -279,7 +279,7 @@
   <span class="md-ellipsis">
     
   
-  Get started
+  Get Started
 
     
   </span>
@@ -297,6 +297,51 @@
   
   
   
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Concepts
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Concepts
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../concepts/pipeline/" class="md-nav__link">
         
@@ -307,7 +352,7 @@
   <span class="md-ellipsis">
     
   
-  Pipeline concepts
+  Pipeline
 
     
   </span>
@@ -315,6 +360,72 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/connectors/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Connectors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/stages/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-boxes" viewBox="0 0 24 24"><path d="M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3zM7 16.5l-4.74-2.85M7 16.5l5-3M7 16.5v5.17M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5zM17 16.5l-5-3M17 16.5l4.74-2.85M17 16.5v5.17"/><path d="M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0zM12 8 7.26 5.15M12 8l4.74-2.85M12 13.5V8"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Stages
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -392,7 +503,7 @@
   <a href="#run-an-example" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Run an example
+        Run an Example
       </span>
     </span>
   </a>
@@ -451,7 +562,7 @@
   <a href="#run-an-example" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Run an example
+        Run an Example
       </span>
     </span>
   </a>
@@ -518,7 +629,7 @@ directory.</p>
 </tr>
 </tbody>
 </table>
-<h2 id="run-an-example">Run an example<a class="headerlink" href="#run-an-example" title="Permanent link">&para;</a></h2>
+<h2 id="run-an-example">Run an Example<a class="headerlink" href="#run-an-example" title="Permanent link">&para;</a></h2>
 <p>The examples share a Makefile:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span><span class="w"> </span>examples
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>make<span class="w"> </span>&lt;example&gt;<span class="w"> </span>&lt;command&gt;
@@ -571,7 +682,7 @@ for the complete command list and infrastructure requirements.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../concepts/pipeline/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Pipeline concepts">
+          <a href="../concepts/stages/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Stages">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -581,7 +692,7 @@ for the complete command list and infrastructure requirements.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Pipeline concepts
+                Stages
               </div>
             </div>
           </a>
