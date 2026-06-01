@@ -1,0 +1,66 @@
+[project]
+site_name = "Goccia"
+site_description = "Composable streaming pipelines for Go."
+site_author = "The Goccia authors"
+site_url = "https://ferroo2000.github.io/goccia/"
+copyright = "Copyright &copy; 2026 The Goccia authors"
+repo_url = "https://github.com/FerroO2000/goccia"
+repo_name = "FerroO2000/goccia"
+nav = [
+  { "Home" = "index.md" },
+  { "Get started" = "getting-started.md" },
+  { "Pipeline concepts" = "concepts/pipeline.md" },
+  { "Examples" = "examples.md" },
+]
+
+[project.theme]
+language = "en"
+features = [
+  "content.code.copy",
+  "content.tooltips",
+  "navigation.footer",
+  "navigation.instant",
+  "navigation.instant.prefetch",
+  "navigation.path",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+]
+
+[[project.theme.palette]]
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.theme.icon]
+logo = "lucide/droplets"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/FerroO2000/goccia"
+
+[project.extra.version]
+provider = "mike"
+default = ["latest", "development"]
+alias = true
+
+[project.markdown_extensions.admonition]
+[project.markdown_extensions.attr_list]
+[project.markdown_extensions.md_in_html]
+[project.markdown_extensions.toc]
+permalink = true
+[project.markdown_extensions.pymdownx.details]
+[project.markdown_extensions.pymdownx.highlight]
+anchor_linenums = true
+line_spans = "__span"
+pygments_lang_class = true
+[project.markdown_extensions.pymdownx.inlinehilite]
+[project.markdown_extensions.pymdownx.superfences]
+custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
