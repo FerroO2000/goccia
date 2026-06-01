@@ -322,12 +322,12 @@ type EBPFStage[T any, O any, OPtr ebpfObjsPtr[O]] struct {
 
 // NewEBPFStage creates a new ebpf ingress stage.
 func NewEBPFStage[T any, O any, OPtr ebpfObjsPtr[O]](
-	outputConnector msgConn[*EBPFMessage[T]], cfg *EBPFConfig[O, OPtr],
+	outConnector msgConn[*EBPFMessage[T]], cfg *EBPFConfig[O, OPtr],
 ) *EBPFStage[T, O, OPtr] {
 
 	return &EBPFStage[T, O, OPtr]{
 		IngressStage: stage.NewIngressStageFromRunner[*EBPFMessage[T]](
-			"ebpf", newEBPFEnv[T](cfg), newEBPFRunner[T, O, OPtr](outputConnector),
+			"ebpf", newEBPFEnv[T](cfg), newEBPFRunner[T, O, OPtr](outConnector),
 		),
 	}
 }

@@ -84,12 +84,12 @@ func Test_RunnerPool_CloseDrainsBlockedWorkerOutputs(t *testing.T) {
 		}
 	}
 
-	factory := newProcessorWorkerRunnerFactory(
+	backend := newProcessorRunnerBackend(
 		newInput(input, stageCfg),
 		newOutput(output, stageCfg),
 		workerMaker,
 	)
-	runner := newRunnerPool(factory, poolCfg)
+	runner := newRunnerPool(backend, poolCfg)
 
 	testEnv := env.NewProcessorEnv(config.NewEmpty(), metrics.NewEmptyMetrics())
 	testEnv.SetTelemetry(telemetry.NewTelemetry("", ""))
@@ -320,14 +320,14 @@ func Test_RunnerSingle_CancelUnblocksEmptyRead(t *testing.T) {
 	input := connector.NewRingBuffer[*runnerPoolTestMessage](1)
 	output := connector.NewRingBuffer[*runnerPoolTestMessage](1)
 
-	factory := newProcessorWorkerRunnerFactory(
+	backend := newProcessorRunnerBackend(
 		newInput(input, stageCfg),
 		newOutput(output, stageCfg),
 		func() *runnerPoolPassThroughWorker {
 			return &runnerPoolPassThroughWorker{}
 		},
 	)
-	runner := newRunnerSingle(factory)
+	runner := newRunnerSingle(backend)
 	runner.SetEnvironment(newRunnerPoolTestEnv())
 	require.NoError(t, runner.Init(t.Context()))
 
@@ -353,14 +353,14 @@ func Test_RunnerSingle_CancelDrainsBufferedInput(t *testing.T) {
 		require.NoError(t, input.Write(message.NewMessage(&runnerPoolTestMessage{value: value})))
 	}
 
-	factory := newProcessorWorkerRunnerFactory(
+	backend := newProcessorRunnerBackend(
 		newInput(input, stageCfg),
 		newOutput(output, stageCfg),
 		func() *runnerPoolPassThroughWorker {
 			return &runnerPoolPassThroughWorker{}
 		},
 	)
-	runner := newRunnerSingle(factory)
+	runner := newRunnerSingle(backend)
 	runner.SetEnvironment(newRunnerPoolTestEnv())
 	require.NoError(t, runner.Init(t.Context()))
 
@@ -396,14 +396,14 @@ func Test_RunnerSingle_CancelWaitsForDownstreamBackpressure(t *testing.T) {
 		writeStarted: make(chan struct{}),
 	}
 
-	factory := newProcessorWorkerRunnerFactory(
+	backend := newProcessorRunnerBackend(
 		newInput(input, stageCfg),
-		newOutput[*runnerPoolTestMessage](output, stageCfg),
+		newOutput(output, stageCfg),
 		func() *runnerPoolPassThroughWorker {
 			return &runnerPoolPassThroughWorker{}
 		},
 	)
-	runner := newRunnerSingle(factory)
+	runner := newRunnerSingle(backend)
 	runner.SetEnvironment(newRunnerPoolTestEnv())
 	require.NoError(t, runner.Init(t.Context()))
 
@@ -448,12 +448,12 @@ func Test_RunnerPool_CancelDoesNotStopWorkersBeforeFanOutCloses(t *testing.T) {
 		return &runnerPoolPassThroughWorker{closed: closed}
 	}
 
-	factory := newProcessorWorkerRunnerFactory(
-		newInput[*runnerPoolTestMessage](input, stageCfg),
+	backend := newProcessorRunnerBackend(
+		newInput(input, stageCfg),
 		newOutput(output, stageCfg),
 		workerMaker,
 	)
-	runner := newRunnerPool(factory, poolCfg)
+	runner := newRunnerPool(backend, poolCfg)
 	runner.SetEnvironment(newRunnerPoolTestEnv())
 	require.NoError(t, runner.Init(t.Context()))
 
@@ -511,14 +511,14 @@ func Test_RunnerPool_CancelDrainsOutputsWithDownstreamBackpressure(t *testing.T)
 		writeStarted: make(chan struct{}),
 	}
 
-	factory := newProcessorWorkerRunnerFactory(
+	backend := newProcessorRunnerBackend(
 		newInput(input, stageCfg),
-		newOutput[*runnerPoolTestMessage](output, stageCfg),
+		newOutput(output, stageCfg),
 		func() *runnerPoolPassThroughWorker {
 			return &runnerPoolPassThroughWorker{}
 		},
 	)
-	runner := newRunnerPool(factory, poolCfg)
+	runner := newRunnerPool(backend, poolCfg)
 	runner.SetEnvironment(newRunnerPoolTestEnv())
 	require.NoError(t, runner.Init(t.Context()))
 
@@ -584,7 +584,7 @@ func runRunnerPoolProcessorCancelDrainStress(
 	started := make(chan struct{}, messageCount)
 	release := make(chan struct{})
 	closed := make(chan error, workerCount)
-	factory := newProcessorWorkerRunnerFactory(
+	backend := newProcessorRunnerBackend(
 		newInput(input, stageCfg),
 		newOutput(output, stageCfg),
 		func() *runnerPoolPassThroughWorker {
@@ -595,7 +595,7 @@ func runRunnerPoolProcessorCancelDrainStress(
 			}
 		},
 	)
-	runner := newRunnerPool(factory, poolCfg)
+	runner := newRunnerPool(backend, poolCfg)
 	runner.SetEnvironment(newRunnerPoolTestEnv())
 	require.NoError(t, runner.Init(t.Context()))
 
@@ -659,7 +659,7 @@ func Test_RunnerPool_EgressCancelDrainStress(t *testing.T) {
 			release := make(chan struct{})
 			delivered := make(chan int, messageCount)
 			closed := make(chan error, workerCount)
-			factory := newEgressWorkerRunnerFactory(
+			backend := newEgressRunnerBackend(
 				newInput(input, stageCfg),
 				func() *runnerPoolEgressWorker {
 					return &runnerPoolEgressWorker{
@@ -670,7 +670,7 @@ func Test_RunnerPool_EgressCancelDrainStress(t *testing.T) {
 					}
 				},
 			)
-			runner := newRunnerPool(factory, poolCfg)
+			runner := newRunnerPool(backend, poolCfg)
 			runner.SetEnvironment(newRunnerPoolEgressTestEnv(t))
 			require.NoError(t, runner.Init(t.Context()))
 

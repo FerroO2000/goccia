@@ -244,12 +244,12 @@ type CANStage[T CANMessageCarrier] struct {
 }
 
 // NewCANStage returns a new CAN processor stage.
-func NewCANStage[T CANMessageCarrier](inputConnector msgConn[T], outputConnector msgConn[*CANMessage], cfg *CANConfig) *CANStage[T] {
+func NewCANStage[T CANMessageCarrier](inConnector msgConn[T], outConnector msgConn[*CANMessage], cfg *CANConfig) *CANStage[T] {
 	env := newCANEnv(cfg)
 
 	return &CANStage[T]{
 		ProcessorStage: stage.NewProcessorStage(
-			"can", inputConnector, outputConnector, env, newCANWorkerMaker[T](), cfg.Stage,
+			"can", inConnector, outConnector, env, newCANWorkerMaker[T](), cfg.Stage,
 		),
 	}
 }

@@ -241,12 +241,12 @@ type FileStage[T msgSer] struct {
 }
 
 // NewFileStage returns a new file egress stage.
-func NewFileStage[T msgSer](inputConnector msgConn[T], cfg *FileConfig) *FileStage[T] {
+func NewFileStage[T msgSer](inConnector msgConn[T], cfg *FileConfig) *FileStage[T] {
 	env := newFileEnv(cfg)
 
 	return &FileStage[T]{
 		EgressStage: stage.NewEgressStage(
-			"file", inputConnector, env, newFileWorkerMaker[T](), &config.Stage{
+			"file", inConnector, env, newFileWorkerMaker[T](), &config.Stage{
 				RunningMode: config.StageRunningModeSingle,
 			},
 		),

@@ -3,13 +3,18 @@ site_name = "Goccia"
 site_description = "Composable streaming pipelines for Go."
 site_author = "The Goccia authors"
 site_url = "https://ferroo2000.github.io/goccia/"
+docs_dir = "pages"
 copyright = "Copyright &copy; 2026 The Goccia authors"
 repo_url = "https://github.com/FerroO2000/goccia"
 repo_name = "FerroO2000/goccia"
 nav = [
   { "Home" = "index.md" },
-  { "Get started" = "getting-started.md" },
-  { "Pipeline concepts" = "concepts/pipeline.md" },
+  { "Get Started" = "getting-started.md" },
+  { "Concepts" = [
+    { "Pipeline" = "concepts/pipeline.md" },
+    { "Connectors" = "concepts/connectors.md" },
+    { "Stages" = "concepts/stages.md" },
+  ] },
   { "Examples" = "examples.md" },
 ]
 

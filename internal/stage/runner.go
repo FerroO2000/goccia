@@ -21,16 +21,16 @@ type Runner[Env env.Env] interface {
 }
 
 func newRunner[Env env.Env, W worker.Worker[Env]](
-	workerRunnerFactory stageWorkerRunnerFactory[Env, W],
+	backend stageRunnerBackend[Env, W],
 	cfg *config.Stage,
 ) Runner[Env] {
 
 	switch cfg.RunningMode {
 	case config.StageRunningModeSingle:
-		return newRunnerSingle(workerRunnerFactory)
+		return newRunnerSingle(backend)
 
 	case config.StageRunningModePool:
-		return newRunnerPool(workerRunnerFactory, cfg.Pool)
+		return newRunnerPool(backend, cfg.Pool)
 
 	default:
 		panic("invalid running mode")
@@ -40,25 +40,25 @@ func newRunner[Env env.Env, W worker.Worker[Env]](
 // ─── Base ───────────────────────────────────────────────────────────────────|
 
 type baseRunner[Env env.Env, W worker.Worker[Env]] struct {
-	workerRunnerFactory stageWorkerRunnerFactory[Env, W]
+	backend stageRunnerBackend[Env, W]
 }
 
 func newBaseRunner[Env env.Env, W worker.Worker[Env]](
-	workerRunnerFactory stageWorkerRunnerFactory[Env, W],
+	backend stageRunnerBackend[Env, W],
 ) *baseRunner[Env, W] {
 
 	return &baseRunner[Env, W]{
-		workerRunnerFactory: workerRunnerFactory,
+		backend: backend,
 	}
 }
 
 func (br *baseRunner[Env, W]) SetEnvironment(env Env) {
-	br.workerRunnerFactory.setEnvironment(env)
+	br.backend.setEnvironment(env)
 }
 
 // Inputs returns the input connector IDs.
 func (br *baseRunner[Env, W]) Inputs() []uintptr {
-	connID := br.workerRunnerFactory.getInputConnectorID()
+	connID := br.backend.inputConnectorID()
 	if connID != 0 {
 		return []uintptr{connID}
 	}
@@ -68,7 +68,7 @@ func (br *baseRunner[Env, W]) Inputs() []uintptr {
 
 // Outputs returns the output connector IDs.
 func (br *baseRunner[Env, W]) Outputs() []uintptr {
-	connID := br.workerRunnerFactory.getOutputConnectorID()
+	connID := br.backend.outputConnectorID()
 	if connID != 0 {
 		return []uintptr{connID}
 	}
@@ -83,35 +83,35 @@ var _ Runner[env.Env] = (*runnerSingle[env.Env, worker.Worker[env.Env]])(nil)
 type runnerSingle[Env env.Env, W worker.Worker[Env]] struct {
 	*baseRunner[Env, W]
 
-	workerRunner *worker.Runner[Env, W]
+	workerExecutor *worker.Executor[Env, W]
 }
 
 func newRunnerSingle[Env env.Env, W worker.Worker[Env]](
-	workerRunnerFactory stageWorkerRunnerFactory[Env, W],
+	backend stageRunnerBackend[Env, W],
 ) *runnerSingle[Env, W] {
 
 	return &runnerSingle[Env, W]{
-		baseRunner: newBaseRunner(workerRunnerFactory),
+		baseRunner: newBaseRunner(backend),
 
-		workerRunner: nil,
+		workerExecutor: nil,
 	}
 }
 
-// Init initializes worker runner and the stage metrics.
+// Init initializes the worker executor and the stage metrics.
 func (rs *runnerSingle[Env, W]) Init(ctx context.Context) error {
-	rs.workerRunner = rs.workerRunnerFactory.makeWorkerRunner(0)
-	return rs.workerRunner.Init(ctx)
+	rs.workerExecutor = rs.backend.newWorkerExecutor(0)
+	return rs.workerExecutor.Init(ctx)
 }
 
-// Run runs the worker runner.
+// Run runs the worker executor.
 func (rs *runnerSingle[Env, W]) Run(ctx context.Context) {
-	rs.workerRunner.Run(ctx)
+	rs.workerExecutor.Run(ctx)
 }
 
-// Close closes the worker runner and the output connector (if any).
+// Close closes the worker executor and the output connector (if any).
 func (rs *runnerSingle[Env, W]) Close(ctx context.Context) {
-	rs.workerRunner.Close(ctx)
-	rs.workerRunnerFactory.closeOutput()
+	rs.workerExecutor.Close(ctx)
+	rs.backend.closeOutput()
 }
 
 // ─── Pool ───────────────────────────────────────────────────────────────────|
@@ -123,8 +123,8 @@ type runnerPool[Env env.Env, W worker.Worker[Env]] struct {
 
 	initArgs Env
 
-	initialWorkerRunner int
-	workerRunnerWg      *sync.WaitGroup
+	initialWorkerExecutors int
+	workerExecutorWg       *sync.WaitGroup
 
 	runDone       chan struct{}
 	runFanOutDone chan struct{}
@@ -134,15 +134,15 @@ type runnerPool[Env env.Env, W worker.Worker[Env]] struct {
 }
 
 func newRunnerPool[Env env.Env, W worker.Worker[Env]](
-	workerRunnerFactory stageWorkerRunnerFactory[Env, W],
+	backend stageRunnerBackend[Env, W],
 	config *config.Pool,
 ) *runnerPool[Env, W] {
 
 	return &runnerPool[Env, W]{
-		baseRunner: newBaseRunner(workerRunnerFactory),
+		baseRunner: newBaseRunner(backend),
 
-		initialWorkerRunner: config.InitialWorkers,
-		workerRunnerWg:      &sync.WaitGroup{},
+		initialWorkerExecutors: config.InitialWorkers,
+		workerExecutorWg:       &sync.WaitGroup{},
 
 		runDone:       make(chan struct{}),
 		runFanOutDone: make(chan struct{}),
@@ -159,13 +159,13 @@ func (rp *runnerPool[Env, W]) SetEnvironment(env Env) {
 
 // Init initializes the scaler and the stage metrics.
 func (rp *runnerPool[Env, W]) Init(ctx context.Context) error {
-	rp.scaler.Init(ctx, rp.initialWorkerRunner)
+	rp.scaler.Init(ctx, rp.initialWorkerExecutors)
 	return nil
 }
 
-// runStartWorkerRunnerListener will trigger the creation of new worker runners
+// runStartWorkerExecutorListener triggers the creation of new worker executors
 // when the scaler mandates.
-func (rp *runnerPool[Env, W]) runStartWorkerRunnerListener(ctx context.Context) {
+func (rp *runnerPool[Env, W]) runStartWorkerExecutorListener(ctx context.Context) {
 	startCh := rp.scaler.GetStartCh()
 
 	for {
@@ -174,16 +174,16 @@ func (rp *runnerPool[Env, W]) runStartWorkerRunnerListener(ctx context.Context) 
 			return
 
 		case <-startCh:
-			rp.workerRunnerWg.Add(1)
-			go rp.startWorkerRunner(ctx)
+			rp.workerExecutorWg.Add(1)
+			go rp.startWorkerExecutor(ctx)
 		}
 	}
 }
 
-// startWorkerRunner creates a new worker runner and starts it.
-// It will go through the full lifecycle of a worker runner (Init, Run, Close).
-func (rp *runnerPool[Env, W]) startWorkerRunner(ctx context.Context) {
-	defer rp.workerRunnerWg.Done()
+// startWorkerExecutor creates a new worker executor and starts it.
+// It will go through the full lifecycle of a worker executor (Init, Run, Close).
+func (rp *runnerPool[Env, W]) startWorkerExecutor(ctx context.Context) {
+	defer rp.workerExecutorWg.Done()
 
 	workerID := rp.scaler.NotifyWorkerStart()
 	defer rp.scaler.NotifyWorkerStop()
@@ -193,32 +193,32 @@ func (rp *runnerPool[Env, W]) startWorkerRunner(ctx context.Context) {
 		return
 	}
 
-	workerRunner := rp.workerRunnerFactory.makeWorkerRunner(workerID)
+	workerExecutor := rp.backend.newWorkerExecutor(workerID)
 
-	if err := workerRunner.Init(ctx); err != nil {
+	if err := workerExecutor.Init(ctx); err != nil {
 		return
 	}
-	defer workerRunner.Close(context.WithoutCancel(ctx))
+	defer workerExecutor.Close(context.WithoutCancel(ctx))
 
-	workerRunner.RunPooled(context.WithoutCancel(ctx), stopCh, rp.scaler.GetPendingCounter())
+	workerExecutor.RunPooled(context.WithoutCancel(ctx), stopCh, rp.scaler.GetPendingCounter())
 }
 
 func (rp *runnerPool[Env, W]) runFanOutBridge(ctx context.Context) {
 	defer close(rp.runFanOutDone)
-	rp.workerRunnerFactory.runInput(ctx)
+	rp.backend.runInputBridge(ctx)
 }
 
 func (rp *runnerPool[Env, W]) runFanInBridge(ctx context.Context) {
 	defer close(rp.runFanInDone)
-	rp.workerRunnerFactory.runOutput(context.WithoutCancel(ctx))
+	rp.backend.runOutputBridge(context.WithoutCancel(ctx))
 }
 
 func (rp *runnerPool[Env, W]) drainRun() {
 	<-rp.runFanOutDone
 
-	rp.workerRunnerWg.Wait()
+	rp.workerExecutorWg.Wait()
 
-	rp.workerRunnerFactory.closeOutput()
+	rp.backend.closeOutput()
 
 	<-rp.runFanInDone
 
@@ -226,7 +226,7 @@ func (rp *runnerPool[Env, W]) drainRun() {
 }
 
 // Run runs the scaler, the input/fan-out and output/fan-in bridges,
-// and the start worker runner listener.
+// and the start worker executor listener.
 func (rp *runnerPool[Env, W]) Run(ctx context.Context) {
 	defer close(rp.runDone)
 
@@ -235,7 +235,7 @@ func (rp *runnerPool[Env, W]) Run(ctx context.Context) {
 
 	go rp.scaler.Run(ctx)
 
-	rp.runStartWorkerRunnerListener(ctx)
+	rp.runStartWorkerExecutorListener(ctx)
 
 	rp.drainRun()
 }

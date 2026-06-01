@@ -84,10 +84,10 @@ type SinkStage[T msgBody] struct {
 }
 
 // NewSinkStage returns a new sink egress stage.
-func NewSinkStage[T msgBody](inputConnector msgConn[T]) *SinkStage[T] {
+func NewSinkStage[T msgBody](inConnector msgConn[T]) *SinkStage[T] {
 	return &SinkStage[T]{
 		EgressStage: stage.NewEgressStageFromRunner[T](
-			"sink", newSinkEnv(), newSinkRunner(inputConnector),
+			"sink", newSinkEnv(), newSinkRunner(inConnector),
 		),
 	}
 }

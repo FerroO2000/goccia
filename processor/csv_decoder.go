@@ -251,14 +251,14 @@ type CSVDecoderStage[T msgSer] struct {
 
 // NewCSVDecoderStage returns a new CSV decoder stage.
 func NewCSVDecoderStage[T msgSer](
-	inputConnector msgConn[T], outputConnector msgConn[*CSVMessage], cfg *CSVConfig,
+	inConnector msgConn[T], outConnector msgConn[*CSVMessage], cfg *CSVConfig,
 ) *CSVDecoderStage[T] {
 
 	env := newCSVDecoderEnv(cfg)
 
 	return &CSVDecoderStage[T]{
 		ProcessorStage: stage.NewProcessorStage(
-			"csv_decoder", inputConnector, outputConnector, env, newCSVDecoderWorkerMaker[T](), cfg.Stage,
+			"csv_decoder", inConnector, outConnector, env, newCSVDecoderWorkerMaker[T](), cfg.Stage,
 		),
 	}
 }

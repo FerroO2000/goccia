@@ -76,12 +76,12 @@ type FilterStage[T msgBody] struct {
 }
 
 // NewFilterStage returns a new filter processor stage.
-func NewFilterStage[T msgBody](filterFn func(T) bool, inputConnector, outputConnector msgConn[T], cfg *FilterConfig) *FilterStage[T] {
+func NewFilterStage[T msgBody](filterFn func(T) bool, inputConnector, outConnector msgConn[T], cfg *FilterConfig) *FilterStage[T] {
 	env := newFilterEnv(cfg, filterFn)
 
 	return &FilterStage[T]{
 		ProcessorStage: stage.NewProcessorStage(
-			"filter", inputConnector, outputConnector, env, newFilterWorkerMaker[T](), cfg.Stage,
+			"filter", inputConnector, outConnector, env, newFilterWorkerMaker[T](), cfg.Stage,
 		),
 	}
 }

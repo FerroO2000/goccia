@@ -291,10 +291,10 @@ type UDPStage struct {
 }
 
 // NewUDPStage returns a new UDP stage.
-func NewUDPStage(outputConnector msgConn[*UDPMessage], cfg *UDPConfig) *UDPStage {
+func NewUDPStage(outConnector msgConn[*UDPMessage], cfg *UDPConfig) *UDPStage {
 	return &UDPStage{
 		IngressStage: stage.NewIngressStageFromRunner[*UDPMessage](
-			"udp", newUDPEnv(cfg), newUDPRunner(outputConnector),
+			"udp", newUDPEnv(cfg), newUDPRunner(outConnector),
 		),
 	}
 }

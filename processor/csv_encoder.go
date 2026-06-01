@@ -184,14 +184,14 @@ type CSVEncoderStage struct {
 
 // NewCSVEncoderStage returns a new CSV encoder stage.
 func NewCSVEncoderStage(
-	inputConnector msgConn[*CSVMessage], outputConnector msgConn[*CSVEncodedMessage], cfg *CSVConfig,
+	inConnector msgConn[*CSVMessage], outConnector msgConn[*CSVEncodedMessage], cfg *CSVConfig,
 ) *CSVEncoderStage {
 
 	env := newCSVEncoderEnv(cfg)
 
 	return &CSVEncoderStage{
 		ProcessorStage: stage.NewProcessorStage(
-			"csv_encoder", inputConnector, outputConnector, env, newCSVEncoderWorkerMaker(), cfg.Stage,
+			"csv_encoder", inConnector, outConnector, env, newCSVEncoderWorkerMaker(), cfg.Stage,
 		),
 	}
 }

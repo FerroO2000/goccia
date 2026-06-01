@@ -84,7 +84,7 @@ This asymmetry is the reason queue closure order must be explicit.
 
 ## Single Runner
 
-`runnerSingle` creates one worker runner and connects it directly to the
+`runnerSingle` creates one worker executor and connects it directly to the
 external connectors.
 
 ```text
@@ -95,7 +95,7 @@ Its lifecycle is:
 
 ```text
 Init:
-  create worker runner
+  create worker executor
   initialize worker
 
 Run:
@@ -121,7 +121,7 @@ deliberately, while preserving any required deadline separately.
 
 ## Pooled Runner
 
-`runnerPool` adds internal queues and bridge goroutines around worker runners.
+`runnerPool` adds internal queues and bridge goroutines around worker executors.
 
 For a processor stage:
 
@@ -135,7 +135,7 @@ input bridge
 internal fan-out queue (SPMC)
     |
     v
-worker runners
+worker executors
     |
     v
 internal fan-in queue (MPSC)
@@ -150,7 +150,7 @@ external output
 For an egress stage, there is no output queue or output bridge:
 
 ```text
-external input -> input bridge -> internal fan-out queue -> worker runners
+external input -> input bridge -> internal fan-out queue -> worker executors
 ```
 
 ### Initialization
@@ -168,7 +168,7 @@ per possible worker and queues startup requests for the initial workers.
 - The worker-start listener.
 
 The worker-start listener receives scaler requests, adds each worker goroutine
-to `workerRunnerWg`, and starts its full lifecycle:
+to `workerExecutorWg`, and starts its full lifecycle:
 
 ```text
 worker Init -> worker RunPooled -> worker Close
@@ -235,7 +235,7 @@ stage context is canceled
   -> a worker finishes processing and writes to the fan-in queue
   -> enough workers fill the fan-in queue
   -> another worker blocks in Write()
-  -> workerRunnerWg.Wait() waits forever
+  -> workerExecutorWg.Wait() waits forever
 ```
 
 Therefore, using the cancelable stage run context directly for the output
@@ -252,7 +252,7 @@ workers finish
   -> output bridge exits
 ```
 
-`runnerPool.Run()` passes `context.WithoutCancel(ctx)` to `runOutput`. The
+`runnerPool.Run()` passes `context.WithoutCancel(ctx)` to `runOutputBridge`. The
 output bridge therefore remains alive after stage cancellation and exits only
 after the runner closes the internal fan-in queue. This preserves backpressure
 while workers finish their in-flight writes.

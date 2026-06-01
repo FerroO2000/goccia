@@ -377,12 +377,12 @@ type QuestDBStage struct {
 }
 
 // NewQuestDBStage returns a new QuestDB egress stage.
-func NewQuestDBStage(inputConnector msgConn[*QuestDBMessage], cfg *QuestDBConfig) *QuestDBStage {
+func NewQuestDBStage(inConnector msgConn[*QuestDBMessage], cfg *QuestDBConfig) *QuestDBStage {
 	env := newQuestDBEnv(cfg)
 
 	return &QuestDBStage{
 		EgressStage: stage.NewEgressStage(
-			"questdb", inputConnector, env, newQuestDBWorkerMaker(), cfg.Stage,
+			"questdb", inConnector, env, newQuestDBWorkerMaker(), cfg.Stage,
 		),
 	}
 }

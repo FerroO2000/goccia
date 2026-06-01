@@ -25,7 +25,7 @@ flowchart LR
 - Drain queued work during graceful shutdown.
 - Export metrics and traces through OpenTelemetry.
 
-## Start here
+## Start Here
 
 Read [Get started](getting-started.md) to install the module and understand the
 shape of a pipeline. Continue with [Pipeline concepts](concepts/pipeline.md) for

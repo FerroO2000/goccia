@@ -1,5 +1,5 @@
 // Package worker is an internal package that contains the worker interface definitions,
-// and the runner implementation.
+// and the worker executor implementation.
 package worker
 
 import (

@@ -2,7 +2,7 @@
 icon: lucide/rocket
 ---
 
-# Get started
+# Get Started
 
 ## Install
 
@@ -12,7 +12,7 @@ Add Goccia to your Go module:
 go get github.com/FerroO2000/goccia
 ```
 
-## Build a pipeline
+## Build a Pipeline
 
 A pipeline is a directed graph of stages joined by typed connectors:
 
@@ -44,7 +44,7 @@ pipeline.AddStage(sinkStage)
 Each output connector is the input connector of the following stage. During
 initialization, Goccia uses those connectors to build the stage graph.
 
-## Run and close
+## Run and Close
 
 Initialize the pipeline, run it in a goroutine, and close it after the run
 context is canceled:
@@ -63,7 +63,7 @@ pipeline.Close(closeCtx)
 `Pipeline.Close` waits for stages to drain in graph order before releasing
 their resources.
 
-## Choose a running mode
+## Choose a Running Mode
 
 Processor and egress configurations accept a running mode:
 

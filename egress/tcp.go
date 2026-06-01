@@ -140,12 +140,12 @@ type TCPStage[T msgSer] struct {
 }
 
 // NewTCPStage returns a new TCP egress stage.
-func NewTCPStage[T msgSer](inputConnector msgConn[T], cfg *TCPConfig) *TCPStage[T] {
+func NewTCPStage[T msgSer](inConnector msgConn[T], cfg *TCPConfig) *TCPStage[T] {
 	env := newTCPEnv(cfg)
 
 	return &TCPStage[T]{
 		EgressStage: stage.NewEgressStage(
-			"tcp", inputConnector, env, newTCPWorkerMaker[T](), &config.Stage{
+			"tcp", inConnector, env, newTCPWorkerMaker[T](), &config.Stage{
 				RunningMode: config.StageRunningModeSingle,
 			},
 		),

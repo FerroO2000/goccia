@@ -275,14 +275,14 @@ type CannelloniDecoderStage[T msgSer] struct {
 
 // NewCannelloniDecoderStage returns a new cannelloni decoder processor stage.
 func NewCannelloniDecoderStage[T msgSer](
-	inputConnector msgConn[T], outputConnector msgConn[*CannelloniMessage], cfg *CannelloniConfig,
+	inConnector msgConn[T], outConnector msgConn[*CannelloniMessage], cfg *CannelloniConfig,
 ) *CannelloniDecoderStage[T] {
 
 	env := newCannelloniDecoderEnv[T](cfg)
 
 	return &CannelloniDecoderStage[T]{
 		ProcessorStage: stage.NewProcessorStage(
-			"cannelloni_decoder", inputConnector, outputConnector,
+			"cannelloni_decoder", inConnector, outConnector,
 			env, newCannelloniDecoderWorkerMaker[T](), cfg.Stage,
 		),
 	}
@@ -418,14 +418,14 @@ type CannelloniEncoderStage struct {
 
 // NewCannelloniEncoderStage returns a new cannelloni encoder processor stage.
 func NewCannelloniEncoderStage(
-	inputConnector msgConn[*CannelloniMessage], outputConnector msgConn[*CannelloniEncodedMessage], cfg *CannelloniConfig,
+	inConnector msgConn[*CannelloniMessage], outConnector msgConn[*CannelloniEncodedMessage], cfg *CannelloniConfig,
 ) *CannelloniEncoderStage {
 
 	env := newCannelloniEncoderEnv(cfg)
 
 	return &CannelloniEncoderStage{
 		ProcessorStage: stage.NewProcessorStage(
-			"cannelloni_encoder", inputConnector, outputConnector,
+			"cannelloni_encoder", inConnector, outConnector,
 			env, newCannelloniEncoderWorkerMaker(), cfg.Stage,
 		),
 	}

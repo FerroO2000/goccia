@@ -1,3 +1,4 @@
+// Package scaler provides a worker pool auto-scaling utility.
 package scaler
 
 import (

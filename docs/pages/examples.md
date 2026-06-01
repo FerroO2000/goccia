@@ -16,7 +16,7 @@ directory.
 | File | File ingress, custom processing, and file egress |
 | Kafka | Ticker and Kafka ingress with Kafka egress |
 
-## Run an example
+## Run an Example
 
 The examples share a Makefile:
 

@@ -162,39 +162,14 @@ type CustomStage[In, Out msgBody] struct {
 
 // NewCustomStage returns a new custom processor stage.
 func NewCustomStage[In, Out msgBody](
-	handler CustomHandler[In, Out], inputConnector msgConn[In], outputConnector msgConn[Out], cfg *CustomConfig,
+	handler CustomHandler[In, Out], inConnector msgConn[In], outConnector msgConn[Out], cfg *CustomConfig,
 ) *CustomStage[In, Out] {
 
 	env := newCustomEnv(cfg, handler)
 
 	return &CustomStage[In, Out]{
 		ProcessorStage: stage.NewProcessorStage(
-			cfg.Name, inputConnector, outputConnector, env, newCustomWorkerMaker[In, Out](), cfg.Stage,
+			cfg.Name, inConnector, outConnector, env, newCustomWorkerMaker[In, Out](), cfg.Stage,
 		),
 	}
 }
-
-// // Init initializes the stage and the custom handler.
-// func (cs *CustomStage[In, Out]) Init(ctx context.Context) error {
-// 	if err := cs.Init(ctx); err != nil {
-// 		return err
-// 	}
-
-// 	// Initialize the handler
-// 	handler := cs.Env().handler
-
-// 	handler.SetTelemetry(cs.Telemetry())
-// 	if err := handler.Init(ctx); err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
-
-// // Close closes the stage and the custom handler.
-// func (cs *CustomStage[In, Out]) Close(ctx context.Context) {
-// 	// Close the custom handler
-// 	cs.Env().handler.Close()
-
-// 	cs.Close(ctx)
-// }

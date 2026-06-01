@@ -166,7 +166,7 @@ package worker
 // 	return m
 // }
 
-// // ─── Processor Runner Handler ───────────────────────────────────────────────|
+// // ─── Processor Executor Handler ─────────────────────────────────────────────|
 
 // func newTestProcessorWorkerHandler(
 // 	t *testing.T,
@@ -295,7 +295,7 @@ package worker
 // 	writer.AssertExpectations(t)
 // }
 
-// // ─── Egress Runner Handler ──────────────────────────────────────────────────|
+// // ─── Egress Executor Handler ────────────────────────────────────────────────|
 
 // func newTestEgressWorkerHandler(
 // 	t *testing.T,

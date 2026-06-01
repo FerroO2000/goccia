@@ -133,12 +133,12 @@ type UDPStage[T msgSer] struct {
 }
 
 // NewUDPStage returns a new UDP egress stage.
-func NewUDPStage[T msgSer](inputConnector msgConn[T], cfg *UDPConfig) *UDPStage[T] {
+func NewUDPStage[T msgSer](inConnector msgConn[T], cfg *UDPConfig) *UDPStage[T] {
 	env := newUDPEnv[T](cfg)
 
 	return &UDPStage[T]{
 		EgressStage: stage.NewEgressStage(
-			"udp", inputConnector, env, newUDPWorkerMaker[T](), cfg.Stage,
+			"udp", inConnector, env, newUDPWorkerMaker[T](), cfg.Stage,
 		),
 	}
 }

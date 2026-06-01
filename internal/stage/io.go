@@ -19,7 +19,7 @@ type stageIO interface {
 type stageInput[T msgBody] interface {
 	stageIO
 
-	getWorkerRunnerReader() connector.MessageConnector[T]
+	getWorkerExecutorReader() connector.MessageConnector[T]
 }
 
 func newInput[T msgBody](input msgConn[T], cfg *config.Stage) stageInput[T] {
@@ -52,7 +52,7 @@ func (sb *baseInput[T]) getConnectorID() uintptr {
 	return connector.GetConnectorID(sb.input)
 }
 
-func (sb *baseInput[T]) getWorkerRunnerReader() connector.MessageConnector[T] {
+func (sb *baseInput[T]) getWorkerExecutorReader() connector.MessageConnector[T] {
 	return sb.input
 }
 
@@ -74,7 +74,7 @@ func (fo *fanOut[T]) getConnectorID() uintptr {
 	return connector.GetConnectorID(fo.input)
 }
 
-func (fo *fanOut[T]) getWorkerRunnerReader() connector.MessageConnector[T] {
+func (fo *fanOut[T]) getWorkerExecutorReader() connector.MessageConnector[T] {
 	return fo.fanOut
 }
 
@@ -98,7 +98,7 @@ func (fo *fanOut[T]) run(ctx context.Context) {
 type stageOutput[T msgBody] interface {
 	stageIO
 
-	getWorkerRunnerWriter() connector.MessageConnector[T]
+	getWorkerExecutorWriter() connector.MessageConnector[T]
 	close()
 }
 
@@ -132,7 +132,7 @@ func (sb *baseOutput[T]) getConnectorID() uintptr {
 	return connector.GetConnectorID(sb.output)
 }
 
-func (sb *baseOutput[T]) getWorkerRunnerWriter() connector.MessageConnector[T] {
+func (sb *baseOutput[T]) getWorkerExecutorWriter() connector.MessageConnector[T] {
 	return sb.output
 }
 
@@ -158,7 +158,7 @@ func (fi *fanIn[T]) getConnectorID() uintptr {
 	return connector.GetConnectorID(fi.output)
 }
 
-func (fi *fanIn[T]) getWorkerRunnerWriter() connector.MessageConnector[T] {
+func (fi *fanIn[T]) getWorkerExecutorWriter() connector.MessageConnector[T] {
 	return fi.fanIn
 }
 

@@ -246,12 +246,12 @@ type KafkaStage struct {
 }
 
 // NewKafkaStage returns a new Kafka egress stage.
-func NewKafkaStage(inputConnector msgConn[*KafkaMessage], cfg *KafkaConfig) *KafkaStage {
+func NewKafkaStage(inConnector msgConn[*KafkaMessage], cfg *KafkaConfig) *KafkaStage {
 	env := newKafkaEnv(cfg)
 
 	return &KafkaStage{
 		EgressStage: stage.NewEgressStage(
-			"kafka", inputConnector, env, newKafkaWorkerMaker(), cfg.Stage,
+			"kafka", inConnector, env, newKafkaWorkerMaker(), cfg.Stage,
 		),
 	}
 }
