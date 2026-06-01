@@ -305,7 +305,7 @@ func newRunnerPoolEgressTestEnv(t *testing.T) *runnerPoolTestEnv {
 	return testEnv
 }
 
-func waitForRunnerPoolTestDone(t *testing.T, done <-chan struct{}, message string) {
+func waitForRunnerTestDone(t *testing.T, done <-chan struct{}, message string) {
 	t.Helper()
 
 	select {
@@ -313,6 +313,120 @@ func waitForRunnerPoolTestDone(t *testing.T, done <-chan struct{}, message strin
 	case <-time.After(runnerPoolTestTimeout):
 		t.Fatal(message)
 	}
+}
+
+func Test_RunnerSingle_CancelUnblocksEmptyRead(t *testing.T) {
+	stageCfg := config.NewStage(config.StageRunningModeSingle)
+	input := connector.NewRingBuffer[*runnerPoolTestMessage](1)
+	output := connector.NewRingBuffer[*runnerPoolTestMessage](1)
+
+	factory := newProcessorWorkerRunnerFactory(
+		newInput(input, stageCfg),
+		newOutput(output, stageCfg),
+		func() *runnerPoolPassThroughWorker {
+			return &runnerPoolPassThroughWorker{}
+		},
+	)
+	runner := newRunnerSingle(factory)
+	runner.SetEnvironment(newRunnerPoolTestEnv())
+	require.NoError(t, runner.Init(t.Context()))
+
+	runCtx, cancelRunCtx := context.WithCancel(t.Context())
+	runDone := make(chan struct{})
+	go func() {
+		defer close(runDone)
+		runner.Run(runCtx)
+	}()
+
+	cancelRunCtx()
+	waitForRunnerTestDone(t, runDone, "single runner did not stop after its empty read was canceled")
+	runner.Close(t.Context())
+}
+
+func Test_RunnerSingle_CancelDrainsBufferedInput(t *testing.T) {
+	const messageCount = 32
+
+	stageCfg := config.NewStage(config.StageRunningModeSingle)
+	input := connector.NewRingBuffer[*runnerPoolTestMessage](messageCount)
+	output := connector.NewRingBuffer[*runnerPoolTestMessage](messageCount)
+	for value := range messageCount {
+		require.NoError(t, input.Write(message.NewMessage(&runnerPoolTestMessage{value: value})))
+	}
+
+	factory := newProcessorWorkerRunnerFactory(
+		newInput(input, stageCfg),
+		newOutput(output, stageCfg),
+		func() *runnerPoolPassThroughWorker {
+			return &runnerPoolPassThroughWorker{}
+		},
+	)
+	runner := newRunnerSingle(factory)
+	runner.SetEnvironment(newRunnerPoolTestEnv())
+	require.NoError(t, runner.Init(t.Context()))
+
+	runCtx, cancelRunCtx := context.WithCancel(t.Context())
+	cancelRunCtx()
+
+	runDone := make(chan struct{})
+	go func() {
+		defer close(runDone)
+		runner.Run(runCtx)
+	}()
+
+	waitForRunnerTestDone(t, runDone, "single runner did not drain buffered input after cancellation")
+
+	for value := range messageCount {
+		msgOut, err := output.Read(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, value, msgOut.GetBody().value)
+		msgOut.Destroy()
+	}
+
+	runner.Close(t.Context())
+}
+
+func Test_RunnerSingle_CancelWaitsForDownstreamBackpressure(t *testing.T) {
+	stageCfg := config.NewStage(config.StageRunningModeSingle)
+	input := connector.NewRingBuffer[*runnerPoolTestMessage](1)
+	require.NoError(t, input.Write(message.NewMessage(&runnerPoolTestMessage{value: 0})))
+
+	releaseOutput := make(chan struct{})
+	output := &runnerPoolBlockingOutput{
+		release:      releaseOutput,
+		writeStarted: make(chan struct{}),
+	}
+
+	factory := newProcessorWorkerRunnerFactory(
+		newInput(input, stageCfg),
+		newOutput[*runnerPoolTestMessage](output, stageCfg),
+		func() *runnerPoolPassThroughWorker {
+			return &runnerPoolPassThroughWorker{}
+		},
+	)
+	runner := newRunnerSingle(factory)
+	runner.SetEnvironment(newRunnerPoolTestEnv())
+	require.NoError(t, runner.Init(t.Context()))
+
+	runCtx, cancelRunCtx := context.WithCancel(t.Context())
+	runDone := make(chan struct{})
+	go func() {
+		defer close(runDone)
+		runner.Run(runCtx)
+	}()
+
+	waitForRunnerTestDone(t, output.writeStarted, "single runner did not reach downstream backpressure")
+	cancelRunCtx()
+
+	select {
+	case <-runDone:
+		t.Fatal("single runner exited while its output write was blocked")
+	default:
+	}
+
+	close(releaseOutput)
+	waitForRunnerTestDone(t, runDone, "single runner did not stop after downstream backpressure was released")
+	assertRunnerPoolTestValueSlice(t, output.getValues(), 1)
+	runner.Close(t.Context())
 }
 
 func Test_RunnerPool_CancelDoesNotStopWorkersBeforeFanOutCloses(t *testing.T) {
@@ -350,7 +464,7 @@ func Test_RunnerPool_CancelDoesNotStopWorkersBeforeFanOutCloses(t *testing.T) {
 		runner.Run(runCtx)
 	}()
 
-	waitForRunnerPoolTestDone(t, input.secondReadStarted, "input bridge did not start its delayed read")
+	waitForRunnerTestDone(t, input.secondReadStarted, "input bridge did not start its delayed read")
 
 	firstMsg, err := output.Read(t.Context())
 	require.NoError(t, err)
@@ -367,7 +481,7 @@ func Test_RunnerPool_CancelDoesNotStopWorkersBeforeFanOutCloses(t *testing.T) {
 	}
 
 	close(releaseSecondRead)
-	waitForRunnerPoolTestDone(t, runDone, "runner did not drain after the input bridge completed")
+	waitForRunnerTestDone(t, runDone, "runner did not drain after the input bridge completed")
 
 	secondMsg, err := output.Read(t.Context())
 	require.NoError(t, err)
@@ -415,7 +529,7 @@ func Test_RunnerPool_CancelDrainsOutputsWithDownstreamBackpressure(t *testing.T)
 		runner.Run(runCtx)
 	}()
 
-	waitForRunnerPoolTestDone(t, output.writeStarted, "output bridge did not reach downstream backpressure")
+	waitForRunnerTestDone(t, output.writeStarted, "output bridge did not reach downstream backpressure")
 	cancelRunCtx()
 
 	select {
@@ -425,7 +539,7 @@ func Test_RunnerPool_CancelDrainsOutputsWithDownstreamBackpressure(t *testing.T)
 	}
 
 	close(releaseOutput)
-	waitForRunnerPoolTestDone(t, runDone, "runner did not drain after downstream backpressure was released")
+	waitForRunnerTestDone(t, runDone, "runner did not drain after downstream backpressure was released")
 
 	assertRunnerPoolTestValueSlice(t, output.getValues(), messageCount)
 }
@@ -508,14 +622,14 @@ func runRunnerPoolProcessorCancelDrainStress(
 	}()
 
 	for range workerCount {
-		waitForRunnerPoolTestDone(t, started, "worker did not start processing")
+		waitForRunnerTestDone(t, started, "worker did not start processing")
 	}
 
 	cancelRunCtx()
 	close(release)
 
-	waitForRunnerPoolTestDone(t, runDone, "processor runner did not drain")
-	waitForRunnerPoolTestDone(t, outputDone, "processor output collector did not stop")
+	waitForRunnerTestDone(t, runDone, "processor runner did not drain")
+	waitForRunnerTestDone(t, outputDone, "processor output collector did not stop")
 
 	close(outputValues)
 	assertRunnerPoolTestValues(t, outputValues, messageCount)
@@ -568,13 +682,13 @@ func Test_RunnerPool_EgressCancelDrainStress(t *testing.T) {
 			}()
 
 			for range workerCount {
-				waitForRunnerPoolTestDone(t, started, "egress worker did not start processing")
+				waitForRunnerTestDone(t, started, "egress worker did not start processing")
 			}
 
 			cancelRunCtx()
 			close(release)
 
-			waitForRunnerPoolTestDone(t, runDone, "egress runner did not drain")
+			waitForRunnerTestDone(t, runDone, "egress runner did not drain")
 
 			close(delivered)
 			assertRunnerPoolTestValues(t, delivered, messageCount)

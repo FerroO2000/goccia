@@ -44,6 +44,7 @@ type Scaler struct {
 
 	startCh    chan struct{}
 	stopChList []chan struct{}
+	runDone    chan struct{}
 
 	currWorkers   atomic.Int32
 	activeWorkers atomic.Int32
@@ -52,12 +53,10 @@ type Scaler struct {
 }
 
 // NewScaler returns a new auto-scaler instance.
-func NewScaler(tel *telemetry.Telemetry, poolCfg *config.Pool) *Scaler {
+func NewScaler(poolCfg *config.Pool) *Scaler {
 	cfg := newScalerConfig(poolCfg)
 
 	return &Scaler{
-		tel: tel,
-
 		cfg: cfg,
 
 		consecuriveScaleDown: 0,
@@ -65,6 +64,7 @@ func NewScaler(tel *telemetry.Telemetry, poolCfg *config.Pool) *Scaler {
 
 		startCh:    make(chan struct{}, cfg.maxWorkers),
 		stopChList: make([]chan struct{}, 0, cfg.maxWorkers),
+		runDone:    make(chan struct{}),
 	}
 }
 
@@ -101,6 +101,8 @@ func (s *Scaler) Init(ctx context.Context, initialWorkers int) {
 
 // Run starts the auto-scaler.
 func (s *Scaler) Run(ctx context.Context) {
+	defer close(s.runDone)
+
 	if !s.cfg.enabled {
 		return
 	}
@@ -236,6 +238,8 @@ func (s *Scaler) scaleWorkers(ctx context.Context, targetCount int) {
 
 // Close closes the auto-scaler.
 func (s *Scaler) Close() {
+	<-s.runDone
+
 	for _, stopCh := range s.stopChList {
 		close(stopCh)
 	}

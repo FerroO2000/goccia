@@ -109,6 +109,16 @@ Close:
 
 There are no internal fan-out or fan-in queues in this mode.
 
+The input read remains cancelable. This lets an idle single runner exit when
+there are no messages and its stage run context is canceled. The pipeline
+cancels a downstream stage only after all of its parents have exited `Run()`,
+so a producer blocked by downstream backpressure still has a live consumer.
+
+Messages that were already queued are read before cancellation is returned.
+Their handler may receive an already-canceled context. Workers that must finish
+a final external operation during shutdown should detach that operation
+deliberately, while preserving any required deadline separately.
+
 ## Pooled Runner
 
 `runnerPool` adds internal queues and bridge goroutines around worker runners.
@@ -175,7 +185,7 @@ When the stage run context is canceled, a pooled processor must drain in this
 ownership order:
 
 ```text
-1. Stop the worker-start listener.
+1. Stop the worker-start listener and request scaler-loop shutdown.
 2. Let the input bridge finish.
 3. The input bridge closes the internal fan-out queue.
 4. Let workers drain the internal fan-out queue and finish in-flight tasks.
@@ -183,12 +193,13 @@ ownership order:
 6. Close the internal fan-in queue.
 7. Let the output bridge drain the internal fan-in queue.
 8. The output bridge closes the external output connector.
-9. Close the scaler.
+9. Wait for the scaler loop and close its channels.
 10. Return from Run().
 ```
 
 An egress stage follows the same sequence without steps 6 through 8.
 
+`Scaler.Close()` waits for its run loop before closing scaler channels.
 `runnerPool.Close()` waits for `Run()` to complete this sequence. Resource
 cleanup for each pooled worker is invoked with `context.WithoutCancel(ctx)` so
 that a canceled stage context does not prevent final flushes, such as a QuestDB

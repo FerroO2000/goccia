@@ -125,28 +125,30 @@ type runnerPool[Env env.Env, W worker.Worker[Env]] struct {
 
 	initialWorkerRunner int
 	workerRunnerWg      *sync.WaitGroup
-	inputRunnerDone     chan struct{}
-	outputRunnerDone    chan struct{}
-	runDone             chan struct{}
+
+	runDone       chan struct{}
+	runFanOutDone chan struct{}
+	runFanInDone  chan struct{}
 
 	scaler *scaler.Scaler
 }
 
 func newRunnerPool[Env env.Env, W worker.Worker[Env]](
 	workerRunnerFactory stageWorkerRunnerFactory[Env, W],
-	cfg *config.Pool,
+	config *config.Pool,
 ) *runnerPool[Env, W] {
 
 	return &runnerPool[Env, W]{
 		baseRunner: newBaseRunner(workerRunnerFactory),
 
-		initialWorkerRunner: cfg.InitialWorkers,
+		initialWorkerRunner: config.InitialWorkers,
 		workerRunnerWg:      &sync.WaitGroup{},
-		inputRunnerDone:     make(chan struct{}),
-		outputRunnerDone:    make(chan struct{}),
-		runDone:             make(chan struct{}),
 
-		scaler: scaler.NewScaler(nil, cfg),
+		runDone:       make(chan struct{}),
+		runFanOutDone: make(chan struct{}),
+		runFanInDone:  make(chan struct{}),
+
+		scaler: scaler.NewScaler(config),
 	}
 }
 
@@ -201,32 +203,41 @@ func (rp *runnerPool[Env, W]) startWorkerRunner(ctx context.Context) {
 	workerRunner.RunPooled(context.WithoutCancel(ctx), stopCh, rp.scaler.GetPendingCounter())
 }
 
+func (rp *runnerPool[Env, W]) runFanOutBridge(ctx context.Context) {
+	defer close(rp.runFanOutDone)
+	rp.workerRunnerFactory.runInput(ctx)
+}
+
+func (rp *runnerPool[Env, W]) runFanInBridge(ctx context.Context) {
+	defer close(rp.runFanInDone)
+	rp.workerRunnerFactory.runOutput(context.WithoutCancel(ctx))
+}
+
+func (rp *runnerPool[Env, W]) drainRun() {
+	<-rp.runFanOutDone
+
+	rp.workerRunnerWg.Wait()
+
+	rp.workerRunnerFactory.closeOutput()
+
+	<-rp.runFanInDone
+
+	rp.scaler.Close()
+}
+
 // Run runs the scaler, the input/fan-out and output/fan-in bridges,
 // and the start worker runner listener.
 func (rp *runnerPool[Env, W]) Run(ctx context.Context) {
 	defer close(rp.runDone)
 
-	go func() {
-		defer close(rp.inputRunnerDone)
-		rp.workerRunnerFactory.runInput(ctx)
-	}()
-
-	go func() {
-		defer close(rp.outputRunnerDone)
-		rp.workerRunnerFactory.runOutput(context.WithoutCancel(ctx))
-	}()
+	go rp.runFanOutBridge(ctx)
+	go rp.runFanInBridge(ctx)
 
 	go rp.scaler.Run(ctx)
+
 	rp.runStartWorkerRunnerListener(ctx)
 
-	<-rp.inputRunnerDone
-
-	rp.workerRunnerWg.Wait()
-
-	rp.workerRunnerFactory.closeOutput()
-	<-rp.outputRunnerDone
-
-	rp.scaler.Close()
+	rp.drainRun()
 }
 
 // Close waits for Run to finish draining the input bridge, workers, and output
