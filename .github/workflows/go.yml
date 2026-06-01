@@ -2,9 +2,19 @@ name: Go Workflow
 
 on:
   push:
-    branches: [master, develop]
+    branches: [master, dev]
+    paths:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+      - ".github/workflows/go.yml"
   pull_request:
-    branches: [master, develop]
+    branches: [master, dev]
+    paths:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+      - ".github/workflows/go.yml"
 
 jobs:
   test:
@@ -12,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ["1.24", "1.25"]
+        go-version: ["1.25", "1.26"]
 
     steps:
       - name: Checkout code
