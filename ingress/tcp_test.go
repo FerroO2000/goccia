@@ -72,7 +72,7 @@ func Test_TCPRunner_CancelWaitsForFanInDrain(t *testing.T) {
 	runner := newTCPRunner(output)
 	runner.SetEnvironment(testEnv)
 	require.NoError(t, runner.Init(t.Context()))
-	require.NoError(t, runner.connFanIn.Write(message.NewMessage(NewTCPMessage())))
+	require.NoError(t, runner.fanIn.Write(message.NewMessage(NewTCPMessage())))
 
 	runCtx, cancelRunCtx := context.WithCancel(t.Context())
 	cancelRunCtx()

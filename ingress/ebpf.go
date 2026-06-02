@@ -7,7 +7,6 @@ import (
 	"errors"
 	"unsafe"
 
-	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/ingress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
@@ -179,34 +178,24 @@ func (ee *ebpfEnv[T, O, OPtr]) Close(ctx context.Context) {
 // ─── Runner ─────────────────────────────────────────────────────────────────|
 
 type ebpfRunner[T any, O any, OPtr ebpfObjsPtr[O]] struct {
-	*ebpfEnv[T, O, OPtr]
-
-	outConnector msgConn[*EBPFMessage[T]]
+	*runnerBase[*ebpfEnv[T, O, OPtr], *EBPFMessage[T]]
 
 	reader *ringbuf.Reader
-
-	runDone chan struct{}
 }
 
 func newEBPFRunner[T any, O any, OPtr ebpfObjsPtr[O]](outConnector msgConn[*EBPFMessage[T]]) *ebpfRunner[T, O, OPtr] {
 	return &ebpfRunner[T, O, OPtr]{
-		outConnector: outConnector,
-
-		runDone: make(chan struct{}),
+		runnerBase: newRunnerBase[*ebpfEnv[T, O, OPtr]](outConnector),
 	}
 }
 
-func (er *ebpfRunner[T, O, OPtr]) SetEnvironment(env *ebpfEnv[T, O, OPtr]) {
-	er.ebpfEnv = env
-}
-
 func (er *ebpfRunner[T, O, OPtr]) Init(_ context.Context) error {
-	ringBufferMap := er.Config.RingBufferGetter(er.objs)
+	ringBufferMap := er.env.Config.RingBufferGetter(er.env.objs)
 
 	// Open the ring buffer
 	rb, err := ringbuf.NewReader(ringBufferMap)
 	if err != nil {
-		er.Tel.LogError("failed to create ring buffer", err)
+		er.env.Tel.LogError("failed to create ring buffer", err)
 		return err
 	}
 	er.reader = rb
@@ -215,7 +204,7 @@ func (er *ebpfRunner[T, O, OPtr]) Init(_ context.Context) error {
 }
 
 func (er *ebpfRunner[T, O, OPtr]) Run(ctx context.Context) {
-	defer close(er.runDone)
+	defer er.notifyRunDone()
 
 	done := make(chan struct{})
 	defer close(done)
@@ -236,31 +225,31 @@ func (er *ebpfRunner[T, O, OPtr]) Run(ctx context.Context) {
 				return
 			}
 
-			er.Tel.LogError("failed to read from ring buffer", err)
+			er.env.Tel.LogError("failed to read from ring buffer", err)
 			return
 		}
 
 		outMsg, err := er.handleRecord(ctx, &record)
 		if err != nil {
-			er.Tel.LogError("failed to handle record", err)
+			er.env.Tel.LogError("failed to handle record", err)
 			continue
 		}
 
 		if err := er.outConnector.Write(outMsg); err != nil {
 			outMsg.Destroy()
-			er.Tel.LogError("failed to write into output connector", err)
+			er.env.Tel.LogError("failed to write into output connector", err)
 		}
 	}
 }
 
 func (er *ebpfRunner[T, O, OPtr]) handleRecord(ctx context.Context, record *ringbuf.Record) (*msg[*EBPFMessage[T]], error) {
 	// Create the trace for the incoming record
-	_, span := er.Tel.StartTrace(ctx, "receive ebpf record")
+	_, span := er.env.Tel.StartTrace(ctx, "receive ebpf record")
 	defer span.End()
 
 	data, err := er.parseData(record.RawSample)
 	if err != nil {
-		er.Metrics.IncrementParsingErrors()
+		er.env.Metrics.IncrementParsingErrors()
 		return nil, err
 	}
 
@@ -272,7 +261,7 @@ func (er *ebpfRunner[T, O, OPtr]) handleRecord(ctx context.Context, record *ring
 	msg.SaveSpan(span)
 
 	// Update metrics
-	er.Metrics.IncrementReceivedRecords()
+	er.env.Metrics.IncrementReceivedRecords()
 
 	return msg, nil
 }
@@ -281,11 +270,11 @@ func (er *ebpfRunner[T, O, OPtr]) parseData(data []byte) (T, error) {
 	var res T
 
 	dataLen := len(data)
-	er.Metrics.AddReceivedBytes(uint(dataLen))
+	er.env.Metrics.AddReceivedBytes(uint(dataLen))
 
-	if er.Config.UseUnsafe {
+	if er.env.Config.UseUnsafe {
 		// Use unsafe struct casting
-		if dataLen < er.eventSize {
+		if dataLen < er.env.eventSize {
 			return res, errors.New("not enough data")
 		}
 
@@ -298,19 +287,6 @@ func (er *ebpfRunner[T, O, OPtr]) parseData(data []byte) (T, error) {
 	}
 
 	return res, nil
-}
-
-func (er *ebpfRunner[T, O, OPtr]) Close(_ context.Context) {
-	<-er.runDone
-	er.outConnector.Close()
-}
-
-func (er *ebpfRunner[T, O, OPtr]) Inputs() []uintptr {
-	return []uintptr{}
-}
-
-func (er *ebpfRunner[T, O, OPtr]) Outputs() []uintptr {
-	return []uintptr{connector.GetConnectorID(er.outConnector)}
 }
 
 // ─── Stage ──────────────────────────────────────────────────────────────────|

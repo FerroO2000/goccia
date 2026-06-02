@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/ingress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
@@ -73,33 +72,19 @@ func newTickerEnv(config *TickerConfig) *tickerEnv {
 var _ stage.Runner[*tickerEnv] = (*tickerRunner)(nil)
 
 type tickerRunner struct {
-	*tickerEnv
-
-	outConnector msgConn[*TickerMessage]
-
-	runDone chan struct{}
+	*runnerBase[*tickerEnv, *TickerMessage]
 }
 
 func newTickerRunner(outConnector msgConn[*TickerMessage]) *tickerRunner {
 	return &tickerRunner{
-		outConnector: outConnector,
-
-		runDone: make(chan struct{}),
+		runnerBase: newRunnerBase[*tickerEnv](outConnector),
 	}
 }
 
-func (tr *tickerRunner) SetEnvironment(env *tickerEnv) {
-	tr.tickerEnv = env
-}
-
-func (tr *tickerRunner) Init(_ context.Context) error {
-	return nil
-}
-
 func (tr *tickerRunner) Run(ctx context.Context) {
-	defer close(tr.runDone)
+	defer tr.notifyRunDone()
 
-	ticker := time.NewTicker(tr.Config.Interval)
+	ticker := time.NewTicker(tr.env.Config.Interval)
 	defer ticker.Stop()
 
 	ticks := 0
@@ -113,14 +98,14 @@ func (tr *tickerRunner) Run(ctx context.Context) {
 			msgOut := tr.handleTrigger(ctx, ticks)
 			if err := tr.outConnector.Write(msgOut); err != nil {
 				msgOut.Destroy()
-				tr.Tel.LogError("failed to write message to output connector", err)
+				tr.env.Tel.LogError("failed to write message to output connector", err)
 			}
 		}
 	}
 }
 
 func (tr *tickerRunner) handleTrigger(ctx context.Context, tick int) *msg[*TickerMessage] {
-	_, span := tr.Tel.StartTrace(ctx, "triggered ticker message")
+	_, span := tr.env.Tel.StartTrace(ctx, "triggered ticker message")
 	defer span.End()
 
 	tickerMsg := NewTickerMessage()
@@ -131,25 +116,12 @@ func (tr *tickerRunner) handleTrigger(ctx context.Context, tick int) *msg[*Ticke
 	msg.SetReceiveTime(triggerTime)
 	msg.SetTimestamp(triggerTime)
 
-	tr.Metrics.IncrementTriggeredMessages()
+	tr.env.Metrics.IncrementTriggeredMessages()
 
 	span.SetAttributes(attribute.Int("tick_number", tick))
 	msg.SaveSpan(span)
 
 	return msg
-}
-
-func (tr *tickerRunner) Close(_ context.Context) {
-	<-tr.runDone
-	tr.outConnector.Close()
-}
-
-func (tr *tickerRunner) Inputs() []uintptr {
-	return []uintptr{}
-}
-
-func (tr *tickerRunner) Outputs() []uintptr {
-	return []uintptr{connector.GetConnectorID(tr.outConnector)}
 }
 
 // ─── Stage ──────────────────────────────────────────────────────────────────|

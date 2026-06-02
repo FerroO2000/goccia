@@ -11,11 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/ingress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
-	"github.com/FerroO2000/goccia/internal/rb"
 	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/stage/env"
 	"go.opentelemetry.io/otel/attribute"
@@ -291,90 +289,50 @@ func (te *tcpEnv) initConfig() {
 var _ stage.Runner[*tcpEnv] = (*tcpRunner)(nil)
 
 type tcpRunner struct {
-	*tcpEnv
-
-	outConnector msgConn[*TCPMessage]
-	runDone      chan struct{}
-
-	connWG    *sync.WaitGroup
-	connFanIn *rb.RingBuffer[*msg[*TCPMessage]]
+	*runnerFanInBase[*tcpEnv, *TCPMessage]
 }
 
 func newTCPRunner(outConnector msgConn[*TCPMessage]) *tcpRunner {
 	return &tcpRunner{
-		outConnector: outConnector,
-		runDone:      make(chan struct{}),
-
-		connWG: &sync.WaitGroup{},
+		runnerFanInBase: newRunnerFanInBase[*tcpEnv](outConnector),
 	}
-}
-
-func (tr *tcpRunner) SetEnvironment(env *tcpEnv) {
-	tr.tcpEnv = env
 }
 
 func (tr *tcpRunner) Init(_ context.Context) error {
-	fanInBufSize := uint64(tr.Config.OutputQueueSize)
-	tr.connFanIn = rb.NewRingBuffer[*msg[*TCPMessage]](fanInBufSize, rb.BufferKindMPSC)
-
+	tr.initFanIn(uint64(tr.env.Config.OutputQueueSize))
 	return nil
 }
 
-func (tr *tcpRunner) runIO(ctx context.Context) {
-	defer tr.outConnector.Close()
-
-	for {
-		msg, err := tr.connFanIn.Read(ctx)
-		if err != nil {
-			return
-		}
-
-		if err := tr.outConnector.Write(msg); err != nil {
-			msg.Destroy()
-		}
-	}
-}
-
 func (tr *tcpRunner) Run(ctx context.Context) {
-	defer close(tr.runDone)
+	defer tr.drainAndNotifyRunDone()
 
-	runIODone := make(chan struct{})
-	go func() {
-		defer close(runIODone)
-		tr.runIO(context.WithoutCancel(ctx))
-	}()
-
-	defer func() {
-		tr.connWG.Wait()
-		tr.connFanIn.Close()
-		<-runIODone
-	}()
+	go tr.runOutputBridge(context.WithoutCancel(ctx))
 
 	go func() {
 		<-ctx.Done()
-		tr.listener.Close()
+		tr.env.listener.Close()
 	}()
 
 	for {
-		conn, err := tr.listener.Accept()
+		conn, err := tr.env.listener.Accept()
 		if err != nil {
 			// Check if the error is because the context is done
 			if ctx.Err() != nil {
 				return
 			}
 
-			tr.Tel.LogWarn("failed to accept connection", err)
+			tr.env.Tel.LogWarn("failed to accept connection", err)
 			continue
 		}
 
 		// Spawn a goroutine to handle the connection
-		tr.connWG.Add(1)
+		tr.addWork()
 		go tr.handleConn(ctx, conn)
 	}
 }
 
 func (tr *tcpRunner) handleConn(ctx context.Context, conn net.Conn) {
-	defer tr.connWG.Done()
+	defer tr.notifyWorkDone()
 
 	defer conn.Close()
 
@@ -393,23 +351,23 @@ func (tr *tcpRunner) handleConn(ctx context.Context, conn net.Conn) {
 	}()
 
 	// Handle the open connections metric
-	tr.Metrics.IncrementOpenConnections()
-	defer tr.Metrics.DecrementOpenConnections()
+	tr.env.Metrics.IncrementOpenConnections()
+	defer tr.env.Metrics.DecrementOpenConnections()
 
 	// Get the buffer from the pool
-	buf := tr.bufPool.Get().([]byte)
-	defer tr.bufPool.Put(buf)
+	buf := tr.env.bufPool.Get().([]byte)
+	defer tr.env.bufPool.Put(buf)
 
 	// Preallocate the accumulator
-	accBaseCap := min(4*tr.bufferSize, tr.maxMsgSize)
+	accBaseCap := min(4*tr.env.bufferSize, tr.env.maxMsgSize)
 	acc := make([]byte, 0, accBaseCap)
 
 	minAccLen := 0
-	switch tr.framingMode {
+	switch tr.env.framingMode {
 	case TCPFramingModeDelimited:
-		minAccLen = tr.delimiterLen
+		minAccLen = tr.env.delimiterLen
 	case TCPFramingModeLengthPrefixed:
-		minAccLen = tr.headerLen
+		minAccLen = tr.env.headerLen
 	}
 
 loop:
@@ -421,7 +379,7 @@ loop:
 		}
 
 		// Set the read deadline
-		conn.SetReadDeadline(time.Now().Add(tr.readTimeout))
+		conn.SetReadDeadline(time.Now().Add(tr.env.readTimeout))
 
 		// Read the TCP stream
 		n, err := conn.Read(buf)
@@ -444,7 +402,7 @@ loop:
 
 			// For any other error, break the loop and close the server connection.
 			// This is likely be caused by the read deadline being exceeded.
-			tr.Tel.LogError("failed to read connection", err)
+			tr.env.Tel.LogError("failed to read connection", err)
 			return
 		}
 
@@ -452,8 +410,8 @@ loop:
 		acc = append(acc, buf[:n]...)
 
 		// Prevent accumulator from growing too large
-		if len(acc) > tr.maxMsgSize {
-			tr.Tel.LogWarn("message too large, closing connection")
+		if len(acc) > tr.env.maxMsgSize {
+			tr.env.Tel.LogWarn("message too large, closing connection")
 			return
 		}
 
@@ -469,15 +427,15 @@ loop:
 			// Get the length of the message.
 			msgLen := 0
 			totLen := 0
-			switch tr.framingMode {
+			switch tr.env.framingMode {
 			case TCPFramingModeDelimited:
 				// Search for the delimiter
-				msgLen = bytes.Index(acc, tr.delimiter)
-				totLen = msgLen + tr.delimiterLen
+				msgLen = bytes.Index(acc, tr.env.delimiter)
+				totLen = msgLen + tr.env.delimiterLen
 
 			case TCPFramingModeLengthPrefixed:
-				msgLen = tr.parseHeader(acc[:tr.headerLen])
-				totLen = msgLen + tr.headerLen
+				msgLen = tr.parseHeader(acc[:tr.env.headerLen])
+				totLen = msgLen + tr.env.headerLen
 			}
 
 			if msgLen == -1 || accLen < totLen {
@@ -492,9 +450,9 @@ loop:
 			// Handle the message and send the result to the output connector
 			outMsg := tr.handleMessage(ctx, msg)
 			outMsg.GetBody().RemoteAddr = conn.RemoteAddr().String()
-			if err := tr.connFanIn.Write(outMsg); err != nil {
+			if err := tr.fanIn.Write(outMsg); err != nil {
 				outMsg.Destroy()
-				tr.Tel.LogError("failed to write message to fan in connector", err)
+				tr.env.Tel.LogError("failed to write message to fan in connector", err)
 			}
 
 			// Remove the message from the accumulator
@@ -508,34 +466,34 @@ loop:
 		}
 
 		// Prevent accumulator from growing too large, as before
-		if len(acc) > tr.maxMsgSize {
-			tr.Tel.LogWarn("message too large, closing connection")
+		if len(acc) > tr.env.maxMsgSize {
+			tr.env.Tel.LogWarn("message too large, closing connection")
 			return
 		}
 	}
 }
 
 func (tr *tcpRunner) parseHeader(header []byte) int {
-	if len(header) < tr.headerLen {
+	if len(header) < tr.env.headerLen {
 		return -1
 	}
 
-	msgLenField := header[tr.msgLenFieldOffset : tr.msgLenFieldOffset+tr.msgLenFieldLen]
+	msgLenField := header[tr.env.msgLenFieldOffset : tr.env.msgLenFieldOffset+tr.env.msgLenFieldLen]
 
 	buf := msgLenField
 	// Check if the message length field should be extended
-	if tr.msgLenFieldLen != tr.msgLenFieldParseLen {
-		buf = make([]byte, tr.msgLenFieldParseLen)
+	if tr.env.msgLenFieldLen != tr.env.msgLenFieldParseLen {
+		buf = make([]byte, tr.env.msgLenFieldParseLen)
 
-		switch tr.msgLenFieldEndianess {
+		switch tr.env.msgLenFieldEndianess {
 		case LittleEndian:
 			copy(buf, msgLenField)
 		case BigEndian:
-			copy(buf[tr.msgLenFieldParseLen-tr.msgLenFieldLen:], msgLenField)
+			copy(buf[tr.env.msgLenFieldParseLen-tr.env.msgLenFieldLen:], msgLenField)
 		}
 	}
 
-	switch tr.msgLenFieldEndianess {
+	switch tr.env.msgLenFieldEndianess {
 	case LittleEndian:
 		return tr.parseLittleEndianMsgLen(buf)
 	case BigEndian:
@@ -577,7 +535,7 @@ func (tr *tcpRunner) parseBigEndianMsgLen(buf []byte) int {
 
 func (tr *tcpRunner) handleMessage(ctx context.Context, rawMsg []byte) *msg[*TCPMessage] {
 	// Create the trace for the incoming message
-	_, span := tr.Tel.StartTrace(ctx, "receive TCP message")
+	_, span := tr.env.Tel.StartTrace(ctx, "receive TCP message")
 	defer span.End()
 
 	// Create the TCP message
@@ -601,22 +559,10 @@ func (tr *tcpRunner) handleMessage(ctx context.Context, rawMsg []byte) *msg[*TCP
 	msg.SaveSpan(span)
 
 	// Update metrics
-	tr.Metrics.AddReceivedBytes(uint(msgSize))
-	tr.Metrics.IncrementReceivedMessages()
+	tr.env.Metrics.AddReceivedBytes(uint(msgSize))
+	tr.env.Metrics.IncrementReceivedMessages()
 
 	return msg
-}
-
-func (tr *tcpRunner) Close(_ context.Context) {
-	<-tr.runDone
-}
-
-func (tr *tcpRunner) Inputs() []uintptr {
-	return []uintptr{}
-}
-
-func (tr *tcpRunner) Outputs() []uintptr {
-	return []uintptr{connector.GetConnectorID(tr.outConnector)}
 }
 
 // ─── Stage ──────────────────────────────────────────────────────────────────|

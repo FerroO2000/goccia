@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/ingress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
@@ -247,57 +246,49 @@ func newKafkaEnv(config *KafkaConfig) *kafkaEnv {
 var _ stage.Runner[*kafkaEnv] = (*kafkaRunner)(nil)
 
 type kafkaRunner struct {
-	*kafkaEnv
+	*runnerBase[*kafkaEnv, *KafkaMessage]
 
 	reader *kafka.Reader
-
-	outConnector msgConn[*KafkaMessage]
-	runDone      chan struct{}
 }
 
 func newKafkaRunner(outConnector msgConn[*KafkaMessage]) *kafkaRunner {
 	return &kafkaRunner{
-		outConnector: outConnector,
-		runDone:      make(chan struct{}),
+		runnerBase: newRunnerBase[*kafkaEnv](outConnector),
 	}
-}
-
-func (kr *kafkaRunner) SetEnvironment(env *kafkaEnv) {
-	kr.kafkaEnv = env
 }
 
 func (kr *kafkaRunner) Init(_ context.Context) error {
 	kr.reader = kafka.NewReader(kafka.ReaderConfig{
-		Brokers:                kr.Config.Brokers,
-		GroupID:                kr.Config.GroupID,
-		GroupTopics:            kr.Config.Topics,
-		Dialer:                 kr.Config.Dialer,
-		QueueCapacity:          kr.Config.QueueCapacity,
-		MinBytes:               kr.Config.MinBytes,
-		MaxBytes:               kr.Config.MaxBytes,
-		MaxWait:                kr.Config.MaxWait,
-		ReadBatchTimeout:       kr.Config.ReadBatchTimeout,
-		GroupBalancers:         kr.Config.GroupBalancers,
-		HeartbeatInterval:      kr.Config.HeartbeatInterval,
-		CommitInterval:         kr.Config.CommitInterval,
-		PartitionWatchInterval: kr.Config.PartitionWatchInterval,
-		WatchPartitionChanges:  kr.Config.WatchPartitionChanges,
-		SessionTimeout:         kr.Config.SessionTimeout,
-		RebalanceTimeout:       kr.Config.RebalanceTimeout,
-		JoinGroupBackoff:       kr.Config.JoinGroupBackoff,
-		RetentionTime:          kr.Config.RetentionTime,
-		StartOffset:            kr.Config.StartOffset,
-		ReadBackoffMin:         kr.Config.ReadBackoffMin,
-		ReadBackoffMax:         kr.Config.ReadBackoffMax,
-		IsolationLevel:         kr.Config.IsolationLevel,
-		MaxAttempts:            kr.Config.MaxAttempts,
+		Brokers:                kr.env.Config.Brokers,
+		GroupID:                kr.env.Config.GroupID,
+		GroupTopics:            kr.env.Config.Topics,
+		Dialer:                 kr.env.Config.Dialer,
+		QueueCapacity:          kr.env.Config.QueueCapacity,
+		MinBytes:               kr.env.Config.MinBytes,
+		MaxBytes:               kr.env.Config.MaxBytes,
+		MaxWait:                kr.env.Config.MaxWait,
+		ReadBatchTimeout:       kr.env.Config.ReadBatchTimeout,
+		GroupBalancers:         kr.env.Config.GroupBalancers,
+		HeartbeatInterval:      kr.env.Config.HeartbeatInterval,
+		CommitInterval:         kr.env.Config.CommitInterval,
+		PartitionWatchInterval: kr.env.Config.PartitionWatchInterval,
+		WatchPartitionChanges:  kr.env.Config.WatchPartitionChanges,
+		SessionTimeout:         kr.env.Config.SessionTimeout,
+		RebalanceTimeout:       kr.env.Config.RebalanceTimeout,
+		JoinGroupBackoff:       kr.env.Config.JoinGroupBackoff,
+		RetentionTime:          kr.env.Config.RetentionTime,
+		StartOffset:            kr.env.Config.StartOffset,
+		ReadBackoffMin:         kr.env.Config.ReadBackoffMin,
+		ReadBackoffMax:         kr.env.Config.ReadBackoffMax,
+		IsolationLevel:         kr.env.Config.IsolationLevel,
+		MaxAttempts:            kr.env.Config.MaxAttempts,
 	})
 
 	return nil
 }
 
 func (kr *kafkaRunner) Run(ctx context.Context) {
-	defer close(kr.runDone)
+	defer kr.notifyRunDone()
 
 	for {
 		msg, err := kr.reader.ReadMessage(ctx)
@@ -306,27 +297,27 @@ func (kr *kafkaRunner) Run(ctx context.Context) {
 				return
 			}
 
-			kr.Tel.LogError("failed to read message", err)
+			kr.env.Tel.LogError("failed to read message", err)
 			continue
 		}
 
 		msgOut := kr.handleMessage(ctx, &msg)
 		if err := kr.outConnector.Write(msgOut); err != nil {
 			msgOut.Destroy()
-			kr.Tel.LogError("failed to write message to output connector", err)
+			kr.env.Tel.LogError("failed to write message to output connector", err)
 		}
 
-		kr.Metrics.IncrementReceivedMessages()
+		kr.env.Metrics.IncrementReceivedMessages()
 	}
 }
 
 func (kr *kafkaRunner) handleMessage(ctx context.Context, msg *kafka.Message) *msg[*KafkaMessage] {
 	if len(msg.Headers) > 0 {
 		headerCarrier := telemetry.NewKafkaHeaderCarrier(msg.Headers)
-		ctx = kr.Tel.ExtractTraceContext(ctx, headerCarrier)
+		ctx = kr.env.Tel.ExtractTraceContext(ctx, headerCarrier)
 	}
 
-	_, span := kr.Tel.StartTrace(ctx, "handle kafka message")
+	_, span := kr.env.Tel.StartTrace(ctx, "handle kafka message")
 	defer span.End()
 
 	kafkaMsg := NewKafkaMessage()
@@ -347,24 +338,14 @@ func (kr *kafkaRunner) handleMessage(ctx context.Context, msg *kafka.Message) *m
 	span.SetAttributes(attribute.Int("value_size", valueSize))
 	msgRes.SaveSpan(span)
 
-	kr.Metrics.AddReceivedBytes(uint(valueSize))
+	kr.env.Metrics.AddReceivedBytes(uint(valueSize))
 
 	return msgRes
 }
 
-func (kr *kafkaRunner) Close(_ context.Context) {
-	<-kr.runDone
-	kr.outConnector.Close()
-
+func (kr *kafkaRunner) Close(ctx context.Context) {
+	kr.Close(ctx)
 	kr.reader.Close()
-}
-
-func (kr *kafkaRunner) Inputs() []uintptr {
-	return []uintptr{}
-}
-
-func (kr *kafkaRunner) Outputs() []uintptr {
-	return []uintptr{connector.GetConnectorID(kr.outConnector)}
 }
 
 // ─── Stage ──────────────────────────────────────────────────────────────────|

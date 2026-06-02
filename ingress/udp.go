@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/ingress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
@@ -175,31 +174,17 @@ func (ue *udpEnv) Init(ctx context.Context) error {
 var _ stage.Runner[*udpEnv] = (*udpRunner)(nil)
 
 type udpRunner struct {
-	*udpEnv
-
-	outConnector msgConn[*UDPMessage]
-
-	runDone chan struct{}
+	*runnerBase[*udpEnv, *UDPMessage]
 }
 
 func newUDPRunner(outConnector msgConn[*UDPMessage]) *udpRunner {
 	return &udpRunner{
-		outConnector: outConnector,
-
-		runDone: make(chan struct{}),
+		runnerBase: newRunnerBase[*udpEnv](outConnector),
 	}
 }
 
-func (ur *udpRunner) SetEnvironment(env *udpEnv) {
-	ur.udpEnv = env
-}
-
-func (ur *udpRunner) Init(_ context.Context) error {
-	return nil
-}
-
 func (ur *udpRunner) Run(ctx context.Context) {
-	defer close(ur.runDone)
+	defer ur.notifyRunDone()
 
 	done := make(chan struct{})
 	defer close(done)
@@ -208,23 +193,23 @@ func (ur *udpRunner) Run(ctx context.Context) {
 	go func() {
 		select {
 		case <-ctx.Done():
-			ur.conn.Close()
+			ur.env.conn.Close()
 		case <-done:
 		}
 	}()
 
-	buf := make([]byte, ur.Config.BufferSize)
+	buf := make([]byte, ur.env.Config.BufferSize)
 
 	for {
 		// Read the UDP payload
-		n, err := ur.conn.Read(buf)
+		n, err := ur.env.conn.Read(buf)
 		if err != nil {
 			// Check if the connection is closed by the context
 			if errors.Is(err, net.ErrClosed) && ctx.Err() != nil {
 				return
 			}
 
-			ur.Tel.LogError("failed to read connection", err)
+			ur.env.Tel.LogError("failed to read connection", err)
 			return
 		}
 
@@ -232,20 +217,20 @@ func (ur *udpRunner) Run(ctx context.Context) {
 		msgOut := ur.handleBuf(ctx, buf[:n])
 		if err := ur.outConnector.Write(msgOut); err != nil {
 			msgOut.Destroy()
-			ur.Tel.LogError("failed to write message to output connector", err)
+			ur.env.Tel.LogError("failed to write message to output connector", err)
 		}
 	}
 }
 
 func (ur *udpRunner) handleBuf(ctx context.Context, buf []byte) *msg[*UDPMessage] {
-	ur.Tel.LogDebug("received UDP datagram")
+	ur.env.Tel.LogDebug("received UDP datagram")
 
 	// Create the trace for the incoming datagram
-	_, span := ur.Tel.StartTrace(ctx, "receive UDP datagram")
+	_, span := ur.env.Tel.StartTrace(ctx, "receive UDP datagram")
 	defer span.End()
 
 	// Create the UDP message
-	udpMsg := ur.messagePool.getMessage()
+	udpMsg := ur.env.messagePool.getMessage()
 
 	// Extract the payload from the buffer
 	payloadSize := len(buf)
@@ -264,23 +249,10 @@ func (ur *udpRunner) handleBuf(ctx context.Context, buf []byte) *msg[*UDPMessage
 	msg.SaveSpan(span)
 
 	// Update metrics
-	ur.Metrics.AddReceivedBytes(uint(payloadSize))
-	ur.Metrics.IncrementReceivedMessages()
+	ur.env.Metrics.AddReceivedBytes(uint(payloadSize))
+	ur.env.Metrics.IncrementReceivedMessages()
 
 	return msg
-}
-
-func (ur *udpRunner) Close(_ context.Context) {
-	<-ur.runDone
-	ur.outConnector.Close()
-}
-
-func (ur *udpRunner) Inputs() []uintptr {
-	return []uintptr{}
-}
-
-func (ur *udpRunner) Outputs() []uintptr {
-	return []uintptr{connector.GetConnectorID(ur.outConnector)}
 }
 
 // ─── Stage ──────────────────────────────────────────────────────────────────|

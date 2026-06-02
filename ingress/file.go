@@ -10,11 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/ingress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
-	"github.com/FerroO2000/goccia/internal/rb"
 	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/stage/env"
 	"github.com/fsnotify/fsnotify"
@@ -486,38 +484,27 @@ func (fe *fileEnv) Init(ctx context.Context) error {
 var _ stage.Runner[*fileEnv] = (*fileRunner)(nil)
 
 type fileRunner struct {
-	*fileEnv
-
-	outConnector msgConn[*FileMessage]
-	runDone      chan struct{}
-
-	fanIn *rb.RingBuffer[*msg[*FileMessage]]
+	*runnerFanInBase[*fileEnv, *FileMessage]
 }
 
 func newFileRunner(outConnector msgConn[*FileMessage]) *fileRunner {
 	return &fileRunner{
-		outConnector: outConnector,
-		runDone:      make(chan struct{}),
+		runnerFanInBase: newRunnerFanInBase[*fileEnv](outConnector),
 	}
 }
 
-func (fs *fileRunner) SetEnvironment(env *fileEnv) {
-	fs.fileEnv = env
-}
-
 func (fs *fileRunner) Init(_ context.Context) error {
-	fs.fanIn = rb.NewRingBuffer[*msg[*FileMessage]](512, rb.BufferKindMPSC)
-
+	fs.initFanIn(512)
 	return nil
 }
 
 // readExistingFiles reads all the existing files in the watched directories.
 // Thi is needed because the watcher does not fire events for existing files.
 func (fs *fileRunner) readExistingFiles(ctx context.Context) {
-	for _, dirPath := range fs.Config.WatchedDirs {
+	for _, dirPath := range fs.env.Config.WatchedDirs {
 		files, err := os.ReadDir(dirPath)
 		if err != nil {
-			fs.Tel.LogError("failed to read directory", err)
+			fs.env.Tel.LogError("failed to read directory", err)
 			continue
 		}
 
@@ -534,83 +521,61 @@ func (fs *fileRunner) readExistingFiles(ctx context.Context) {
 }
 
 func (fs *fileRunner) hasReader(path string) bool {
-	_, ok := fs.readers[path]
+	_, ok := fs.env.readers[path]
 	return ok
 }
 
 func (fs *fileRunner) addReader(path string) error {
-	reader, err := newFileReader(fs.fileEnv, fs.fanIn, path)
+	reader, err := newFileReader(fs.env, fs.fanIn, path)
 
 	if err != nil {
 		return err
 	}
 
-	fs.readers[path] = reader
+	fs.env.readers[path] = reader
 
-	fs.Metrics.IncrementReaders()
+	fs.env.Metrics.IncrementReaders()
 
 	return nil
 }
 
 func (fs *fileRunner) removeReader(filePath string) {
-	reader := fs.readers[filePath]
+	reader := fs.env.readers[filePath]
 	reader.close()
 
-	delete(fs.readers, filePath)
+	delete(fs.env.readers, filePath)
 
-	fs.Metrics.DecrementReaders()
+	fs.env.Metrics.DecrementReaders()
 }
 
 func (fs *fileRunner) startReader(ctx context.Context, path string) error {
-	reader := fs.readers[path]
+	reader := fs.env.readers[path]
 	return reader.start(ctx)
 }
 
 func (fs *fileRunner) addAndStartReader(ctx context.Context, path string) {
 	if err := fs.addReader(path); err != nil {
-		fs.Tel.LogError("failed to add reader", err, "path", path)
+		fs.env.Tel.LogError("failed to add reader", err, "path", path)
 		return
 	}
 
 	if err := fs.startReader(ctx, path); err != nil {
-		fs.Tel.LogError("failed to start reader", err, "path", path)
-	}
-}
-
-func (fs *fileRunner) runIO(ctx context.Context) {
-	defer fs.outConnector.Close()
-
-	for {
-		msg, err := fs.fanIn.Read(ctx)
-		if err != nil {
-			return
-		}
-
-		if err := fs.outConnector.Write(msg); err != nil {
-			msg.Destroy()
-		}
+		fs.env.Tel.LogError("failed to start reader", err, "path", path)
 	}
 }
 
 func (fs *fileRunner) Run(ctx context.Context) {
-	defer close(fs.runDone)
-
-	runIODone := make(chan struct{})
-	go func() {
-		defer close(runIODone)
-		fs.runIO(context.WithoutCancel(ctx))
-	}()
+	defer fs.drainAndNotifyRunDone()
 
 	defer func() {
-		fs.watcher.Close()
+		fs.env.watcher.Close()
 
-		for _, reader := range fs.readers {
+		for _, reader := range fs.env.readers {
 			reader.close()
 		}
-
-		fs.fanIn.Close()
-		<-runIODone
 	}()
+
+	go fs.runOutputBridge(context.WithoutCancel(ctx))
 
 	// Before starting the watcher, read all the existing files
 	fs.readExistingFiles(ctx)
@@ -620,19 +585,19 @@ func (fs *fileRunner) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 
-		case event, ok := <-fs.watcher.Events:
+		case event, ok := <-fs.env.watcher.Events:
 			if !ok {
 				return
 			}
 
 			fs.handleEvent(ctx, event)
 
-		case err, ok := <-fs.watcher.Errors:
+		case err, ok := <-fs.env.watcher.Errors:
 			if !ok {
 				return
 			}
 
-			fs.Tel.LogError("watcher error", err)
+			fs.env.Tel.LogError("watcher error", err)
 		}
 	}
 }
@@ -672,18 +637,6 @@ func (fs *fileRunner) handleEvent(ctx context.Context, event fsnotify.Event) {
 
 		return
 	}
-}
-
-func (fs *fileRunner) Close(_ context.Context) {
-	<-fs.runDone
-}
-
-func (fs *fileRunner) Inputs() []uintptr {
-	return []uintptr{}
-}
-
-func (fs *fileRunner) Outputs() []uintptr {
-	return []uintptr{connector.GetConnectorID(fs.outConnector)}
 }
 
 // ─── Stage ──────────────────────────────────────────────────────────────────|
