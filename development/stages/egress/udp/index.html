@@ -12,36 +12,36 @@
         <meta name="author" content="The Goccia authors">
       
       
-        <link rel="canonical" href="https://ferroo2000.github.io/goccia/development/concepts/connectors/">
+        <link rel="canonical" href="https://ferroo2000.github.io/goccia/development/stages/egress/udp/">
       
       
-        <link rel="prev" href="../pipeline/">
+        <link rel="prev" href="../tcp/">
       
       
-        <link rel="next" href="../stages/">
+        <link rel="next" href="../file/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../../../assets/images/favicon.png">
       <meta name="generator" content="zensical-0.0.43">
     
     
       
-        <title>Connectors - Goccia</title>
+        <title>UDP Egress - Goccia</title>
       
     
     
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.fba56155.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/modern/main.fba56155.min.css">
       
         
           
         
-        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.dfe2e883.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/modern/palette.dfe2e883.min.css">
       
       
 
@@ -60,9 +60,9 @@
       
     
     
-      <link rel="stylesheet" href="../../stylesheets/extra.css">
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    <script>__md_scope=new URL("../../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
 
@@ -87,7 +87,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#connectors" class="md-skip">
+        <a href="#udp-egress" class="md-skip">
           Skip to content
         </a>
       
@@ -107,7 +107,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="Goccia" class="md-header__button md-logo" aria-label="Goccia" data-md-component="logo">
+    <a href="../../.." title="Goccia" class="md-header__button md-logo" aria-label="Goccia" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-droplets" viewBox="0 0 24 24"><path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05"/><path d="M12.56 6.6A11 11 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"/></svg>
@@ -127,7 +127,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Connectors
+              UDP Egress
             
           </span>
         </div>
@@ -216,7 +216,7 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="Goccia" class="md-nav__button md-logo" aria-label="Goccia" data-md-component="logo">
+    <a href="../../.." title="Goccia" class="md-nav__button md-logo" aria-label="Goccia" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-droplets" viewBox="0 0 24 24"><path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05"/><path d="M12.56 6.6A11 11 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"/></svg>
@@ -246,7 +246,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href="../../.." class="md-nav__link">
         
   
   
@@ -274,7 +274,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/" class="md-nav__link">
+      <a href="../../../getting-started/" class="md-nav__link">
         
   
   
@@ -299,20 +299,18 @@
       
   
   
-    
   
   
-  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
         
           
           <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
@@ -332,7 +330,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -349,7 +347,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../pipeline/" class="md-nav__link">
+      <a href="../../../concepts/pipeline/" class="md-nav__link">
         
   
   
@@ -375,38 +373,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-  
-  <span class="md-ellipsis">
-    
-  
-  Connectors
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../concepts/connectors/" class="md-nav__link">
         
   
   
@@ -423,160 +393,6 @@
   
 
       </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#create-a-connector" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Create a Connector
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#bounded-queues-and-backpressure" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Bounded Queues and Backpressure
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#built-in-lock-free-ring-buffer" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Built-In Lock-Free Ring Buffer
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Built-In Lock-Free Ring Buffer">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#fast-path" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Fast Path
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#waiting-path" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Waiting Path
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#read-write-and-close" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Read, Write, and Close
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Read, Write, and Close">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#write" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Write
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#read" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Read
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#close" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Close
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#shutdown-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Shutdown Example
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#custom-connectors" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Custom Connectors
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -589,7 +405,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../stages/" class="md-nav__link">
+      <a href="../../../concepts/stages/" class="md-nav__link">
         
   
   
@@ -622,18 +438,20 @@
       
   
   
+    
   
   
+  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
           <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
@@ -653,7 +471,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -670,7 +488,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/" class="md-nav__link">
+      <a href="../../" class="md-nav__link">
         
   
   
@@ -744,7 +562,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/ingress/" class="md-nav__link">
+      <a href="../../ingress/" class="md-nav__link">
         
   
   
@@ -773,7 +591,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/ingress/ticker/" class="md-nav__link">
+      <a href="../../ingress/ticker/" class="md-nav__link">
         
   
   
@@ -802,7 +620,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/ingress/tcp/" class="md-nav__link">
+      <a href="../../ingress/tcp/" class="md-nav__link">
         
   
   
@@ -831,7 +649,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/ingress/udp/" class="md-nav__link">
+      <a href="../../ingress/udp/" class="md-nav__link">
         
   
   
@@ -860,7 +678,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/ingress/file/" class="md-nav__link">
+      <a href="../../ingress/file/" class="md-nav__link">
         
   
   
@@ -889,7 +707,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/ingress/kafka/" class="md-nav__link">
+      <a href="../../ingress/kafka/" class="md-nav__link">
         
   
   
@@ -918,7 +736,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/ingress/ebpf/" class="md-nav__link">
+      <a href="../../ingress/ebpf/" class="md-nav__link">
         
   
   
@@ -1000,7 +818,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/processor/" class="md-nav__link">
+      <a href="../../processor/" class="md-nav__link">
         
   
   
@@ -1029,7 +847,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/processor/custom/" class="md-nav__link">
+      <a href="../../processor/custom/" class="md-nav__link">
         
   
   
@@ -1058,7 +876,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/processor/filter/" class="md-nav__link">
+      <a href="../../processor/filter/" class="md-nav__link">
         
   
   
@@ -1087,7 +905,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/processor/tee/" class="md-nav__link">
+      <a href="../../processor/tee/" class="md-nav__link">
         
   
   
@@ -1161,7 +979,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/processor/csv-decoder/" class="md-nav__link">
+      <a href="../../processor/csv-decoder/" class="md-nav__link">
         
   
   
@@ -1190,7 +1008,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/processor/csv-encoder/" class="md-nav__link">
+      <a href="../../processor/csv-encoder/" class="md-nav__link">
         
   
   
@@ -1227,7 +1045,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/processor/can/" class="md-nav__link">
+      <a href="../../processor/can/" class="md-nav__link">
         
   
   
@@ -1301,7 +1119,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/processor/cannelloni-decoder/" class="md-nav__link">
+      <a href="../../processor/cannelloni-decoder/" class="md-nav__link">
         
   
   
@@ -1330,7 +1148,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/processor/cannelloni-encoder/" class="md-nav__link">
+      <a href="../../processor/cannelloni-encoder/" class="md-nav__link">
         
   
   
@@ -1367,7 +1185,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/processor/rob/" class="md-nav__link">
+      <a href="../../processor/rob/" class="md-nav__link">
         
   
   
@@ -1401,18 +1219,20 @@
                 
   
   
+    
   
   
+  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" checked>
         
           
           <label class="md-nav__link" for="__nav_4_4" id="__nav_4_4_label" tabindex="0">
@@ -1432,7 +1252,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1449,7 +1269,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/egress/" class="md-nav__link">
+      <a href="../" class="md-nav__link">
         
   
   
@@ -1478,7 +1298,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/egress/sink/" class="md-nav__link">
+      <a href="../sink/" class="md-nav__link">
         
   
   
@@ -1507,7 +1327,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/egress/tcp/" class="md-nav__link">
+      <a href="../tcp/" class="md-nav__link">
         
   
   
@@ -1533,10 +1353,38 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../stages/egress/udp/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-radio-tower" viewBox="0 0 24 24"><path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/><circle cx="12" cy="9" r="2"/><path d="M16.2 4.8c2 2 2.26 5.11.8 7.47M19.1 1.9a9.96 9.96 0 0 1 0 14.1M9.5 18h5M8 22l4-11 4 11"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  UDP
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1553,6 +1401,77 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Messages
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Messages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#input-message" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Input Message
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Configuration
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#internals" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Internals
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1565,7 +1484,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/egress/file/" class="md-nav__link">
+      <a href="../file/" class="md-nav__link">
         
   
   
@@ -1594,7 +1513,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/egress/kafka/" class="md-nav__link">
+      <a href="../kafka/" class="md-nav__link">
         
   
   
@@ -1623,7 +1542,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stages/egress/questdb/" class="md-nav__link">
+      <a href="../questdb/" class="md-nav__link">
         
   
   
@@ -1667,7 +1586,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../examples/" class="md-nav__link">
+      <a href="../../../examples/" class="md-nav__link">
         
   
   
@@ -1729,55 +1648,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#create-a-connector" class="md-nav__link">
+  <a href="#messages" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Create a Connector
+        Messages
       </span>
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#bounded-queues-and-backpressure" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Bounded Queues and Backpressure
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#built-in-lock-free-ring-buffer" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Built-In Lock-Free Ring Buffer
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Built-In Lock-Free Ring Buffer">
+    <nav class="md-nav" aria-label="Messages">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#fast-path" class="md-nav__link">
+  <a href="#input-message" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Fast Path
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#waiting-path" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Waiting Path
+        Input Message
       </span>
     </span>
   </a>
@@ -1790,60 +1676,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#read-write-and-close" class="md-nav__link">
+  <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Read, Write, and Close
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Read, Write, and Close">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#write" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Write
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#read" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Read
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#close" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Close
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#shutdown-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Shutdown Example
+        Configuration
       </span>
     </span>
   </a>
@@ -1851,10 +1687,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#custom-connectors" class="md-nav__link">
+  <a href="#internals" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Custom Connectors
+        Internals
       </span>
     </span>
   </a>
@@ -1886,7 +1722,7 @@
   
   
     <li class="md-path__item">
-      <a href="../.." class="md-path__link">
+      <a href="../../.." class="md-path__link">
         
   
   <span class="md-ellipsis">
@@ -1908,11 +1744,33 @@
     
     
       <li class="md-path__item">
-        <a href="../pipeline/" class="md-path__link">
+        <a href="../../" class="md-path__link">
           
   
   <span class="md-ellipsis">
-    Concepts
+    Built-in Stages
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Egress
   </span>
 
         </a>
@@ -1932,175 +1790,55 @@
   
 
 
-<h1 id="connectors">Connectors<a class="headerlink" href="#connectors" title="Permanent link">&para;</a></h1>
-<p>Connectors join stages together. They transport messages, define the edges of
-the pipeline graph, and apply backpressure when consumers cannot keep up with
-producers. This page builds on the <a href="../pipeline/#stage-graph">pipeline graph</a>
-introduced in the previous concept guide.</p>
-<pre class="mermaid"><code>flowchart LR
-  ingress[Ingress stage] --&gt;|connector| processor[Processor stage]
-  processor --&gt;|connector| egress[Egress stage]</code></pre>
-<h2 id="create-a-connector">Create a Connector<a class="headerlink" href="#create-a-connector" title="Permanent link">&para;</a></h2>
-<p>Goccia includes a bounded ring-buffer connector:</p>
-<div class="language-go highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">connectorSize</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">512</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nx">tickerToCustom</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">connector</span><span class="p">.</span><span class="nx">NewRingBuffer</span><span class="p">[</span><span class="o">*</span><span class="nx">ingress</span><span class="p">.</span><span class="nx">TickerMessage</span><span class="p">](</span><span class="nx">connectorSize</span><span class="p">)</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nx">customToSink</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">connector</span><span class="p">.</span><span class="nx">NewRingBuffer</span><span class="p">[</span><span class="o">*</span><span class="nx">ingress</span><span class="p">.</span><span class="nx">TickerMessage</span><span class="p">](</span><span class="nx">connectorSize</span><span class="p">)</span>
+<h1 id="udp-egress">UDP Egress<a class="headerlink" href="#udp-egress" title="Permanent link">&para;</a></h1>
+<p><code>UDPStage</code> sends each serializable message as one UDP datagram.</p>
+<p><a class="stage-badge stage-badge--pool" href="../../../concepts/stages/#pooled-execution-mode">Pool-capable</a></p>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nx">cfg</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">egress</span><span class="p">.</span><span class="nx">NewUDPConfig</span><span class="p">(</span><span class="nx">goccia</span><span class="p">.</span><span class="nx">StageRunningModePool</span><span class="p">)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nx">cfg</span><span class="p">.</span><span class="nx">IPAddr</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;127.0.0.1&quot;</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nx">cfg</span><span class="p">.</span><span class="nx">Port</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">20000</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nx">stage</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">egress</span><span class="p">.</span><span class="nx">NewUDPStage</span><span class="p">(</span><span class="nx">in</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">)</span>
 </span></code></pre></div>
-<p>Pass the same connector instance to the producing stage and the consuming
-stage:</p>
-<div class="language-go highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nx">tickerStage</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ingress</span><span class="p">.</span><span class="nx">NewTickerStage</span><span class="p">(</span><span class="nx">tickerToCustom</span><span class="p">,</span><span class="w"> </span><span class="nx">tickerCfg</span><span class="p">)</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nx">customStage</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">processor</span><span class="p">.</span><span class="nx">NewCustomStage</span><span class="p">(</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nx">handler</span><span class="p">,</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nx">tickerToCustom</span><span class="p">,</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nx">customToSink</span><span class="p">,</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nx">customCfg</span><span class="p">,</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p">)</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="nx">sinkStage</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">egress</span><span class="p">.</span><span class="nx">NewSinkStage</span><span class="p">(</span><span class="nx">customToSink</span><span class="p">)</span>
-</span></code></pre></div>
-<p>The generic type is the message body carried across the edge. Internally,
-Goccia wraps each body in a message envelope that stores lifecycle and
-telemetry metadata.</p>
-<h2 id="bounded-queues-and-backpressure">Bounded Queues and Backpressure<a class="headerlink" href="#bounded-queues-and-backpressure" title="Permanent link">&para;</a></h2>
-<p>The built-in connector has a fixed capacity. A producer can continue writing
-while space is available. When the queue fills up, the next <code>Write</code> waits until
-a consumer reads a message:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>producer faster than consumer
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>-&gt; connector reaches capacity
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>-&gt; producer waits
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>-&gt; pressure propagates upstream
-</span></code></pre></div>
-<p>This behavior bounds memory usage and avoids silently dropping messages.</p>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>Start with a moderate capacity, such as <code>512</code>, and tune it using your
-workload metrics. A larger queue can absorb bursts, but it also retains
-more messages during shutdown and can increase end-to-end latency.</p>
-</div>
-<h2 id="built-in-lock-free-ring-buffer">Built-In Lock-Free Ring Buffer<a class="headerlink" href="#built-in-lock-free-ring-buffer" title="Permanent link">&para;</a></h2>
-<p>The built-in connector is optimized for stage-to-stage message passing. Its
-storage is a fixed-size circular array: after reaching the end of the array,
-the next write wraps back to the beginning and reuses slots that consumers have
-already released.</p>
-<pre class="mermaid"><code>flowchart LR
-  producer[Producer] --&gt; head[Head index]
-  head --&gt; slots[Fixed-size ring]
-  slots --&gt; tail[Tail index]
-  tail --&gt; consumer[Consumer]</code></pre>
-<p>The public <code>connector.NewRingBuffer</code> constructor creates an <strong>SPSC</strong>
-(single-producer, single-consumer) buffer. This matches a normal pipeline edge:
-one stage writes messages and the following stage reads them.</p>
-<p>Goccia also uses specialized variants internally for pooled stages:</p>
+<h2 id="messages">Messages<a class="headerlink" href="#messages" title="Permanent link">&para;</a></h2>
+<h3 id="input-message">Input Message<a class="headerlink" href="#input-message" title="Permanent link">&para;</a></h3>
+<p>Accepted body requirement: <code>message.Serializable</code>.</p>
+<p>The stage sends the byte slice returned by <code>GetBytes()</code> as one UDP datagram.</p>
+<p>This egress stage produces no downstream output message.</p>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Variant</th>
-<th>Producers</th>
-<th>Consumers</th>
-<th>Used for</th>
+<th>Field</th>
+<th>Default</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>SPSC</td>
-<td>One</td>
-<td>One</td>
-<td>Public connectors between stages</td>
+<td><code>Stage.RunningMode</code></td>
+<td>constructor arg</td>
+<td><code>StageRunningModeSingle</code> or <code>StageRunningModePool</code>.</td>
 </tr>
 <tr>
-<td>SPMC</td>
-<td>One</td>
-<td>Many</td>
-<td>Internal fan-out from an input bridge to pooled workers</td>
+<td><code>Stage.Pool</code></td>
+<td>default pool when pool mode is selected</td>
+<td>Worker counts, queue sizes, and auto-scaling.</td>
 </tr>
 <tr>
-<td>MPSC</td>
-<td>Many</td>
-<td>One</td>
-<td>Internal fan-in from pooled workers to an output bridge</td>
+<td><code>IPAddr</code></td>
+<td><code>"127.0.0.1"</code></td>
+<td>Destination address.</td>
+</tr>
+<tr>
+<td><code>Port</code></td>
+<td><code>20000</code></td>
+<td>Destination UDP port.</td>
 </tr>
 </tbody>
 </table>
-<h3 id="fast-path">Fast Path<a class="headerlink" href="#fast-path" title="Permanent link">&para;</a></h3>
-<p>When the ring has space or queued data, reads and writes use atomic operations
-instead of taking a mutex:</p>
-<ul>
-<li>The producer advances a <code>head</code> index.</li>
-<li>The consumer advances a <code>tail</code> index.</li>
-<li>An index mask maps those counters onto slots in the circular array.</li>
-<li>Cache-line padding separates frequently updated fields to reduce contention.</li>
-</ul>
-<p>The requested capacity is rounded up to a power of two. This allows Goccia to
-map an index to a slot using a bit mask instead of a remainder operation. For
-example, requesting capacity <code>500</code> creates a ring with capacity <code>512</code>.</p>
-<h3 id="waiting-path">Waiting Path<a class="headerlink" href="#waiting-path" title="Permanent link">&para;</a></h3>
-<p>Lock-free does not mean busy-waiting forever. When a queue remains empty or
-full after a short spin period, the connector waits on a condition variable:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>optimistic atomic operation
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>-&gt; briefly yield while another goroutine may make progress
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>-&gt; wait efficiently if the queue is still empty or full
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>-&gt; wake when data, capacity, cancellation, or closure changes the state
-</span></code></pre></div>
-<p>This hybrid approach keeps the common path lightweight while avoiding needless
-CPU usage during longer idle or backpressure periods.</p>
-<h2 id="read-write-and-close">Read, Write, and Close<a class="headerlink" href="#read-write-and-close" title="Permanent link">&para;</a></h2>
-<p>Every connector implements:</p>
-<div class="language-go highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">Connector</span><span class="p">[</span><span class="nx">T</span><span class="w"> </span><span class="kt">any</span><span class="p">]</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="nx">Write</span><span class="p">(</span><span class="nx">item</span><span class="w"> </span><span class="nx">T</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nx">Read</span><span class="p">(</span><span class="nx">ctx</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="nx">T</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nx">Close</span><span class="p">()</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">}</span>
-</span></code></pre></div>
-<h3 id="write">Write<a class="headerlink" href="#write" title="Permanent link">&para;</a></h3>
-<p><code>Write(item)</code> adds one message to the queue.</p>
-<ul>
-<li>It waits when the queue is full.</li>
-<li>It returns <code>connector.ErrClosed</code> if the connector has been closed.</li>
-<li>It does not accept a context, so cancellation alone does not interrupt a
-  blocked write.</li>
-</ul>
-<h3 id="read">Read<a class="headerlink" href="#read" title="Permanent link">&para;</a></h3>
-<p><code>Read(ctx)</code> removes one message from the queue.</p>
-<ul>
-<li>It waits when the queue is empty.</li>
-<li>It returns <code>ctx.Err()</code> if the context is canceled while waiting.</li>
-<li>It returns <code>connector.ErrClosed</code> when the connector is closed and empty.</li>
-<li>It continues returning buffered messages after <code>Close()</code> until the queue has
-  been drained.</li>
-</ul>
-<h3 id="close">Close<a class="headerlink" href="#close" title="Permanent link">&para;</a></h3>
-<p><code>Close()</code> marks the connector as closed and wakes blocked readers and writers.
-It is safe to call more than once.</p>
-<p>During normal pipeline usage, stages close their output connectors as part of
-the coordinated shutdown sequence. Application code generally calls
-<code>Pipeline.Close()</code> rather than closing connectors individually.</p>
-<h2 id="shutdown-example">Shutdown Example<a class="headerlink" href="#shutdown-example" title="Permanent link">&para;</a></h2>
-<p>If a connector contains two messages when its producer closes it, the consumer
-can still drain both messages:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>producer closes connector
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>-&gt; consumer reads queued message 1
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>-&gt; consumer reads queued message 2
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>-&gt; consumer Read returns connector.ErrClosed
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>-&gt; consumer stage exits
-</span></code></pre></div>
-<p>This drain-before-exit behavior is essential to Goccia's graceful shutdown
-model.</p>
-<h2 id="custom-connectors">Custom Connectors<a class="headerlink" href="#custom-connectors" title="Permanent link">&para;</a></h2>
-<p>The public <code>connector.Connector[T]</code> interface can be implemented by custom
-connectors. A custom implementation should preserve the same lifecycle
-contract:</p>
-<ul>
-<li><code>Read(ctx)</code> must return when its context is canceled while waiting.</li>
-<li><code>Close()</code> must wake blocked readers and writers.</li>
-<li>Buffered messages should remain readable after <code>Close()</code>.</li>
-<li>Writes after <code>Close()</code> must return <code>connector.ErrClosed</code>.</li>
-<li>Each connector instance must have stable pointer identity so Goccia can use
-  it to build the stage graph.</li>
-</ul>
-<p>Use the built-in ring buffer unless you need transport-specific behavior or a
-different queueing strategy.</p>
-<p>Next, read about the <a href="../stages/">stages</a> that produce and consume messages
-through these connectors.</p>
+<h2 id="internals">Internals<a class="headerlink" href="#internals" title="Permanent link">&para;</a></h2>
+<p>The stage uses Go's standard <code>net</code> package. Initialization creates a connected
+<code>net.UDPConn</code> with <code>net.DialUDP</code>; each worker writes the byte slice returned by
+<code>GetBytes()</code> and records delivered-byte metrics.</p>
 
 
 
@@ -2141,7 +1879,7 @@ through these connectors.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../pipeline/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Pipeline">
+          <a href="../tcp/" class="md-footer__link md-footer__link--prev" aria-label="Previous: TCP">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -2151,20 +1889,20 @@ through these connectors.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Pipeline
+                TCP
               </div>
             </div>
           </a>
         
         
           
-          <a href="../stages/" class="md-footer__link md-footer__link--next" aria-label="Next: Stages">
+          <a href="../file/" class="md-footer__link md-footer__link--next" aria-label="Next: File">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Stages
+                File
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -2221,10 +1959,10 @@ through these connectors.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.copy","content.tooltips","navigation.footer","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.top","navigation.tracking","search.highlight"],"search":"../../assets/javascripts/workers/search.e2d2d235.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":["latest","development"],"provider":"mike"}}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"../../..","features":["content.code.copy","content.tooltips","navigation.footer","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.top","navigation.tracking","search.highlight"],"search":"../../../assets/javascripts/workers/search.e2d2d235.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":["latest","development"],"provider":"mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.6e5f0216.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.6e5f0216.min.js"></script>
       
     
   </body>
