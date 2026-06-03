@@ -7,6 +7,7 @@ docs_dir = "pages"
 copyright = "Copyright &copy; 2026 The Goccia authors"
 repo_url = "https://github.com/FerroO2000/goccia"
 repo_name = "FerroO2000/goccia"
+extra_css = ["stylesheets/extra.css"]
 nav = [
   { "Home" = "index.md" },
   { "Get Started" = "getting-started.md" },
@@ -14,6 +15,43 @@ nav = [
     { "Pipeline" = "concepts/pipeline.md" },
     { "Connectors" = "concepts/connectors.md" },
     { "Stages" = "concepts/stages.md" },
+  ] },
+  { "Built-in Stages" = [
+    { "Overview" = "stages/index.md" },
+    { "Ingress" = [
+      { "Overview" = "stages/ingress/index.md" },
+      { "Ticker" = "stages/ingress/ticker.md" },
+      { "TCP" = "stages/ingress/tcp.md" },
+      { "UDP" = "stages/ingress/udp.md" },
+      { "File" = "stages/ingress/file.md" },
+      { "Kafka" = "stages/ingress/kafka.md" },
+      { "eBPF" = "stages/ingress/ebpf.md" },
+    ] },
+    { "Processor" = [
+      { "Overview" = "stages/processor/index.md" },
+      { "Custom" = "stages/processor/custom.md" },
+      { "Filter" = "stages/processor/filter.md" },
+      { "Tee" = "stages/processor/tee.md" },
+      { "CSV" = [
+        { "Decoder" = "stages/processor/csv-decoder.md" },
+        { "Encoder" = "stages/processor/csv-encoder.md" },
+      ] },
+      { "CAN" = "stages/processor/can.md" },
+      { "Cannelloni" = [
+        { "Decoder" = "stages/processor/cannelloni-decoder.md" },
+        { "Encoder" = "stages/processor/cannelloni-encoder.md" },
+      ] },
+      { "ROB" = "stages/processor/rob.md" },
+    ] },
+    { "Egress" = [
+      { "Overview" = "stages/egress/index.md" },
+      { "Sink" = "stages/egress/sink.md" },
+      { "TCP" = "stages/egress/tcp.md" },
+      { "UDP" = "stages/egress/udp.md" },
+      { "File" = "stages/egress/file.md" },
+      { "Kafka" = "stages/egress/kafka.md" },
+      { "QuestDB" = "stages/egress/questdb.md" },
+    ] },
   ] },
   { "Examples" = "examples.md" },
 ]
