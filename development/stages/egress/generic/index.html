@@ -12,13 +12,13 @@
         <meta name="author" content="The Goccia authors">
       
       
-        <link rel="canonical" href="https://ferroo2000.github.io/goccia/development/stages/processor/filter/">
+        <link rel="canonical" href="https://ferroo2000.github.io/goccia/development/stages/egress/generic/">
       
       
-        <link rel="prev" href="../custom/">
+        <link rel="prev" href="../">
       
       
-        <link rel="next" href="../tee/">
+        <link rel="next" href="../sink/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>Filter Processor - Goccia</title>
+        <title>Generic Egress - Goccia</title>
       
     
     
@@ -87,7 +87,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#filter-processor" class="md-skip">
+        <a href="#generic-egress" class="md-skip">
           Skip to content
         </a>
       
@@ -127,7 +127,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Filter Processor
+              Generic Egress
             
           </span>
         </div>
@@ -770,20 +770,18 @@
                 
   
   
-    
   
   
-  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
         
           
           <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
@@ -803,7 +801,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -820,7 +818,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../" class="md-nav__link">
+      <a href="../../processor/" class="md-nav__link">
         
   
   
@@ -849,7 +847,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../custom/" class="md-nav__link">
+      <a href="../../processor/custom/" class="md-nav__link">
         
   
   
@@ -875,38 +873,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-filter" viewBox="0 0 24 24"><path d="M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z"/></svg>
-  
-  <span class="md-ellipsis">
-    
-  
-  Filter
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../processor/filter/" class="md-nav__link">
         
   
   
@@ -923,88 +893,6 @@
   
 
       </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#messages" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Messages
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Messages">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#input-message" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Input Message
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#output-message" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Output Message
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Configuration
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#internals" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Internals
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1017,7 +905,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../tee/" class="md-nav__link">
+      <a href="../../processor/tee/" class="md-nav__link">
         
   
   
@@ -1091,7 +979,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../csv-decoder/" class="md-nav__link">
+      <a href="../../processor/csv-decoder/" class="md-nav__link">
         
   
   
@@ -1120,7 +1008,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../csv-encoder/" class="md-nav__link">
+      <a href="../../processor/csv-encoder/" class="md-nav__link">
         
   
   
@@ -1157,7 +1045,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../can/" class="md-nav__link">
+      <a href="../../processor/can/" class="md-nav__link">
         
   
   
@@ -1231,7 +1119,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../cannelloni-decoder/" class="md-nav__link">
+      <a href="../../processor/cannelloni-decoder/" class="md-nav__link">
         
   
   
@@ -1260,7 +1148,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../cannelloni-encoder/" class="md-nav__link">
+      <a href="../../processor/cannelloni-encoder/" class="md-nav__link">
         
   
   
@@ -1297,7 +1185,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../rob/" class="md-nav__link">
+      <a href="../../processor/rob/" class="md-nav__link">
         
   
   
@@ -1331,18 +1219,20 @@
                 
   
   
+    
   
   
+  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" checked>
         
           
           <label class="md-nav__link" for="__nav_4_4" id="__nav_4_4_label" tabindex="0">
@@ -1362,7 +1252,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1379,7 +1269,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../egress/" class="md-nav__link">
+      <a href="../" class="md-nav__link">
         
   
   
@@ -1405,10 +1295,38 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../egress/generic/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-code" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Generic
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1425,6 +1343,88 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Messages
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Messages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#input-message" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Input Message
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Configuration
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#handler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Handler
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#internals" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Internals
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1437,7 +1437,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../egress/sink/" class="md-nav__link">
+      <a href="../sink/" class="md-nav__link">
         
   
   
@@ -1466,7 +1466,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../egress/tcp/" class="md-nav__link">
+      <a href="../tcp/" class="md-nav__link">
         
   
   
@@ -1495,7 +1495,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../egress/udp/" class="md-nav__link">
+      <a href="../udp/" class="md-nav__link">
         
   
   
@@ -1524,7 +1524,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../egress/file/" class="md-nav__link">
+      <a href="../file/" class="md-nav__link">
         
   
   
@@ -1553,7 +1553,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../egress/kafka/" class="md-nav__link">
+      <a href="../kafka/" class="md-nav__link">
         
   
   
@@ -1582,7 +1582,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../egress/questdb/" class="md-nav__link">
+      <a href="../questdb/" class="md-nav__link">
         
   
   
@@ -1710,17 +1710,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#output-message" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Output Message
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -1731,6 +1720,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Configuration
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#handler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Handler
       </span>
     </span>
   </a>
@@ -1821,7 +1821,7 @@
           
   
   <span class="md-ellipsis">
-    Processor
+    Egress
   </span>
 
         </a>
@@ -1841,25 +1841,20 @@
   
 
 
-<h1 id="filter-processor">Filter Processor<a class="headerlink" href="#filter-processor" title="Permanent link">&para;</a></h1>
-<p><code>FilterStage</code> keeps messages whose predicate returns <code>true</code> and drops messages
-whose predicate returns <code>false</code>.</p>
+<h1 id="generic-egress">Generic Egress<a class="headerlink" href="#generic-egress" title="Permanent link">&para;</a></h1>
+<p><code>GenericStage</code> runs a user-provided handler for each input message and
+terminates the pipeline branch.</p>
 <p><a class="stage-badge stage-badge--pool" href="../../../concepts/stages/#pooled-execution-mode">Pool-capable</a></p>
-<div class="language-go highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nx">cfg</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">processor</span><span class="p">.</span><span class="nx">NewFilterConfig</span><span class="p">(</span><span class="nx">goccia</span><span class="p">.</span><span class="nx">StageRunningModePool</span><span class="p">)</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nx">stage</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">processor</span><span class="p">.</span><span class="nx">NewFilterStage</span><span class="p">(</span><span class="nx">keepFn</span><span class="p">,</span><span class="w"> </span><span class="nx">in</span><span class="p">,</span><span class="w"> </span><span class="nx">out</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">)</span>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nx">cfg</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">egress</span><span class="p">.</span><span class="nx">NewGenericConfig</span><span class="p">(</span><span class="s">&quot;publish_metrics&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">goccia</span><span class="p">.</span><span class="nx">StageRunningModePool</span><span class="p">)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nx">stage</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">egress</span><span class="p">.</span><span class="nx">NewGenericStage</span><span class="p">(</span><span class="nx">handler</span><span class="p">,</span><span class="w"> </span><span class="nx">in</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="messages">Messages<a class="headerlink" href="#messages" title="Permanent link">&para;</a></h2>
 <h3 id="input-message">Input Message<a class="headerlink" href="#input-message" title="Permanent link">&para;</a></h3>
-<p>Accepted body type: <code>T</code>.</p>
-<p>Additional input interfaces: none required beyond <code>message.Body</code>. If <code>T</code>
-implements <code>message.Serializable</code>, <code>message.ReOrderable</code>, or another interface,
-that interface is preserved for kept messages.</p>
-<h3 id="output-message">Output Message<a class="headerlink" href="#output-message" title="Permanent link">&para;</a></h3>
-<p>Produced body type: the same <code>T</code> body received from the input connector, when
-the predicate returns <code>true</code>.</p>
-<p>Additional interfaces: preserved from <code>T</code>. The stage does not create a new body
-or add interfaces; a serializable input remains serializable, a reorderable
-input remains reorderable, and a filtered-out message is marked dropped.</p>
+<p>Accepted body type: the handler's <code>In</code> type parameter.</p>
+<p><code>GenericStage</code> only requires <code>In</code> to implement <code>message.Body</code>. Any additional
+interfaces depend on the concrete input body type and on the logic implemented
+by the handler.</p>
+<p>This egress stage produces no downstream output message.</p>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1880,14 +1875,23 @@ input remains reorderable, and a filtered-out message is marked dropped.</p>
 <td>default pool when pool mode is selected</td>
 <td>Worker counts, queue sizes, and auto-scaling.</td>
 </tr>
+<tr>
+<td><code>Name</code></td>
+<td>constructor arg, or <code>"generic"</code> when empty</td>
+<td>Stage name used in telemetry and the pipeline graph.</td>
+</tr>
 </tbody>
 </table>
-<p>The predicate is configured through the <code>filterFn func(T) bool</code> constructor
-argument, not through the config object.</p>
+<h2 id="handler">Handler<a class="headerlink" href="#handler" title="Permanent link">&para;</a></h2>
+<p>The handler implements <code>Init(ctx)</code>, <code>Handle(ctx, msgIn)</code>, <code>Close()</code>, and
+<code>SetTelemetry(tel)</code>. Embed <code>egress.GenericHandlerBase</code> when you only need to
+implement <code>Handle</code>.</p>
+<p><code>Handle</code> receives the message body and returns an error. Returning an error
+marks the delivery as failed for that message.</p>
 <h2 id="internals">Internals<a class="headerlink" href="#internals" title="Permanent link">&para;</a></h2>
-<p>The stage uses the generic worker-backed processor runner. The worker preserves
-kept messages by forwarding the original envelope. Filtered messages are marked
-dropped and counted in filter metrics.</p>
+<p>The stage uses Goccia's generic worker-backed egress runner. Each worker
+restores the message context, starts a handler span, and calls the handler
+without writing to an output connector.</p>
 
 
 
@@ -1928,7 +1932,7 @@ dropped and counted in filter metrics.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../custom/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Custom">
+          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: Overview">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -1938,20 +1942,20 @@ dropped and counted in filter metrics.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Custom
+                Overview
               </div>
             </div>
           </a>
         
         
           
-          <a href="../tee/" class="md-footer__link md-footer__link--next" aria-label="Next: Tee">
+          <a href="../sink/" class="md-footer__link md-footer__link--next" aria-label="Next: Sink">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Tee
+                Sink
               </div>
             </div>
             <div class="md-footer__button md-icon">
