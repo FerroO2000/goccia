@@ -103,7 +103,7 @@ func newCustomEnv[In, Out msgBody](config *CustomConfig, handler CustomHandler[I
 		BaseEnv: env.NewProcessorEnv(config, metrics.NewEmptyMetrics()),
 
 		handler:     handler,
-		traceString: fmt.Sprintf("handle %s message", config.Name),
+		traceString: "",
 	}
 }
 
@@ -112,9 +112,10 @@ func (ce *customEnv[In, Out]) Init(ctx context.Context) error {
 		return err
 	}
 
-	ce.handler.SetTelemetry(ce.Telemetry())
+	ce.traceString = fmt.Sprintf("handle %s message", ce.Config.Name)
 
-	return nil
+	ce.handler.SetTelemetry(ce.Tel)
+	return ce.handler.Init(ctx)
 }
 
 func (ce *customEnv[In, Out]) Close(ctx context.Context) {

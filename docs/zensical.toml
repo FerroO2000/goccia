@@ -45,6 +45,7 @@ nav = [
     ] },
     { "Egress" = [
       { "Overview" = "stages/egress/index.md" },
+      { "Generic" = "stages/egress/generic.md" },
       { "Sink" = "stages/egress/sink.md" },
       { "TCP" = "stages/egress/tcp.md" },
       { "UDP" = "stages/egress/udp.md" },

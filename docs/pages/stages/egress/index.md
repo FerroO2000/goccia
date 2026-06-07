@@ -8,6 +8,7 @@ Egress stages consume messages and do not write to downstream connectors.
 
 | Stage | Constructor | Capability | Destination |
 | --- | --- | --- | --- |
+| [Generic](generic.md) | `egress.NewGenericStage` | [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool } | User-defined handler |
 | [Sink](sink.md) | `egress.NewSinkStage` | Single runner | Drop and destroy messages |
 | [TCP](tcp.md) | `egress.NewTCPStage` | Single worker | TCP connection |
 | [UDP](udp.md) | `egress.NewUDPStage` | [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool } | UDP socket |
