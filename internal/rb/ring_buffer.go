@@ -159,15 +159,22 @@ func (rb *RingBuffer[T]) len() uint64 {
 }
 
 func (rb *RingBuffer[T]) wait(ctx context.Context, cond *sync.Cond) error {
-	stopBroadcast := context.AfterFunc(ctx, func() {
+	timedOut := false
+
+	stop := context.AfterFunc(ctx, func() {
 		cond.L.Lock()
-		defer cond.L.Unlock()
+		timedOut = true
 		cond.Broadcast()
+		cond.L.Unlock()
 	})
-	defer stopBroadcast()
 
 	cond.Wait()
-	return ctx.Err()
+
+	if !stop() && timedOut {
+		return ctx.Err()
+	}
+
+	return nil
 }
 
 func (rb *RingBuffer[T]) Write(item T) error {
