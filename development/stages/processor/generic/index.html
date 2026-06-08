@@ -12,7 +12,7 @@
         <meta name="author" content="The Goccia authors">
       
       
-        <link rel="canonical" href="https://ferroo2000.github.io/goccia/development/stages/processor/custom/">
+        <link rel="canonical" href="https://ferroo2000.github.io/goccia/development/stages/processor/generic/">
       
       
         <link rel="prev" href="../">
@@ -29,7 +29,7 @@
     
     
       
-        <title>Custom Processor - Goccia</title>
+        <title>Generic Processor - Goccia</title>
       
     
     
@@ -87,7 +87,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#custom-processor" class="md-skip">
+        <a href="#generic-processor" class="md-skip">
           Skip to content
         </a>
       
@@ -127,7 +127,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Custom Processor
+              Generic Processor
             
           </span>
         </div>
@@ -867,7 +867,7 @@
   <span class="md-ellipsis">
     
   
-  Custom
+  Generic
 
     
   </span>
@@ -886,7 +886,7 @@
   <span class="md-ellipsis">
     
   
-  Custom
+  Generic
 
     
   </span>
@@ -1863,21 +1863,21 @@
   
 
 
-<h1 id="custom-processor">Custom Processor<a class="headerlink" href="#custom-processor" title="Permanent link">&para;</a></h1>
-<p><code>CustomStage</code> runs a user-provided handler for each input message.</p>
+<h1 id="generic-processor">Generic Processor<a class="headerlink" href="#generic-processor" title="Permanent link">&para;</a></h1>
+<p><code>GenericStage</code> runs a user-provided handler for each input message.</p>
 <p><a class="stage-badge stage-badge--pool" href="../../../concepts/stages/#pooled-execution-mode">Pool-capable</a></p>
-<div class="language-go highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nx">cfg</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">processor</span><span class="p">.</span><span class="nx">NewCustomConfig</span><span class="p">(</span><span class="nx">goccia</span><span class="p">.</span><span class="nx">StageRunningModePool</span><span class="p">)</span>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nx">cfg</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">processor</span><span class="p">.</span><span class="nx">NewGenericConfig</span><span class="p">(</span><span class="nx">goccia</span><span class="p">.</span><span class="nx">StageRunningModePool</span><span class="p">)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nx">cfg</span><span class="p">.</span><span class="nx">Name</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;decode_payload&quot;</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nx">stage</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">processor</span><span class="p">.</span><span class="nx">NewCustomStage</span><span class="p">(</span><span class="nx">handler</span><span class="p">,</span><span class="w"> </span><span class="nx">in</span><span class="p">,</span><span class="w"> </span><span class="nx">out</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nx">stage</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">processor</span><span class="p">.</span><span class="nx">NewGenericStage</span><span class="p">(</span><span class="nx">handler</span><span class="p">,</span><span class="w"> </span><span class="nx">in</span><span class="p">,</span><span class="w"> </span><span class="nx">out</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="messages">Messages<a class="headerlink" href="#messages" title="Permanent link">&para;</a></h2>
 <h3 id="input-message">Input Message<a class="headerlink" href="#input-message" title="Permanent link">&para;</a></h3>
 <p>Accepted body type: the handler's <code>In</code> type parameter.</p>
-<p><code>CustomStage</code> only requires <code>In</code> to implement <code>message.Body</code>. Any additional
+<p><code>GenericStage</code> only requires <code>In</code> to implement <code>message.Body</code>. Any additional
 interfaces depend on the concrete input body type.</p>
 <h3 id="output-message">Output Message<a class="headerlink" href="#output-message" title="Permanent link">&para;</a></h3>
 <p>Produced body type: the handler's <code>Out</code> type parameter.</p>
-<p><code>CustomStage</code> only requires the returned body to implement <code>message.Body</code>.
+<p><code>GenericStage</code> only requires the returned body to implement <code>message.Body</code>.
 Additional interfaces are not added by the stage; if <code>Out</code> also implements
 <code>message.Serializable</code>, <code>message.ReOrderable</code>, or an application-specific
 interface, that behavior comes from the concrete type returned by the handler.</p>
@@ -1903,14 +1903,14 @@ interface, that behavior comes from the concrete type returned by the handler.</
 </tr>
 <tr>
 <td><code>Name</code></td>
-<td><code>"custom"</code></td>
+<td><code>"generic"</code></td>
 <td>Stage name used in telemetry and the pipeline graph.</td>
 </tr>
 </tbody>
 </table>
 <h2 id="handler">Handler<a class="headerlink" href="#handler" title="Permanent link">&para;</a></h2>
 <p>The handler implements <code>Init(ctx)</code>, <code>Handle(ctx, msgIn)</code>, <code>Close()</code>, and
-<code>SetTelemetry(tel)</code>. Embed <code>processor.CustomHandlerBase</code> when you only need to
+<code>SetTelemetry(tel)</code>. Embed <code>processor.GenericHandlerBase</code> when you only need to
 implement <code>Handle</code>.</p>
 <h2 id="internals">Internals<a class="headerlink" href="#internals" title="Permanent link">&para;</a></h2>
 <p>The stage uses Goccia's generic worker-backed processor runner. Each worker

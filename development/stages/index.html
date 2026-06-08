@@ -918,7 +918,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./processor/custom/" class="md-nav__link">
+      <a href="./processor/generic/" class="md-nav__link">
         
   
   
@@ -927,7 +927,7 @@
   <span class="md-ellipsis">
     
   
-  Custom
+  Generic
 
     
   </span>
@@ -1782,7 +1782,7 @@ interfaces:</p>
 <a href="../concepts/stages/#pooled-execution-mode">pooled execution mode</a> concept
 section for the queueing, scaling, and shutdown model.</p>
 <p>Most processor and egress stages use a common running-mode configuration:</p>
-<div class="language-go highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nx">cfg</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">processor</span><span class="p">.</span><span class="nx">NewCustomConfig</span><span class="p">(</span><span class="nx">goccia</span><span class="p">.</span><span class="nx">StageRunningModePool</span><span class="p">)</span>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nx">cfg</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">processor</span><span class="p">.</span><span class="nx">NewGenericConfig</span><span class="p">(</span><span class="nx">goccia</span><span class="p">.</span><span class="nx">StageRunningModePool</span><span class="p">)</span>
 </span></code></pre></div>
 <p><code>StageRunningModeSingle</code> runs one executor. <code>StageRunningModePool</code> enables the
 generic worker pool and exposes <code>cfg.Stage.Pool</code> for worker counts, queue sizes,
