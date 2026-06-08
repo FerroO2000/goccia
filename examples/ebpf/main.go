@@ -62,9 +62,9 @@ func main() {
 
 	ebpfStage := ingress.NewEBPFStage(ebpfToHandler, ebpfConfig)
 
-	pingHandlerConfig := processor.NewCustomConfig(goccia.StageRunningModeSingle)
+	pingHandlerConfig := processor.NewGenericConfig(goccia.StageRunningModeSingle)
 	pingHandlerConfig.Name = "ping_handler"
-	pingHandlerStage := processor.NewCustomStage(newPingHandler(), ebpfToHandler, handlerToSink, pingHandlerConfig)
+	pingHandlerStage := processor.NewGenericStage(newPingHandler(), ebpfToHandler, handlerToSink, pingHandlerConfig)
 
 	sinkStage := egress.NewSinkStage(handlerToSink)
 

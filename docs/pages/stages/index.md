@@ -33,7 +33,7 @@ section for the queueing, scaling, and shutdown model.
 Most processor and egress stages use a common running-mode configuration:
 
 ``` go
-cfg := processor.NewCustomConfig(goccia.StageRunningModePool)
+cfg := processor.NewGenericConfig(goccia.StageRunningModePool)
 ```
 
 `StageRunningModeSingle` runs one executor. `StageRunningModePool` enables the

@@ -8,7 +8,7 @@ Processor stages read from an input connector and write to an output connector.
 
 | Family | Stage | Constructor | Capability | Purpose |
 | --- | --- | --- | --- | --- |
-| Generic | [Custom](custom.md) | `processor.NewCustomStage` | [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool } | User-defined transform |
+| Generic | [Generic](generic.md) | `processor.NewGenericStage` | [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool } | User-defined transform |
 | Generic | [Filter](filter.md) | `processor.NewFilterStage` | [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool } | Drop messages by predicate |
 | Generic | [Tee](tee.md) | `processor.NewTeeStage` | Single runner | Clone one stream to many outputs |
 | CSV | [Decoder](csv-decoder.md) | `processor.NewCSVDecoderStage` | [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool } | Bytes to typed CSV rows |

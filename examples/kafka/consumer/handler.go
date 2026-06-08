@@ -9,7 +9,7 @@ import (
 )
 
 type ingressToEgressHandler struct {
-	processor.CustomHandlerBase
+	processor.GenericHandlerBase
 }
 
 func newIngressToEgressHandler() *ingressToEgressHandler {

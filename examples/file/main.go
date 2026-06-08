@@ -31,9 +31,9 @@ func main() {
 	fileIngressCfg.WatchedDirs = []string{"./data/in"}
 	fileIngressStage := ingress.NewFileStage(fileIngressToCustom, fileIngressCfg)
 
-	customCfg := processor.NewCustomConfig(goccia.StageRunningModeSingle)
+	customCfg := processor.NewGenericConfig(goccia.StageRunningModeSingle)
 	customCfg.Name = "file_to_file"
-	customStage := processor.NewCustomStage(newFileHandler(), fileIngressToCustom, customToFileEgress, customCfg)
+	customStage := processor.NewGenericStage(newFileHandler(), fileIngressToCustom, customToFileEgress, customCfg)
 
 	fileEgressCfg := egress.NewFileConfig("./data/out/out.txt")
 	fileEgressStage := egress.NewFileStage(customToFileEgress, fileEgressCfg)

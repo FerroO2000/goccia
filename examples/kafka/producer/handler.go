@@ -10,7 +10,7 @@ import (
 )
 
 type tickerToKafkaHandler struct {
-	processor.CustomHandlerBase
+	processor.GenericHandlerBase
 }
 
 func newTickerToKafkaHandler() *tickerToKafkaHandler {

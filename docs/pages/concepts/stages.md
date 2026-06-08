@@ -358,7 +358,7 @@ Each pooled runner owns a scaler. It:
 Pool configuration controls worker counts, queue sizes, and scaling behavior:
 
 ``` go
-cfg := processor.NewCustomConfig(goccia.StageRunningModePool)
+cfg := processor.NewGenericConfig(goccia.StageRunningModePool)
 cfg.Stage.Pool.MinWorkers = 2
 cfg.Stage.Pool.MaxWorkers = 8
 cfg.Stage.Pool.InputQueueSize = 512

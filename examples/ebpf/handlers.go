@@ -9,7 +9,7 @@ import (
 )
 
 type pingHandler struct {
-	processor.CustomHandlerBase
+	processor.GenericHandlerBase
 }
 
 func newPingHandler() *pingHandler {

@@ -8,7 +8,7 @@ import (
 )
 
 type canToQuestDBHandler struct {
-	processor.CustomHandlerBase
+	processor.GenericHandlerBase
 }
 
 func newCANToQuestDBHandler() *canToQuestDBHandler {

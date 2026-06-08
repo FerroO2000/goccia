@@ -46,10 +46,10 @@ func main() {
 	canCfg.Messages = getMessages()
 	canStage := processor.NewCANStage(robToCAN, canToCustom, canCfg)
 
-	customCfg := processor.NewCustomConfig(goccia.StageRunningModePool)
+	customCfg := processor.NewGenericConfig(goccia.StageRunningModePool)
 	customCfg.Name = "can_to_questdb"
 	customCfg.Stage.Pool.MinWorkers = customCfg.Stage.Pool.InitialWorkers
-	customStage := processor.NewCustomStage(newCANToQuestDBHandler(), canToCustom, customToQuestDB, customCfg)
+	customStage := processor.NewGenericStage(newCANToQuestDBHandler(), canToCustom, customToQuestDB, customCfg)
 
 	questDBCfg := egress.NewQuestDBConfig(goccia.StageRunningModePool)
 	questDBCfg.Stage.Pool.MinWorkers = questDBCfg.Stage.Pool.InitialWorkers

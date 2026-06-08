@@ -8,7 +8,7 @@ import (
 )
 
 type fileHandler struct {
-	processor.CustomHandlerBase
+	processor.GenericHandlerBase
 }
 
 func newFileHandler() *fileHandler {

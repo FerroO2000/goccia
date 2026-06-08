@@ -25,8 +25,8 @@ customToSink := connector.NewRingBuffer[*ingress.TickerMessage](connectorSize)
 tickerCfg := ingress.NewTickerConfig()
 tickerStage := ingress.NewTickerStage(tickerToCustom, tickerCfg)
 
-customCfg := processor.NewCustomConfig(goccia.StageRunningModeSingle)
-customStage := processor.NewCustomStage(
+customCfg := processor.NewGenericConfig(goccia.StageRunningModeSingle)
+customStage := processor.NewGenericStage(
     handler,
     tickerToCustom,
     customToSink,
@@ -68,7 +68,7 @@ their resources.
 Processor and egress configurations accept a running mode:
 
 ``` go
-cfg := processor.NewCustomConfig(goccia.StageRunningModeSingle)
+cfg := processor.NewGenericConfig(goccia.StageRunningModeSingle)
 ```
 
 Use `StageRunningModeSingle` when ordering or simplicity matters most. Use

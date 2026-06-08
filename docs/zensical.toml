@@ -29,7 +29,7 @@ nav = [
     ] },
     { "Processor" = [
       { "Overview" = "stages/processor/index.md" },
-      { "Custom" = "stages/processor/custom.md" },
+      { "Generic" = "stages/processor/generic.md" },
       { "Filter" = "stages/processor/filter.md" },
       { "Tee" = "stages/processor/tee.md" },
       { "CSV" = [

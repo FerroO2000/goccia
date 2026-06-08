@@ -2,16 +2,16 @@
 icon: lucide/code
 ---
 
-# Custom Processor
+# Generic Processor
 
-`CustomStage` runs a user-provided handler for each input message.
+`GenericStage` runs a user-provided handler for each input message.
 
 [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool }
 
 ``` go
-cfg := processor.NewCustomConfig(goccia.StageRunningModePool)
+cfg := processor.NewGenericConfig(goccia.StageRunningModePool)
 cfg.Name = "decode_payload"
-stage := processor.NewCustomStage(handler, in, out, cfg)
+stage := processor.NewGenericStage(handler, in, out, cfg)
 ```
 
 ## Messages
@@ -20,14 +20,14 @@ stage := processor.NewCustomStage(handler, in, out, cfg)
 
 Accepted body type: the handler's `In` type parameter.
 
-`CustomStage` only requires `In` to implement `message.Body`. Any additional
+`GenericStage` only requires `In` to implement `message.Body`. Any additional
 interfaces depend on the concrete input body type.
 
 ### Output Message
 
 Produced body type: the handler's `Out` type parameter.
 
-`CustomStage` only requires the returned body to implement `message.Body`.
+`GenericStage` only requires the returned body to implement `message.Body`.
 Additional interfaces are not added by the stage; if `Out` also implements
 `message.Serializable`, `message.ReOrderable`, or an application-specific
 interface, that behavior comes from the concrete type returned by the handler.
@@ -38,12 +38,12 @@ interface, that behavior comes from the concrete type returned by the handler.
 | --- | --- | --- |
 | `Stage.RunningMode` | constructor arg | `StageRunningModeSingle` or `StageRunningModePool`. |
 | `Stage.Pool` | default pool when pool mode is selected | Worker counts, queue sizes, and auto-scaling. |
-| `Name` | `"custom"` | Stage name used in telemetry and the pipeline graph. |
+| `Name` | `"generic"` | Stage name used in telemetry and the pipeline graph. |
 
 ## Handler
 
 The handler implements `Init(ctx)`, `Handle(ctx, msgIn)`, `Close()`, and
-`SetTelemetry(tel)`. Embed `processor.CustomHandlerBase` when you only need to
+`SetTelemetry(tel)`. Embed `processor.GenericHandlerBase` when you only need to
 implement `Handle`.
 
 ## Internals

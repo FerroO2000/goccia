@@ -31,7 +31,7 @@ stage:
 
 ``` go
 tickerStage := ingress.NewTickerStage(tickerToCustom, tickerCfg)
-customStage := processor.NewCustomStage(
+customStage := processor.NewGenericStage(
     handler,
     tickerToCustom,
     customToSink,
