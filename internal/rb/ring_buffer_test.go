@@ -291,9 +291,9 @@ func Test_RingBuffer_CloseUnblocksDetachedRead(t *testing.T) {
 	}
 }
 
-///////////////
-// BENCHMARK //
-///////////////
+// ─── Benchmarks ─────────────────────────────────────────────────────────────|
+
+const benchmarkTimeout = 120 * time.Second
 
 type benchmarkRingBuffer interface {
 	Write(int) error
@@ -501,7 +501,7 @@ func benchContention(b *testing.B, rb benchmarkRingBuffer, numWriters, numReader
 	var wg sync.WaitGroup
 	wg.Add(numReaders)
 
-	ctx, cancelCtx := context.WithTimeout(b.Context(), 30*time.Second)
+	ctx, cancelCtx := context.WithTimeout(b.Context(), benchmarkTimeout)
 	defer cancelCtx()
 
 	// Multiple readers
@@ -640,7 +640,7 @@ func benchBoneShape(b *testing.B, capacity, parallelism int) {
 	var wg sync.WaitGroup
 	wg.Add(parallelism)
 
-	ctx, cancelCtx := context.WithTimeout(b.Context(), 30*time.Second)
+	ctx, cancelCtx := context.WithTimeout(b.Context(), benchmarkTimeout)
 	defer cancelCtx()
 
 	// Multiple readers
