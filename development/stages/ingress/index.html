@@ -18,7 +18,7 @@
         <link rel="prev" href="../">
       
       
-        <link rel="next" href="./ticker/">
+        <link rel="next" href="./generic-loop/">
       
       
         
@@ -591,6 +591,64 @@
 
       </a>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./generic-loop/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-refresh-cw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Generic Loop
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./generic-fan-in/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-git-merge" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Generic Fan-In
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1680,6 +1738,16 @@ not accept a running mode because each source owns its own runner.</p>
 </thead>
 <tbody>
 <tr>
+<td><a href="generic-loop/">Generic Loop</a></td>
+<td><code>ingress.NewGenericLoopStage</code></td>
+<td>User-defined producer loop</td>
+</tr>
+<tr>
+<td><a href="generic-fan-in/">Generic Fan-In</a></td>
+<td><code>ingress.NewGenericFanInStage</code></td>
+<td>User-defined source fan-in</td>
+</tr>
+<tr>
 <td><a href="ticker/">Ticker</a></td>
 <td><code>ingress.NewTickerStage</code></td>
 <td>Periodic timer</td>
@@ -1768,13 +1836,13 @@ not accept a running mode because each source owns its own runner.</p>
         
         
           
-          <a href="./ticker/" class="md-footer__link md-footer__link--next" aria-label="Next: Ticker">
+          <a href="./generic-loop/" class="md-footer__link md-footer__link--next" aria-label="Next: Generic Loop">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Ticker
+                Generic Loop
               </div>
             </div>
             <div class="md-footer__button md-icon">

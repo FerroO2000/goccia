@@ -22,6 +22,12 @@
         <loc>https://ferroo2000.github.io/goccia/development/stages/ingress/</loc>
       </url>
       <url>
+        <loc>https://ferroo2000.github.io/goccia/development/stages/ingress/generic-loop/</loc>
+      </url>
+      <url>
+        <loc>https://ferroo2000.github.io/goccia/development/stages/ingress/generic-fan-in/</loc>
+      </url>
+      <url>
         <loc>https://ferroo2000.github.io/goccia/development/stages/ingress/ticker/</loc>
       </url>
       <url>
