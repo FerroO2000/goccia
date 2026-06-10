@@ -9,6 +9,8 @@ not accept a running mode because each source owns its own runner.
 
 | Stage | Constructor | Source |
 | --- | --- | --- |
+| [Generic Loop](generic-loop.md) | `ingress.NewGenericLoopStage` | User-defined producer loop |
+| [Generic Fan-In](generic-fan-in.md) | `ingress.NewGenericFanInStage` | User-defined source fan-in |
 | [Ticker](ticker.md) | `ingress.NewTickerStage` | Periodic timer |
 | [TCP](tcp.md) | `ingress.NewTCPStage` | TCP listener |
 | [UDP](udp.md) | `ingress.NewUDPStage` | UDP socket |

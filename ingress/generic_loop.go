@@ -12,12 +12,21 @@ import (
 
 // ─── Handler ────────────────────────────────────────────────────────────────|
 
+// GenericLoopHandler interface defines the methods
+// that a generic loop handler must implement.
 type GenericLoopHandler[Out msgBody] interface {
 	// Init method is called once when the stage is initialized.
 	Init(ctx context.Context) error
 
+	// Handle method is called in the main loop of the stage.
+	// It should return the message to be sent to the next stage.
+	// If the method returns an error of type ErrQuitLoop, the
+	// stage will be stopped (exit the main loop).
 	Handle(ctx context.Context) (*msg[Out], error)
-	OnHandleDone()
+
+	// OnRunContextDone is called once when the running context is done,
+	// meaning that the stage should be stopped.
+	OnRunContextDone()
 
 	// Close is called once when the stage is closed.
 	Close()
@@ -28,18 +37,24 @@ type GenericLoopHandler[Out msgBody] interface {
 	SetTelemetry(tel *telemetry.Telemetry)
 }
 
+// GenericLoopHandlerBase is a base implementation of the GenericLoopHandler interface.
 type GenericLoopHandlerBase[Out msgBody] struct {
+	// Telemetry can be used to add traces, logs, and metrics
 	Telemetry *telemetry.Telemetry
 }
 
-func (hb *GenericLoopHandlerBase[Out]) Init(ctx context.Context) error {
+// Init is a no-op implementation of the generic handler Init method.
+func (hb *GenericLoopHandlerBase[Out]) Init(_ context.Context) error {
 	return nil
 }
 
-func (hb *GenericLoopHandlerBase[Out]) OnHandleDone() {}
+// OnRunContextDone is a no-op implementation of the generic handler OnRunContextDone method.
+func (hb *GenericLoopHandlerBase[Out]) OnRunContextDone() {}
 
+// Close is a no-op implementation of the generic handler Close method.
 func (hb *GenericLoopHandlerBase[Out]) Close() {}
 
+// SetTelemetry sets the telemetry for the generic handler.
 func (hb *GenericLoopHandlerBase[Out]) SetTelemetry(tel *telemetry.Telemetry) {
 	hb.Telemetry = tel
 }
@@ -101,7 +116,7 @@ func (r *genericLoopRunner[Out]) Run(ctx context.Context) {
 	go func() {
 		select {
 		case <-ctx.Done():
-			r.env.handler.OnHandleDone()
+			r.env.handler.OnRunContextDone()
 		case <-done:
 		}
 	}()
@@ -127,10 +142,16 @@ func (r *genericLoopRunner[Out]) Run(ctx context.Context) {
 
 // ─── Stage ──────────────────────────────────────────────────────────────────|
 
+// GenericLoopStage is a generic ingress stage that uses an user defined handler
+// for ingesting new messages into the pipeline.
+// It will call the provided handler in a loop until the stage is stopped
+// (either by the context or by the user).
 type GenericLoopStage[Out msgBody] struct {
 	*stage.IngressStage[Out, *genericLoopEnv[Out]]
 }
 
+// NewGenericLoopStage returns a new generic ingress stage running
+// in a single loop.
 func NewGenericLoopStage[Out msgBody](
 	handler GenericLoopHandler[Out], outConnector msgConn[Out], cfg *GenericConfig,
 ) *GenericLoopStage[Out] {
