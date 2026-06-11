@@ -1,0 +1,35 @@
+package: metrics
+groups:
+  - name: can_stage
+    metrics:
+      - name: can_messages
+        type: counter
+      - name: can_signals
+        type: counter
+
+  - name: filter_stage
+    metrics:
+      - name: filtered_messages
+        type: counter
+
+  - name: tee_stage
+    metrics:
+      - name: cloned_messages
+        type: counter
+
+  - name: rob_stage
+    metrics:
+      - name: ordered_messages
+        type: counter
+      - name: primary_enqueued_messages
+        type: counter
+      - name: auxiliary_enqueued_messages
+        type: counter
+      - name: out_of_order_sequence_number
+        type: counter
+      - name: duplicated_sequence_number
+        type: counter
+      - name: invalid_sequence_number
+        type: counter
+      - name: resets
+        type: counter

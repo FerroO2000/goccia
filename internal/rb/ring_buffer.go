@@ -159,23 +159,22 @@ func (rb *RingBuffer[T]) len() uint64 {
 }
 
 func (rb *RingBuffer[T]) wait(ctx context.Context, cond *sync.Cond) error {
-	done := make(chan struct{})
+	timedOut := false
 
-	go func() {
-		defer close(done)
-		cond.Wait()
-	}()
-
-	select {
-	case <-done:
-		return nil
-
-	case <-ctx.Done():
-		// Wake up the waiting goroutine
+	stop := context.AfterFunc(ctx, func() {
+		cond.L.Lock()
+		timedOut = true
 		cond.Broadcast()
-		<-done
+		cond.L.Unlock()
+	})
+
+	cond.Wait()
+
+	if !stop() && timedOut {
 		return ctx.Err()
 	}
+
+	return nil
 }
 
 func (rb *RingBuffer[T]) Write(item T) error {
@@ -278,7 +277,7 @@ func (rb *RingBuffer[T]) Read(ctx context.Context) (T, error) {
 			return item, ErrClosed
 		}
 
-		// Wait for data, return an error if the timeout is reached
+		// Wait for data, return ctx.Err() if done
 		if err := rb.wait(ctx, rb.notEmpty); err != nil {
 			rb.mux.Unlock()
 			return item, err

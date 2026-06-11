@@ -58,7 +58,7 @@ type robItem interface {
 // It uses the EMA (exponential moving average) technique to smooth and adjust
 // the time associated with an item.
 type ROB[T robItem] struct {
-	outputConnector connector.Connector[T]
+	outConnector connector.Connector[T]
 
 	primaryBuf   *buffer[T]
 	auxiliaryBuf *buffer[T]
@@ -72,9 +72,9 @@ type ROB[T robItem] struct {
 }
 
 // NewROB returns a new [ROB] (re-order buffer) with the given configuration.
-func NewROB[T robItem](outputConnector connector.Connector[T], cfg *Config) *ROB[T] {
+func NewROB[T robItem](outConnector connector.Connector[T], cfg *Config) *ROB[T] {
 	return &ROB[T]{
-		outputConnector: outputConnector,
+		outConnector: outConnector,
 
 		primaryBuf:   newBuffer[T](cfg.PrimaryBufferSize, 0, cfg.MaxSeqNum),
 		auxiliaryBuf: newBuffer[T](cfg.AuxiliaryBufferSize, cfg.PrimaryBufferSize, cfg.MaxSeqNum),
@@ -189,7 +189,7 @@ func (rob *ROB[T]) deliver(item T) {
 		rob.timeSmoother.adjust(item)
 	}
 
-	rob.outputConnector.Write(item)
+	rob.outConnector.Write(item)
 }
 
 // Enqueue tries to add the item into the ROB and returns the status.

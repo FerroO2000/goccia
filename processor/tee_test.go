@@ -65,7 +65,7 @@ func Test_TeeStage(t *testing.T) {
 	wg.Wait()
 
 	inConn.Close()
-	stage.Close()
+	stage.Close(t.Context())
 
 	assert.Equal(targetMsgCount, currMsgCount.Load())
 }

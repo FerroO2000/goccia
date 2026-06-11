@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/FerroO2000/goccia"
 	"github.com/FerroO2000/goccia/connector"
@@ -22,6 +23,7 @@ func main() {
 	ctx, cancelCtx := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer cancelCtx()
 
+	// telemetry.SetLogMinSeverity(log.SeverityDebug)
 	telemetry.Init(ctx, "can-server-example")
 	defer telemetry.Close()
 
@@ -44,10 +46,10 @@ func main() {
 	canCfg.Messages = getMessages()
 	canStage := processor.NewCANStage(robToCAN, canToCustom, canCfg)
 
-	customCfg := processor.NewCustomConfig(goccia.StageRunningModePool)
+	customCfg := processor.NewGenericConfig(goccia.StageRunningModePool)
 	customCfg.Name = "can_to_questdb"
 	customCfg.Stage.Pool.MinWorkers = customCfg.Stage.Pool.InitialWorkers
-	customStage := processor.NewCustomStage(newCANToQuestDBHandler(), canToCustom, customToQuestDB, customCfg)
+	customStage := processor.NewGenericStage(newCANToQuestDBHandler(), canToCustom, customToQuestDB, customCfg)
 
 	questDBCfg := egress.NewQuestDBConfig(goccia.StageRunningModePool)
 	questDBCfg.Stage.Pool.MinWorkers = questDBCfg.Stage.Pool.InitialWorkers
@@ -67,9 +69,13 @@ func main() {
 	}
 
 	go pipeline.Run(ctx)
-	defer pipeline.Close()
 
 	<-ctx.Done()
+
+	closeCtx, cancelCloseCtx := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelCloseCtx()
+
+	pipeline.Close(closeCtx)
 }
 
 // getMessages returns the acmelib representation of the CAN messages

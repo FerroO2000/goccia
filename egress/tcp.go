@@ -4,19 +4,17 @@ import (
 	"context"
 	"net"
 	"net/netip"
-	"sync"
-	"sync/atomic"
 	"time"
 
+	"github.com/FerroO2000/goccia/egress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
-	"github.com/FerroO2000/goccia/internal/pool"
-	"github.com/FerroO2000/goccia/internal/telemetry"
+	"github.com/FerroO2000/goccia/internal/stage"
+	"github.com/FerroO2000/goccia/internal/stage/env"
+	"github.com/FerroO2000/goccia/internal/stage/worker"
 	"go.opentelemetry.io/otel/attribute"
 )
 
-//////////////
-//  CONFIG  //
-//////////////
+// ─── Config ─────────────────────────────────────────────────────────────────|
 
 // Default values for the TCP egress stage configuration.
 const (
@@ -54,76 +52,58 @@ func (c *TCPConfig) Validate(ac *config.AnomalyCollector) {
 	config.CheckNotZero(ac, "WriteTimeout", &c.WriteTimeout, DefaultTCPConfigWriteTimeout)
 }
 
-////////////////////////
-//  WORKER ARGUMENTS  //
-////////////////////////
+// ─── Environment ────────────────────────────────────────────────────────────|
 
-type tcpWorkerArgs struct {
-	conn         *net.TCPConn
-	writeTimeout time.Duration
+type tcpEnv struct {
+	*env.BaseEnv[*TCPConfig, *metrics.TcpStage]
+
+	conn *net.TCPConn
 }
 
-func newTCPWorkerArgs(conn *net.TCPConn, writeTimeout time.Duration) *tcpWorkerArgs {
-	return &tcpWorkerArgs{
-		conn:         conn,
-		writeTimeout: writeTimeout,
+func newTCPEnv(config *TCPConfig) *tcpEnv {
+	return &tcpEnv{
+		BaseEnv: env.NewEgressEnv(config, metrics.NewTcpStage()),
+
+		conn: nil,
 	}
 }
 
-//////////////////////
-//  WORKER METRICS  //
-//////////////////////
+func (te *tcpEnv) Init(ctx context.Context) error {
+	// Parse the IP address
+	parsedAddr, err := netip.ParseAddr(te.Config.IPAddr)
+	if err != nil {
+		return err
+	}
+	addr := net.TCPAddrFromAddrPort(netip.AddrPortFrom(parsedAddr, te.Config.Port))
 
-type tcpWorkerMetrics struct {
-	once sync.Once
+	// Dial the TCP connection
+	conn, err := net.DialTCP("tcp", nil, addr)
+	if err != nil {
+		return err
+	}
+	te.conn = conn
 
-	deliveredBytes atomic.Int64
+	return te.BaseEnv.Init(ctx)
 }
 
-var tcpWorkerMetricsInst = &tcpWorkerMetrics{}
+func (te *tcpEnv) Close(ctx context.Context) {
+	if err := te.conn.Close(); err != nil {
+		te.BaseEnv.Tel.LogError("failed to close connection", err)
+	}
 
-func (twm *tcpWorkerMetrics) init(tel *telemetry.Telemetry) {
-	twm.once.Do(func() {
-		twm.initMetrics(tel)
-	})
+	te.BaseEnv.Close(ctx)
 }
 
-func (twm *tcpWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
-	tel.NewCounterMetric("delivered_bytes", func() int64 { return twm.deliveredBytes.Load() })
-}
-
-func (twm *tcpWorkerMetrics) addDeliveredBytes(amount int) {
-	twm.deliveredBytes.Add(int64(amount))
-}
-
-/////////////////////////////
-//  WORKER IMPLEMENTATION  //
-/////////////////////////////
+// ─── Worker ─────────────────────────────────────────────────────────────────|
 
 type tcpWorker[T msgSer] struct {
-	pool.BaseWorker
-
-	conn         *net.TCPConn
-	writeTimeout time.Duration
-
-	metrics *tcpWorkerMetrics
+	worker.BaseWorker[*tcpEnv]
 }
 
-func newTCPWorkerInstMaker[T msgSer]() workerInstanceMaker[*tcpWorkerArgs, T] {
-	return func() workerInstance[*tcpWorkerArgs, T] {
-		return &tcpWorker[T]{
-			metrics: tcpWorkerMetricsInst,
-		}
+func newTCPWorkerMaker[T msgSer]() func() *tcpWorker[T] {
+	return func() *tcpWorker[T] {
+		return &tcpWorker[T]{}
 	}
-}
-
-func (tw *tcpWorker[T]) Init(_ context.Context, args *tcpWorkerArgs) error {
-	tw.conn = args.conn
-	tw.writeTimeout = args.writeTimeout
-
-	tw.metrics.init(tw.Tel)
-
-	return nil
 }
 
 func (tw *tcpWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
@@ -131,14 +111,15 @@ func (tw *tcpWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
 	defer span.End()
 
 	// Set the write timeout
-	if err := tw.conn.SetWriteDeadline(time.Now().Add(tw.writeTimeout)); err != nil {
+	deadline := time.Now().Add(tw.Env.Config.WriteTimeout)
+	if err := tw.Env.conn.SetWriteDeadline(deadline); err != nil {
 		return err
 	}
 
 	tcpMsg := msgIn.GetBody()
 
 	tcpMsgRaw := tcpMsg.GetBytes()
-	deliveredBytes, err := tw.conn.Write(tcpMsgRaw)
+	deliveredBytes, err := tw.Env.conn.Write(tcpMsgRaw)
 	if err != nil {
 		return err
 	}
@@ -146,51 +127,27 @@ func (tw *tcpWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
 	span.SetAttributes(attribute.Int("message_size", len(tcpMsgRaw)))
 
 	// Update metrics
-	tw.metrics.addDeliveredBytes(deliveredBytes)
+	tw.Env.Metrics.AddDeliveredBytes(uint(deliveredBytes))
 
 	return nil
 }
 
-func (tw *tcpWorker[T]) Close(_ context.Context) error {
-	return nil
-}
-
-/////////////
-//  STAGE  //
-/////////////
+// ─── Stage ──────────────────────────────────────────────────────────────────|
 
 // TCPStage is an egress stage that writes messages to a TCP connection.
 type TCPStage[T msgSer] struct {
-	stage[*tcpWorkerArgs, T, *TCPConfig]
-
-	conn *net.TCPConn
+	*stage.EgressStage[T, *tcpEnv]
 }
 
 // NewTCPStage returns a new TCP egress stage.
-func NewTCPStage[T msgSer](inputConnector msgConn[T], cfg *TCPConfig) *TCPStage[T] {
+func NewTCPStage[T msgSer](inConnector msgConn[T], cfg *TCPConfig) *TCPStage[T] {
+	env := newTCPEnv(cfg)
+
 	return &TCPStage[T]{
-		stage: newStageSingle("tcp", inputConnector, newTCPWorkerInstMaker[T](), cfg),
+		EgressStage: stage.NewEgressStage(
+			"tcp", inConnector, env, newTCPWorkerMaker[T](), &config.Stage{
+				RunningMode: config.StageRunningModeSingle,
+			},
+		),
 	}
-}
-
-// Init initializes the stage.
-func (ts *TCPStage[T]) Init(ctx context.Context) error {
-	cfg := ts.Config()
-
-	// Parse the IP address
-	parsedAddr, err := netip.ParseAddr(cfg.IPAddr)
-	if err != nil {
-		return err
-	}
-	addr := net.TCPAddrFromAddrPort(netip.AddrPortFrom(parsedAddr, cfg.Port))
-
-	// Dial the TCP connection
-	conn, err := net.DialTCP("tcp", nil, addr)
-	if err != nil {
-		return err
-	}
-
-	ts.conn = conn
-
-	return ts.stage.Init(ctx, newTCPWorkerArgs(ts.conn, cfg.WriteTimeout))
 }

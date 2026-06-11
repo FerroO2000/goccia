@@ -1,11 +1,20 @@
-# .github/workflows/test.yml
 name: Go Workflow
 
 on:
   push:
-    branches: [master, develop]
+    branches: [master, dev]
+    paths:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+      - ".github/workflows/go.yml"
   pull_request:
-    branches: [master, develop]
+    branches: [master, dev]
+    paths:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+      - ".github/workflows/go.yml"
 
 jobs:
   test:
@@ -35,11 +44,12 @@ jobs:
         run: go vet ./...
 
       - name: Run tests
-        run: go test -v -timeout=120s -coverprofile=coverage.out -covermode=atomic ./...
+        run: go test -v -timeout=180s -coverprofile=coverage.out -covermode=atomic ./...
 
   benchmark:
     name: Benchmark
     runs-on: ubuntu-latest
+    needs: test
 
     steps:
       - name: Checkout code

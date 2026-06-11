@@ -9,15 +9,15 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/FerroO2000/goccia/egress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
-	"github.com/FerroO2000/goccia/internal/pool"
-	"github.com/FerroO2000/goccia/internal/telemetry"
+	"github.com/FerroO2000/goccia/internal/stage"
+	"github.com/FerroO2000/goccia/internal/stage/env"
+	"github.com/FerroO2000/goccia/internal/stage/worker"
 	"go.opentelemetry.io/otel/attribute"
 )
 
-//////////////
-//  CONFIG  //
-//////////////
+// ─── Config ─────────────────────────────────────────────────────────────────|
 
 // Default values for the file egress stage configuration.
 const (
@@ -64,114 +64,91 @@ func (c *FileConfig) Validate(ac *config.AnomalyCollector) {
 	config.CheckNotZero(ac, "FlushDeadline", &c.FlushDeadline, DefaultFileConfigFlushDeadline)
 }
 
-////////////////////////
-//  WORKER ARGUMENTS  //
-////////////////////////
+// ─── Environment ────────────────────────────────────────────────────────────|
 
-type fileWorkerArgs struct {
+type fileEnv struct {
+	*env.BaseEnv[*FileConfig, *metrics.FileStage]
+
+	file             *os.File
 	writer           *bufio.Writer
-	path             string
 	bufSizeThreshold int64
-	flushDeadline    time.Duration
 }
 
-func newFileWorkerArgs(
-	writer *bufio.Writer, path string, bufSizeThreshold int64, flushDeadline time.Duration,
-) *fileWorkerArgs {
+func newFileEnv(config *FileConfig) *fileEnv {
+	bufSizeThreshold := int64(float64(config.BufferSize) * config.FlushThresholdPercentage)
 
-	return &fileWorkerArgs{
-		writer:           writer,
-		path:             path,
+	return &fileEnv{
+		BaseEnv: env.NewEgressEnv(config, metrics.NewFileStage()),
+
+		writer:           nil,
 		bufSizeThreshold: bufSizeThreshold,
-		flushDeadline:    flushDeadline,
 	}
 }
 
-//////////////////////
-//  WORKER METRICS  //
-//////////////////////
+func (fe *fileEnv) Init(ctx context.Context) error {
+	path := fe.Config.Path
 
-type fileWorkerMetrics struct {
-	once sync.Once
+	// Get the directory path from the file path
+	dir := filepath.Dir(path)
 
-	writtenBytes atomic.Int64
-	writeErrors  atomic.Int64
-	flushErrors  atomic.Int64
+	// Create all parent directories if they don't exist
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	// Open the file as append only
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	fe.file = file
+
+	// Create the bufio writer
+	fe.writer = bufio.NewWriterSize(file, fe.Config.BufferSize)
+
+	return fe.BaseEnv.Init(ctx)
 }
 
-var fileWorkerMetricsInst = &fileWorkerMetrics{}
+func (fe *fileEnv) Close(ctx context.Context) {
+	// Sync and close the file
+	if err := fe.file.Sync(); err != nil {
+		fe.Tel.LogError("failed to sync file", err, "path", fe.Config.Path)
+	}
 
-func (fwm *fileWorkerMetrics) init(tel *telemetry.Telemetry) {
-	fwm.once.Do(func() {
-		fwm.initMetrics(tel)
-	})
+	if err := fe.file.Close(); err != nil {
+		fe.Tel.LogError("failed to close file", err, "path", fe.Config.Path)
+	}
+
+	fe.BaseEnv.Close(ctx)
 }
 
-func (fwm *fileWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
-	tel.NewCounterMetric("written_bytes", func() int64 { return fwm.writtenBytes.Load() })
-	tel.NewCounterMetric("write_errors", func() int64 { return fwm.writeErrors.Load() })
-	tel.NewCounterMetric("flush_errors", func() int64 { return fwm.flushErrors.Load() })
-}
-
-func (fwm *fileWorkerMetrics) addWrittenBytes(amount int64) {
-	fwm.writtenBytes.Add(amount)
-}
-
-func (fwm *fileWorkerMetrics) incrementWriteErrors() {
-	fwm.writeErrors.Add(1)
-}
-
-func (fwm *fileWorkerMetrics) incrementFlushErrors() {
-	fwm.flushErrors.Add(1)
-}
-
-/////////////////////////////
-//  WORKER IMPLEMENTATION  //
-/////////////////////////////
+// ─── Worker ─────────────────────────────────────────────────────────────────|
 
 type fileWorker[T msgSer] struct {
-	pool.BaseWorker
-
-	writer *bufio.Writer
+	worker.BaseWorker[*fileEnv]
 
 	ticker   *time.Ticker
 	tickerWg *sync.WaitGroup
 	flushMux *sync.Mutex
 
-	path             string
-	bufSizeThreshold int64
-
 	notFlushedBytes atomic.Int64
-
-	metrics *fileWorkerMetrics
 }
 
-func newFileWorkerInstMaker[T msgSer]() workerInstanceMaker[*fileWorkerArgs, T] {
-	return func() workerInstance[*fileWorkerArgs, T] {
+func newFileWorkerMaker[T msgSer]() func() *fileWorker[T] {
+	return func() *fileWorker[T] {
 		return &fileWorker[T]{
 			tickerWg: &sync.WaitGroup{},
 			flushMux: &sync.Mutex{},
-
-			metrics: fileWorkerMetricsInst,
 		}
 	}
 }
 
-func (fw *fileWorker[T]) Init(ctx context.Context, args *fileWorkerArgs) error {
-	fw.writer = args.writer
-
-	fw.path = args.path
-
-	// Set the thresholds for flushing the buffer
-	fw.bufSizeThreshold = args.bufSizeThreshold
-
-	fw.metrics.init(fw.Tel)
-
+func (fw *fileWorker[T]) Init(ctx context.Context) error {
 	// Create the ticker
-	fw.ticker = time.NewTicker(args.flushDeadline)
+	fw.ticker = time.NewTicker(fw.Env.Config.FlushDeadline)
 	go fw.runTicker(ctx)
 
-	return nil
+	return fw.BaseWorker.Init(ctx)
 }
 
 func (fw *fileWorker[T]) runTicker(ctx context.Context) {
@@ -187,7 +164,7 @@ func (fw *fileWorker[T]) runTicker(ctx context.Context) {
 
 		case <-fw.ticker.C:
 			if err := fw.flush(); err != nil {
-				fw.Tel.LogError("periodic flush failed", err, "path", fw.path)
+				fw.Tel.LogError("periodic flush failed", err, "path", fw.Env.Config.Path)
 			}
 		}
 	}
@@ -199,10 +176,10 @@ func (fw *fileWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
 
 	// Write message bytes to file
 	chunk := msgIn.GetBody().GetBytes()
-	n, err := fw.writer.Write(chunk)
+	n, err := fw.Env.writer.Write(chunk)
 	if err != nil {
-		fw.Tel.LogError("failed to write to file", err, "path", fw.path)
-		fw.metrics.incrementWriteErrors()
+		fw.Tel.LogError("failed to write to file", err, "path", fw.Env.Config.Path)
+		fw.Env.Metrics.IncrementWriteErrors()
 
 		return err
 	}
@@ -213,14 +190,14 @@ func (fw *fileWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
 	span.SetAttributes(attribute.Int64("chunk_size", writtenBytes))
 
 	// Check wether to flush the writer
-	if bytesUnflushed >= fw.bufSizeThreshold {
+	if bytesUnflushed >= fw.Env.bufSizeThreshold {
 		if err := fw.flush(); err != nil {
 			return err
 		}
 	}
 
 	// Update metrics
-	fw.metrics.addWrittenBytes(writtenBytes)
+	fw.Env.Metrics.AddWrittenBytes(uint(writtenBytes))
 
 	return nil
 }
@@ -234,9 +211,9 @@ func (fw *fileWorker[T]) flush() error {
 		return nil
 	}
 
-	if err := fw.writer.Flush(); err != nil {
-		fw.Tel.LogError("failed to flush writer", err, "path", fw.path)
-		fw.metrics.incrementFlushErrors()
+	if err := fw.Env.writer.Flush(); err != nil {
+		fw.Tel.LogError("failed to flush writer", err, "path", fw.Env.Config.Path)
+		fw.Env.Metrics.IncrementFlushErrors()
 
 		return err
 	}
@@ -246,73 +223,32 @@ func (fw *fileWorker[T]) flush() error {
 	return nil
 }
 
-func (fw *fileWorker[T]) Close(_ context.Context) error {
+func (fw *fileWorker[T]) Close(ctx context.Context) error {
 	fw.tickerWg.Wait()
-	return fw.flush()
+	if err := fw.flush(); err != nil {
+		return err
+	}
+
+	return fw.BaseWorker.Close(ctx)
 }
 
-/////////////
-//  STAGE  //
-/////////////
+// ─── Stage ──────────────────────────────────────────────────────────────────|
 
 // FileStage is an egress stage that writes messages to a file sequentially.
 // It spawns a single worker that writes messages to the file.
 type FileStage[T msgSer] struct {
-	stage[*fileWorkerArgs, T, *FileConfig]
-
-	file *os.File
-	path string
+	*stage.EgressStage[T, *fileEnv]
 }
 
 // NewFileStage returns a new file egress stage.
-func NewFileStage[T msgSer](inputConnector msgConn[T], cfg *FileConfig) *FileStage[T] {
+func NewFileStage[T msgSer](inConnector msgConn[T], cfg *FileConfig) *FileStage[T] {
+	env := newFileEnv(cfg)
+
 	return &FileStage[T]{
-		stage: newStageSingle("file", inputConnector, newFileWorkerInstMaker[T](), cfg),
-	}
-}
-
-// Init initializes the stage.
-func (fs *FileStage[T]) Init(ctx context.Context) error {
-	cfg := fs.Config()
-
-	path := cfg.Path
-	fs.path = path
-
-	// Get the directory path from the file path
-	dir := filepath.Dir(path)
-
-	// Create all parent directories if they don't exist
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-
-	// Open the file as append only
-	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	fs.file = file
-
-	// Create the bufio writer
-	writer := bufio.NewWriterSize(file, cfg.BufferSize)
-
-	// Create the worker arguments
-	bufSizeThreshold := int64(float64(cfg.BufferSize) * cfg.FlushThresholdPercentage)
-	workerArgs := newFileWorkerArgs(writer, path, bufSizeThreshold, cfg.FlushDeadline)
-
-	return fs.stage.Init(ctx, workerArgs)
-}
-
-// Close closes the stage.
-func (fs *FileStage[T]) Close() {
-	fs.stage.Close()
-
-	// Sync and close the file
-	if err := fs.file.Sync(); err != nil {
-		fs.Tel().LogError("failed to sync file", err, "path", fs.path)
-	}
-
-	if err := fs.file.Close(); err != nil {
-		fs.Tel().LogError("failed to close file", err, "path", fs.path)
+		EgressStage: stage.NewEgressStage(
+			"file", inConnector, env, newFileWorkerMaker[T](), &config.Stage{
+				RunningMode: config.StageRunningModeSingle,
+			},
+		),
 	}
 }

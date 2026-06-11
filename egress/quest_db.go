@@ -5,20 +5,18 @@ import (
 	"iter"
 	"math/big"
 	"slices"
-	"sync"
-	"sync/atomic"
 	"time"
 
+	"github.com/FerroO2000/goccia/egress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
-	"github.com/FerroO2000/goccia/internal/pool"
-	"github.com/FerroO2000/goccia/internal/telemetry"
+	"github.com/FerroO2000/goccia/internal/stage"
+	"github.com/FerroO2000/goccia/internal/stage/env"
+	"github.com/FerroO2000/goccia/internal/stage/worker"
 	qdb "github.com/questdb/go-questdb-client/v3"
 	"go.opentelemetry.io/otel/attribute"
 )
 
-//////////////
-//  CONFIG  //
-//////////////
+// ─── Config ─────────────────────────────────────────────────────────────────|
 
 // Default values for the QuestDB egress stage configuration.
 const (
@@ -49,9 +47,7 @@ func (c *QuestDBConfig) Validate(ac *config.AnomalyCollector) {
 	config.CheckNotEmpty(ac, "Address", &c.Address, DefaultQuestDBConfigAddress)
 }
 
-///////////////
-//  MESSAGE  //
-///////////////
+// ─── Message ────────────────────────────────────────────────────────────────|
 
 var _ msgBody = (*QuestDBMessage)(nil)
 
@@ -60,6 +56,11 @@ var _ msgBody = (*QuestDBMessage)(nil)
 // into the database.
 type QuestDBMessage struct {
 	rows []*QuestDBRow
+}
+
+// NewQuestDBMessage returns a new QuestDB message.
+func NewQuestDBMessage() *QuestDBMessage {
+	return &QuestDBMessage{}
 }
 
 // Destroy cleans up the message.
@@ -239,79 +240,81 @@ func (qr *QuestDBRow) AddColumns(columns ...QuestDBColumn) {
 	qr.columns = append(qr.columns, columns...)
 }
 
-////////////////////////
-//  WORKER ARGUMENTS  //
-////////////////////////
+// ─── Environment ────────────────────────────────────────────────────────────|
 
-type questDBWorkerArgs struct {
+type questDBEnv struct {
+	*env.BaseEnv[*QuestDBConfig, *metrics.QuestDbStage]
+
 	senderPool *qdb.LineSenderPool
 }
 
-func newQuestDBWorkerArgs(senderPool *qdb.LineSenderPool) *questDBWorkerArgs {
-	return &questDBWorkerArgs{senderPool: senderPool}
-}
+func newQuestDBEnv(config *QuestDBConfig) *questDBEnv {
+	return &questDBEnv{
+		BaseEnv: env.NewEgressEnv(config, metrics.NewQuestDbStage()),
 
-//////////////////////
-//  WORKER METRICS  //
-//////////////////////
-
-type questDBWorkerMetrics struct {
-	once sync.Once
-
-	insertedRows atomic.Int64
-}
-
-var questDBWorkerMetricsInst = &questDBWorkerMetrics{}
-
-func (qwm *questDBWorkerMetrics) init(tel *telemetry.Telemetry) {
-	qwm.once.Do(func() {
-		qwm.initMetrics(tel)
-	})
-}
-
-func (qwm *questDBWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
-	tel.NewCounterMetric("inserted_rows", func() int64 { return qwm.insertedRows.Load() })
-}
-
-func (qwm *questDBWorkerMetrics) addInsertedRows(amount int) {
-	qwm.insertedRows.Add(int64(amount))
-}
-
-/////////////////////////////
-//  WORKER IMPLEMENTATION  //
-/////////////////////////////
-
-type questDBWorker struct {
-	pool.BaseWorker
-
-	sender qdb.LineSender
-
-	metrics *questDBWorkerMetrics
-}
-
-func newQuestDBWorkerInstMaker() workerInstanceMaker[*questDBWorkerArgs, *QuestDBMessage] {
-	return func() workerInstance[*questDBWorkerArgs, *QuestDBMessage] {
-		return &questDBWorker{
-			metrics: questDBWorkerMetricsInst,
-		}
+		senderPool: nil,
 	}
 }
 
-func (qw *questDBWorker) Init(ctx context.Context, args *questDBWorkerArgs) error {
+func (qe *questDBEnv) Init(ctx context.Context) error {
+	if err := qe.BaseEnv.Init(ctx); err != nil {
+		return err
+	}
+
+	// Create the sender pool
+	senderPool, err := qdb.PoolFromOptions(
+		qdb.WithAddress(qe.Config.Address),
+		qdb.WithHttp(),
+		qdb.WithAutoFlushRows(75_000),
+		qdb.WithRetryTimeout(time.Second),
+	)
+	if err != nil {
+		return err
+	}
+	qe.senderPool = senderPool
+
+	return nil
+}
+
+func (qe *questDBEnv) Close(ctx context.Context) {
+	qe.BaseEnv.Close(ctx)
+
+	// Close the sender pool
+	if err := qe.senderPool.Close(ctx); err != nil {
+		qe.Tel.LogError("failed to close sender pool", err)
+	}
+}
+
+// ─── Worker ─────────────────────────────────────────────────────────────────|
+
+type questDBWorker struct {
+	worker.BaseWorker[*questDBEnv]
+
+	sender qdb.LineSender
+}
+
+func newQuestDBWorkerMaker() func() *questDBWorker {
+	return func() *questDBWorker {
+		return &questDBWorker{}
+	}
+}
+
+func (qw *questDBWorker) Init(ctx context.Context) error {
 	// Get and set the sender from the pool
-	sender, err := args.senderPool.Sender(ctx)
+	sender, err := qw.Env.senderPool.Sender(ctx)
 	if err != nil {
 		return err
 	}
 	qw.sender = sender
 
-	// Initialize the metrics
-	qw.metrics.init(qw.Tel)
-
-	return nil
+	return qw.BaseWorker.Init(ctx)
 }
 
 func (qw *questDBWorker) Deliver(ctx context.Context, msgIn *msg[*QuestDBMessage]) error {
+	// The pipeline cancels the stage context before queued messages are drained.
+	// Keep QuestDB auto-flush requests alive while finishing that work.
+	ctx = context.WithoutCancel(ctx)
+
 	ctx, span := qw.Tel.StartTrace(ctx, "deliver QuestDB rows")
 	defer span.End()
 
@@ -353,62 +356,33 @@ func (qw *questDBWorker) Deliver(ctx context.Context, msgIn *msg[*QuestDBMessage
 	span.SetAttributes(attribute.Int64("inserted_rows", int64(tmpInsRows)))
 
 	// Update metrics
-	qw.metrics.addInsertedRows(tmpInsRows)
+	qw.Env.Metrics.AddInsertedRows(uint(tmpInsRows))
 
 	return nil
 }
 
 func (qw *questDBWorker) Close(ctx context.Context) error {
-	// Close the sender
-	select {
-	case <-ctx.Done():
-		return qw.sender.Close(context.Background())
-	default:
-		return qw.sender.Close(ctx)
+	if err := qw.sender.Close(ctx); err != nil {
+		return err
 	}
+
+	return qw.BaseWorker.Close(ctx)
 }
 
-/////////////
-//  STAGE  //
-/////////////
+// ─── Stage ──────────────────────────────────────────────────────────────────|
 
 // QuestDBStage is an egress stage that writes messages to QuestDB.
 type QuestDBStage struct {
-	stage[*questDBWorkerArgs, *QuestDBMessage, *QuestDBConfig]
-
-	senderPool *qdb.LineSenderPool
+	*stage.EgressStage[*QuestDBMessage, *questDBEnv]
 }
 
 // NewQuestDBStage returns a new QuestDB egress stage.
-func NewQuestDBStage(inputConnector msgConn[*QuestDBMessage], cfg *QuestDBConfig) *QuestDBStage {
+func NewQuestDBStage(inConnector msgConn[*QuestDBMessage], cfg *QuestDBConfig) *QuestDBStage {
+	env := newQuestDBEnv(cfg)
+
 	return &QuestDBStage{
-		stage: newStage("questdb", inputConnector, newQuestDBWorkerInstMaker(), cfg),
-	}
-}
-
-// Init initializes the stage.
-func (qs *QuestDBStage) Init(ctx context.Context) error {
-	// Create the sender pool
-	senderPool, err := qdb.PoolFromOptions(
-		qdb.WithAddress(qs.Config().Address),
-		qdb.WithHttp(),
-		qdb.WithAutoFlushRows(75_000),
-		qdb.WithRetryTimeout(time.Second),
-	)
-	if err != nil {
-		return err
-	}
-	qs.senderPool = senderPool
-
-	return qs.stage.Init(ctx, newQuestDBWorkerArgs(senderPool))
-}
-
-// Close closes the stage.
-func (qs *QuestDBStage) Close() {
-	qs.stage.Close()
-
-	// Close the sender pool
-	if err := qs.senderPool.Close(context.Background()); err != nil {
-		qs.Tel().LogError("failed to close sender pool", err)
+		EgressStage: stage.NewEgressStage(
+			"questdb", inConnector, env, newQuestDBWorkerMaker(), cfg.Stage,
+		),
 	}
 }

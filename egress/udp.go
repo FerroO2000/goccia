@@ -4,18 +4,16 @@ import (
 	"context"
 	"net"
 	"net/netip"
-	"sync"
-	"sync/atomic"
 
+	"github.com/FerroO2000/goccia/egress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
-	"github.com/FerroO2000/goccia/internal/pool"
-	"github.com/FerroO2000/goccia/internal/telemetry"
+	"github.com/FerroO2000/goccia/internal/stage"
+	"github.com/FerroO2000/goccia/internal/stage/env"
+	"github.com/FerroO2000/goccia/internal/stage/worker"
 	"go.opentelemetry.io/otel/attribute"
 )
 
-//////////////
-//  CONFIG  //
-//////////////
+// ─── Config ─────────────────────────────────────────────────────────────────|
 
 // Default values for the UDP egress stage configuration.
 const (
@@ -51,72 +49,58 @@ func (c *UDPConfig) Validate(ac *config.AnomalyCollector) {
 	config.CheckNotEmpty(ac, "IPAddr", &c.IPAddr, DefaultUDPConfigIPAddr)
 }
 
-////////////////////////
-//  WORKER ARGUMENTS  //
-////////////////////////
+// ─── Environment ────────────────────────────────────────────────────────────|
 
-type udpWorkerArgs struct {
+type udpEnv struct {
+	*env.BaseEnv[*UDPConfig, *metrics.UdpStage]
+
 	conn *net.UDPConn
 }
 
-func newUDPWorkerArgs(conn *net.UDPConn) *udpWorkerArgs {
-	return &udpWorkerArgs{
-		conn: conn,
+func newUDPEnv[T msgSer](config *UDPConfig) *udpEnv {
+	return &udpEnv{
+		BaseEnv: env.NewEgressEnv(config, metrics.NewUdpStage()),
+
+		conn: nil,
 	}
 }
 
-//////////////////////
-//  WORKER METRICS  //
-//////////////////////
+func (ue *udpEnv) Init(ctx context.Context) error {
+	// Parse the IP address
+	parsedAddr, err := netip.ParseAddr(ue.Config.IPAddr)
+	if err != nil {
+		return err
+	}
+	addr := net.UDPAddrFromAddrPort(netip.AddrPortFrom(parsedAddr, ue.Config.Port))
 
-type udpWorkerMetrics struct {
-	once sync.Once
+	// Dial the UDP connection
+	conn, err := net.DialUDP("udp", nil, addr)
+	if err != nil {
+		return err
+	}
+	ue.conn = conn
 
-	deliveredBytes atomic.Int64
+	return ue.BaseEnv.Init(ctx)
 }
 
-var udpWorkerMetricsInst = &udpWorkerMetrics{}
+func (ue *udpEnv) Close(ctx context.Context) {
+	if err := ue.conn.Close(); err != nil {
+		ue.BaseEnv.Tel.LogError("failed to close connection", err)
+	}
 
-func (uwm *udpWorkerMetrics) init(tel *telemetry.Telemetry) {
-	uwm.once.Do(func() {
-		uwm.initMetrics(tel)
-	})
+	ue.BaseEnv.Close(ctx)
 }
 
-func (uwm *udpWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
-	tel.NewCounterMetric("delivered_bytes", func() int64 { return uwm.deliveredBytes.Load() })
-}
-
-func (uwm *udpWorkerMetrics) addDeliveredBytes(amount int) {
-	uwm.deliveredBytes.Add(int64(amount))
-}
-
-/////////////////////////////
-//  WORKER IMPLEMENTATION  //
-/////////////////////////////
+// ─── Worker ─────────────────────────────────────────────────────────────────|
 
 type udpWorker[T msgSer] struct {
-	pool.BaseWorker
-
-	conn *net.UDPConn
-
-	metrics *udpWorkerMetrics
+	worker.BaseWorker[*udpEnv]
 }
 
-func newUDPWorkerInstMaker[T msgSer]() workerInstanceMaker[*udpWorkerArgs, T] {
-	return func() workerInstance[*udpWorkerArgs, T] {
-		return &udpWorker[T]{
-			metrics: udpWorkerMetricsInst,
-		}
+func newUDPWorkerMaker[T msgSer]() func() *udpWorker[T] {
+	return func() *udpWorker[T] {
+		return &udpWorker[T]{}
 	}
-}
-
-func (uw *udpWorker[T]) Init(_ context.Context, args *udpWorkerArgs) error {
-	uw.conn = args.conn
-
-	uw.metrics.init(uw.Tel)
-
-	return nil
 }
 
 func (uw *udpWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
@@ -128,7 +112,7 @@ func (uw *udpWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
 	payload := udpMsg.GetBytes()
 	payloadSize := len(payload)
 
-	deliveredBytes, err := uw.conn.Write(payload)
+	deliveredBytes, err := uw.Env.conn.Write(payload)
 	if err != nil {
 		return err
 	}
@@ -136,51 +120,25 @@ func (uw *udpWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
 	span.SetAttributes(attribute.Int("payload_size", payloadSize))
 
 	// Update metrics
-	uw.metrics.addDeliveredBytes(deliveredBytes)
+	uw.Env.Metrics.AddDeliveredBytes(uint(deliveredBytes))
 
 	return nil
 }
 
-func (uw *udpWorker[T]) Close(_ context.Context) error {
-	return nil
-}
-
-/////////////
-//  STAGE  //
-/////////////
+// ─── Stage ──────────────────────────────────────────────────────────────────|
 
 // UDPStage is an egress stage that sends UDP datagrams.
 type UDPStage[T msgSer] struct {
-	stage[*udpWorkerArgs, T, *UDPConfig]
-
-	conn *net.UDPConn
+	*stage.EgressStage[T, *udpEnv]
 }
 
 // NewUDPStage returns a new UDP egress stage.
-func NewUDPStage[T msgSer](inputConnector msgConn[T], cfg *UDPConfig) *UDPStage[T] {
+func NewUDPStage[T msgSer](inConnector msgConn[T], cfg *UDPConfig) *UDPStage[T] {
+	env := newUDPEnv[T](cfg)
+
 	return &UDPStage[T]{
-		stage: newStage("udp", inputConnector, newUDPWorkerInstMaker[T](), cfg),
+		EgressStage: stage.NewEgressStage(
+			"udp", inConnector, env, newUDPWorkerMaker[T](), cfg.Stage,
+		),
 	}
-}
-
-// Init initializes the stage.
-func (us *UDPStage[T]) Init(ctx context.Context) error {
-	cfg := us.Config()
-
-	// Parse the IP address
-	parsedAddr, err := netip.ParseAddr(cfg.IPAddr)
-	if err != nil {
-		return err
-	}
-	addr := net.UDPAddrFromAddrPort(netip.AddrPortFrom(parsedAddr, cfg.Port))
-
-	// Dial the UDP connection
-	conn, err := net.DialUDP("udp", nil, addr)
-	if err != nil {
-		return err
-	}
-
-	us.conn = conn
-
-	return us.stage.Init(ctx, newUDPWorkerArgs(conn))
 }

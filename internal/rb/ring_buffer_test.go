@@ -243,9 +243,57 @@ func testRingBuffer(t *testing.T, kind BufferKind, capacity, prodNum, consNum, t
 	t.Logf("Processed %d items in %v (%d items/sec)", totalItems, duration, itemsPerSec)
 }
 
-///////////////
-// BENCHMARK //
-///////////////
+func Test_RingBuffer_ReadCanceledContextDoesNotBlock(t *testing.T) {
+	for _, kind := range []BufferKind{BufferKindSPSC, BufferKindSPMC, BufferKindMPSC} {
+		t.Run(kind.String(), func(t *testing.T) {
+			rb := NewRingBuffer[int](1, kind)
+
+			ctx, cancelCtx := context.WithCancel(t.Context())
+			cancelCtx()
+
+			readDone := make(chan error, 1)
+			go func() {
+				_, err := rb.Read(ctx)
+				readDone <- err
+			}()
+
+			select {
+			case err := <-readDone:
+				assert.ErrorIs(t, err, context.Canceled)
+			case <-time.After(time.Second):
+				t.Fatal("read blocked after its context was canceled")
+			}
+		})
+	}
+}
+
+func Test_RingBuffer_CloseUnblocksDetachedRead(t *testing.T) {
+	for _, kind := range []BufferKind{BufferKindSPSC, BufferKindSPMC, BufferKindMPSC} {
+		t.Run(kind.String(), func(t *testing.T) {
+			rb := NewRingBuffer[int](1, kind)
+
+			readDone := make(chan error, 1)
+			go func() {
+				_, err := rb.Read(context.WithoutCancel(t.Context()))
+				readDone <- err
+			}()
+
+			time.Sleep(10 * time.Millisecond)
+			rb.Close()
+
+			select {
+			case err := <-readDone:
+				assert.ErrorIs(t, err, ErrClosed)
+			case <-time.After(time.Second):
+				t.Fatal("read blocked after the buffer was closed")
+			}
+		})
+	}
+}
+
+// ─── Benchmarks ─────────────────────────────────────────────────────────────|
+
+const benchmarkTimeout = 120 * time.Second
 
 type benchmarkRingBuffer interface {
 	Write(int) error
@@ -293,7 +341,7 @@ func Benchmark_RingBuffers(b *testing.B) {
 		})
 
 		b.Run("WriteReadSteady-"+kindStr+"-"+capacityStr, func(b *testing.B) {
-			benchWriteReadSteady(b, newBenchmarkRingBuffer(kind, capacity), capacity)
+			benchWriteReadSteady(b, newBenchmarkRingBuffer(kind, capacity))
 		})
 	}
 }
@@ -303,11 +351,11 @@ func Benchmark_RingBuffers_Baseline(b *testing.B) {
 	capacityStr := strconv.Itoa(capacity)
 
 	b.Run("WriteReadCycle-Baseline-"+capacityStr, func(b *testing.B) {
-		benchWriteReadSteady(b, newBaselineRingBuffer(capacity), capacity)
+		benchWriteReadSteady(b, newBaselineRingBuffer(capacity))
 	})
 
 	b.Run("WriteReadSteady-Baseline-"+capacityStr, func(b *testing.B) {
-		benchWriteReadSteady(b, newBaselineRingBuffer(capacity), capacity)
+		benchWriteReadSteady(b, newBaselineRingBuffer(capacity))
 	})
 }
 
@@ -406,7 +454,7 @@ func benchWriteReadCycle(b *testing.B, rb benchmarkRingBuffer, capacity int) {
 	}
 }
 
-func benchWriteReadSteady(b *testing.B, rb benchmarkRingBuffer, capacity int) {
+func benchWriteReadSteady(b *testing.B, rb benchmarkRingBuffer) {
 	val := 0
 	for b.Loop() {
 		if err := rb.Write(val); err != nil {
@@ -453,7 +501,7 @@ func benchContention(b *testing.B, rb benchmarkRingBuffer, numWriters, numReader
 	var wg sync.WaitGroup
 	wg.Add(numReaders)
 
-	ctx, cancelCtx := context.WithTimeout(b.Context(), 30*time.Second)
+	ctx, cancelCtx := context.WithTimeout(b.Context(), benchmarkTimeout)
 	defer cancelCtx()
 
 	// Multiple readers
@@ -475,6 +523,145 @@ func benchContention(b *testing.B, rb benchmarkRingBuffer, numWriters, numReader
 
 			for count < target {
 				_, err := rb.Read(ctx)
+				if err != nil {
+					hasError.Store(true)
+					b.Errorf("read error: %v", err)
+					return
+				}
+				count++
+			}
+		}(items)
+	}
+
+	wg.Wait()
+
+	if hasError.Load() {
+		b.Logf("written %d over %d", written.Load(), b.N)
+	}
+}
+
+func Benchmark_RingBuffers_MPMC(b *testing.B) {
+	b.ReportAllocs()
+
+	capacity := 4096
+	capacityStr := strconv.Itoa(capacity)
+
+	parallelism := []int{2, 4, 8, 16, 32}
+
+	// Baseline
+	for _, p := range parallelism {
+		name := fmt.Sprintf("Baseline-%s-Parallelism-%d", capacityStr, p)
+		b.Run(name, func(b *testing.B) {
+			benchContention(b, newBaselineRingBuffer(capacity), p, p)
+		})
+	}
+
+	// Bone Shape
+	for _, p := range parallelism {
+		name := fmt.Sprintf("BoneShape-%s-Parallelism-%d", capacityStr, p)
+		b.Run(name, func(b *testing.B) {
+			benchBoneShape(b, capacity, p)
+		})
+	}
+}
+
+func benchBoneShape(b *testing.B, capacity, parallelism int) {
+	b.ResetTimer()
+
+	// Multiple writers
+	itemsPerWriter := b.N / parallelism
+	writerRemainder := b.N % parallelism
+
+	var written atomic.Uint64
+
+	fanIn := newBenchmarkRingBuffer(BufferKindMPSC, capacity/4)
+	straight := newBenchmarkRingBuffer(BufferKindSPSC, capacity/2)
+	fanOut := newBenchmarkRingBuffer(BufferKindSPMC, capacity/4)
+
+	for w := range parallelism {
+		items := itemsPerWriter
+		if w == 0 {
+			items += writerRemainder
+		}
+
+		go func(count int) {
+			for i := range count {
+				if err := fanIn.Write(i); err != nil {
+					b.Errorf("write error: %v", err)
+					return
+				}
+				written.Add(1)
+			}
+		}(items)
+	}
+
+	go func() {
+		count := 0
+		for {
+			item, err := fanIn.Read(b.Context())
+			if err != nil {
+				b.Errorf("read error: %v", err)
+				return
+			}
+
+			if err := straight.Write(item); err != nil {
+				b.Errorf("write error: %v", err)
+				return
+			}
+
+			count++
+			if count == b.N {
+				return
+			}
+		}
+	}()
+
+	go func() {
+		count := 0
+		for {
+			item, err := straight.Read(b.Context())
+			if err != nil {
+				b.Errorf("read error: %v", err)
+				return
+			}
+
+			if err := fanOut.Write(item); err != nil {
+				b.Errorf("write error: %v", err)
+				return
+			}
+
+			count++
+			if count == b.N {
+				return
+			}
+		}
+	}()
+
+	var wg sync.WaitGroup
+	wg.Add(parallelism)
+
+	ctx, cancelCtx := context.WithTimeout(b.Context(), benchmarkTimeout)
+	defer cancelCtx()
+
+	// Multiple readers
+	itemsPerReader := b.N / parallelism
+	readerRemainder := b.N % parallelism
+
+	var hasError atomic.Bool
+	hasError.Store(false)
+
+	for r := range parallelism {
+		items := itemsPerReader
+		if r == 0 {
+			items += readerRemainder
+		}
+
+		go func(target int) {
+			defer wg.Done()
+			count := 0
+
+			for count < target {
+				_, err := fanOut.Read(ctx)
 				if err != nil {
 					hasError.Store(true)
 					b.Errorf("read error: %v", err)

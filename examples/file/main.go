@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/FerroO2000/goccia"
 	"github.com/FerroO2000/goccia/connector"
@@ -30,9 +31,9 @@ func main() {
 	fileIngressCfg.WatchedDirs = []string{"./data/in"}
 	fileIngressStage := ingress.NewFileStage(fileIngressToCustom, fileIngressCfg)
 
-	customCfg := processor.NewCustomConfig(goccia.StageRunningModeSingle)
+	customCfg := processor.NewGenericConfig(goccia.StageRunningModeSingle)
 	customCfg.Name = "file_to_file"
-	customStage := processor.NewCustomStage(newFileHandler(), fileIngressToCustom, customToFileEgress, customCfg)
+	customStage := processor.NewGenericStage(newFileHandler(), fileIngressToCustom, customToFileEgress, customCfg)
 
 	fileEgressCfg := egress.NewFileConfig("./data/out/out.txt")
 	fileEgressStage := egress.NewFileStage(customToFileEgress, fileEgressCfg)
@@ -48,7 +49,11 @@ func main() {
 	}
 
 	go pipeline.Run(ctx)
-	defer pipeline.Close()
 
 	<-ctx.Done()
+
+	closeCtx, cancelCloseCtx := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelCloseCtx()
+
+	pipeline.Close(closeCtx)
 }

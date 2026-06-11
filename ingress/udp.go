@@ -6,18 +6,17 @@ import (
 	"net"
 	"net/netip"
 	"sync"
-	"sync/atomic"
 	"time"
 
+	"github.com/FerroO2000/goccia/ingress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
-	"github.com/FerroO2000/goccia/internal/telemetry"
+	"github.com/FerroO2000/goccia/internal/stage"
+	"github.com/FerroO2000/goccia/internal/stage/env"
 	"go.opentelemetry.io/otel/attribute"
 )
 
-//////////////
-//  CONFIG  //
-//////////////
+// ─── Config ─────────────────────────────────────────────────────────────────|
 
 // Default values for the UDP stage configuration.
 const (
@@ -58,21 +57,7 @@ func (c *UDPConfig) Validate(ac *config.AnomalyCollector) {
 	config.CheckNotZero(ac, "BufferSize", &c.BufferSize, DefaultUDPConfigBufferSize)
 }
 
-///////////////
-//  MESSAGE  //
-///////////////
-
-var udpMessagePool sync.Pool
-
-func udpMessagePoolInit(payloadSize int) {
-	udpMessagePool = sync.Pool{
-		New: func() any {
-			return &UDPMessage{
-				Payload: make([]byte, payloadSize),
-			}
-		},
-	}
-}
+// ─── Message ────────────────────────────────────────────────────────────────|
 
 var _ msgSer = (*UDPMessage)(nil)
 
@@ -82,125 +67,170 @@ type UDPMessage struct {
 	Payload []byte
 	// PayloadSize is the number of bytes of the payload.
 	PayloadSize int
+
+	pool *udpMessagePool
 }
 
-func newUDPMessage() *UDPMessage {
-	return udpMessagePool.Get().(*UDPMessage)
+// NewUDPMessage returns a new UDP message, without using the message pool.
+func NewUDPMessage(payloadSize int) *UDPMessage {
+	return &UDPMessage{
+		Payload:     make([]byte, payloadSize),
+		PayloadSize: 0,
+
+		pool: nil,
+	}
 }
 
 // Destroy cleans up the message.
 func (um *UDPMessage) Destroy() {
-	udpMessagePool.Put(um)
+	if um.pool != nil {
+		um.pool.putMessage(um)
+	}
 }
 
 // GetBytes returns the bytes of the UDP payload.
 func (um *UDPMessage) GetBytes() []byte {
-	return um.Payload
+	return um.Payload[:um.PayloadSize]
 }
 
-//////////////
-//  SOURCE  //
-//////////////
+// ─── Message Pool ───────────────────────────────────────────────────────────|
 
-var _ source[*UDPMessage] = (*udpSource)(nil)
+type udpMessagePool struct {
+	pool        sync.Pool
+	payloadSize int
+}
 
-type udpSource struct {
-	tel *telemetry.Telemetry
+func newUDPMessagePool(payloadSize int) *udpMessagePool {
+	ump := &udpMessagePool{
+		payloadSize: payloadSize,
+	}
 
-	// Config
-	bufferSize uint16
+	ump.pool.New = func() any {
+		return &UDPMessage{
+			Payload:     make([]byte, payloadSize),
+			PayloadSize: 0,
+
+			pool: ump,
+		}
+	}
+
+	return ump
+}
+
+func (ump *udpMessagePool) getMessage() *UDPMessage {
+	msg := ump.pool.Get().(*UDPMessage)
+	msg.Payload = msg.Payload[:ump.payloadSize]
+	return msg
+}
+
+func (ump *udpMessagePool) putMessage(um *UDPMessage) {
+	um.PayloadSize = 0
+	ump.pool.Put(um)
+}
+
+// ─── Environment ────────────────────────────────────────────────────────────|
+
+type udpEnv struct {
+	*env.BaseEnv[*UDPConfig, *metrics.UdpStage]
+
+	messagePool *udpMessagePool
 
 	conn *net.UDPConn
-
-	// Metrics
-	receivedMessages atomic.Int64
-	receivedBytes    atomic.Int64
 }
 
-func newUDPSource() *udpSource {
-	return &udpSource{}
+func newUDPEnv(config *UDPConfig) *udpEnv {
+	return &udpEnv{
+		BaseEnv: env.NewIngressEnv(config, metrics.NewUdpStage()),
+	}
 }
 
-func (us *udpSource) setTelemetry(tel *telemetry.Telemetry) {
-	us.tel = tel
-}
-
-func (us *udpSource) init(ipAddr string, port, bufferSize uint16) error {
-	parsedAddr, err := netip.ParseAddr(ipAddr)
-	if err != nil {
+func (ue *udpEnv) Init(ctx context.Context) error {
+	if err := ue.BaseEnv.Init(ctx); err != nil {
 		return err
 	}
 
-	addr := net.UDPAddrFromAddrPort(netip.AddrPortFrom(parsedAddr, port))
+	// Create the message pool
+	ue.messagePool = newUDPMessagePool(int(ue.Config.BufferSize))
+
+	// Parse the IP address
+	parsedAddr, err := netip.ParseAddr(ue.Config.IPAddr)
+	if err != nil {
+		return err
+	}
+	addr := net.UDPAddrFromAddrPort(netip.AddrPortFrom(parsedAddr, ue.Config.Port))
+
+	// Listen on the specified address
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
 		return err
 	}
-
-	us.conn = conn
-
-	us.bufferSize = bufferSize
-	udpMessagePoolInit(int(bufferSize))
-
-	us.initMetrics()
+	ue.conn = conn
 
 	return nil
 }
 
-func (us *udpSource) initMetrics() {
-	us.tel.NewCounterMetric("received_messages", func() int64 { return us.receivedMessages.Load() })
-	us.tel.NewCounterMetric("received_bytes", func() int64 { return us.receivedBytes.Load() })
+// ─── Runner ─────────────────────────────────────────────────────────────────|
+
+var _ stage.Runner[*udpEnv] = (*udpRunner)(nil)
+
+type udpRunner struct {
+	*runnerBase[*udpEnv, *UDPMessage]
 }
 
-func (us *udpSource) run(ctx context.Context, outConnector msgConn[*UDPMessage]) {
+func newUDPRunner(outConnector msgConn[*UDPMessage]) *udpRunner {
+	return &udpRunner{
+		runnerBase: newRunnerBase[*udpEnv](outConnector),
+	}
+}
+
+func (ur *udpRunner) Run(ctx context.Context) {
+	defer ur.notifyRunDone()
+
+	done := make(chan struct{})
+	defer close(done)
+
 	// Hacky method to close the connection when the context is done
 	go func() {
-		<-ctx.Done()
-		us.conn.Close()
-	}()
-
-	buf := make([]byte, us.bufferSize)
-
-	for {
 		select {
 		case <-ctx.Done():
-			return
-		default:
+			ur.env.conn.Close()
+		case <-done:
 		}
+	}()
 
+	buf := make([]byte, ur.env.Config.BufferSize)
+
+	for {
 		// Read the UDP payload
-		n, err := us.conn.Read(buf)
+		n, err := ur.env.conn.Read(buf)
 		if err != nil {
-			// Check if the connection is closed
-			if errors.Is(err, net.ErrClosed) {
-				// Check if caused by context cancellation
-				select {
-				case <-ctx.Done():
-					return
-				default:
-				}
+			// Check if the connection is closed by the context
+			if errors.Is(err, net.ErrClosed) && ctx.Err() != nil {
+				return
 			}
 
-			us.tel.LogError("failed to read connection", err)
+			ur.env.Tel.LogError("failed to read connection", err)
 			return
 		}
 
 		// Handle the buffer and send the message
-		msgOut := us.handleBuf(ctx, buf[:n])
-		if err := outConnector.Write(msgOut); err != nil {
+		msgOut := ur.handleBuf(ctx, buf[:n])
+		if err := ur.outConnector.Write(msgOut); err != nil {
 			msgOut.Destroy()
-			us.tel.LogError("failed to write message to output connector", err)
+			ur.env.Tel.LogError("failed to write message to output connector", err)
 		}
 	}
 }
 
-func (us *udpSource) handleBuf(ctx context.Context, buf []byte) *msg[*UDPMessage] {
+func (ur *udpRunner) handleBuf(ctx context.Context, buf []byte) *msg[*UDPMessage] {
+	ur.env.Tel.LogDebug("received UDP datagram")
+
 	// Create the trace for the incoming datagram
-	_, span := us.tel.StartTrace(ctx, "receive UDP datagram")
+	_, span := ur.env.Tel.StartTrace(ctx, "receive UDP datagram")
 	defer span.End()
 
 	// Create the UDP message
-	udpMsg := newUDPMessage()
+	udpMsg := ur.env.messagePool.getMessage()
 
 	// Extract the payload from the buffer
 	payloadSize := len(buf)
@@ -219,39 +249,24 @@ func (us *udpSource) handleBuf(ctx context.Context, buf []byte) *msg[*UDPMessage
 	msg.SaveSpan(span)
 
 	// Update metrics
-	us.receivedBytes.Add(int64(payloadSize))
-	us.receivedMessages.Add(1)
+	ur.env.Metrics.AddReceivedBytes(uint(payloadSize))
+	ur.env.Metrics.IncrementReceivedMessages()
 
 	return msg
 }
 
-/////////////
-//  STAGE  //
-/////////////
+// ─── Stage ──────────────────────────────────────────────────────────────────|
 
 // UDPStage is an ingress stage that reads UDP datagrams.
 type UDPStage struct {
-	*stage[*UDPMessage, *UDPConfig]
-
-	source *udpSource
+	*stage.IngressStage[*UDPMessage, *udpEnv]
 }
 
 // NewUDPStage returns a new UDP stage.
-func NewUDPStage(outputConnector msgConn[*UDPMessage], cfg *UDPConfig) *UDPStage {
-	source := newUDPSource()
-
+func NewUDPStage(outConnector msgConn[*UDPMessage], cfg *UDPConfig) *UDPStage {
 	return &UDPStage{
-		stage: newStage("udp", source, outputConnector, cfg),
-
-		source: source,
+		IngressStage: stage.NewIngressStageFromRunner[*UDPMessage](
+			"udp", newUDPEnv(cfg), newUDPRunner(outConnector),
+		),
 	}
-}
-
-// Init initializes the stage.
-func (us *UDPStage) Init(ctx context.Context) error {
-	if err := us.source.init(us.cfg.IPAddr, us.cfg.Port, us.cfg.BufferSize); err != nil {
-		return err
-	}
-
-	return us.stage.Init(ctx)
 }

@@ -31,11 +31,11 @@ func main() {
 	tickerCfg.Interval = time.Millisecond
 	tickerStage := ingress.NewTickerStage(tickerToCustom, tickerCfg)
 
-	customCfg := processor.NewCustomConfig(goccia.StageRunningModePool)
+	customCfg := processor.NewGenericConfig(goccia.StageRunningModePool)
 	customCfg.Name = "ticker_to_kafka"
-	customStage := processor.NewCustomStage(newTickerToKafkaHandler(), tickerToCustom, customToKafka, customCfg)
+	customStage := processor.NewGenericStage(newTickerToKafkaHandler(), tickerToCustom, customToKafka, customCfg)
 
-	kafkaCfg := egress.NewKafkaConfig(goccia.StageRunningModePool)
+	kafkaCfg := egress.DefaultKafkaConfig(goccia.StageRunningModePool)
 	kafkaStage := egress.NewKafkaStage(customToKafka, kafkaCfg)
 
 	pipeline := goccia.NewPipeline()
@@ -49,7 +49,11 @@ func main() {
 	}
 
 	go pipeline.Run(ctx)
-	defer pipeline.Close()
 
 	<-ctx.Done()
+
+	closeCtx, cancelCloseCtx := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelCloseCtx()
+
+	pipeline.Close(closeCtx)
 }

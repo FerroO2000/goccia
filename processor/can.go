@@ -2,20 +2,18 @@ package processor
 
 import (
 	"context"
-	"sync"
-	"sync/atomic"
 
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
-	"github.com/FerroO2000/goccia/internal/pool"
-	"github.com/FerroO2000/goccia/internal/telemetry"
+	"github.com/FerroO2000/goccia/internal/stage"
+	"github.com/FerroO2000/goccia/internal/stage/env"
+	"github.com/FerroO2000/goccia/internal/stage/worker"
+	"github.com/FerroO2000/goccia/processor/metrics"
 	"github.com/squadracorsepolito/acmelib"
 	"go.opentelemetry.io/otel/attribute"
 )
 
-//////////////
-//  CONFIG  //
-//////////////
+// ─── Config ─────────────────────────────────────────────────────────────────|
 
 // CANConfig structs contains the configuration for the CAN processor stage.
 type CANConfig struct {
@@ -33,9 +31,7 @@ func NewCANConfig(runningMode config.StageRunningMode) *CANConfig {
 	}
 }
 
-///////////////
-//  MESSAGE  //
-///////////////
+// ─── Message ────────────────────────────────────────────────────────────────|
 
 // CANMessageCarrier interface defines the common methods
 // for all message types that carry CAN messages.
@@ -105,7 +101,8 @@ type CANMessage struct {
 	SignalCount int
 }
 
-func newCANMessage() *CANMessage {
+// NewCANMessage returns a new CAN message.
+func NewCANMessage() *CANMessage {
 	return &CANMessage{
 		SignalCount: 0,
 		Signals:     []CANSignal{},
@@ -115,9 +112,7 @@ func newCANMessage() *CANMessage {
 // Destroy cleans up the message.
 func (cm *CANMessage) Destroy() {}
 
-///////////////
-//  DECODER  //
-///////////////
+// ─── Decoder ────────────────────────────────────────────────────────────────|
 
 type canDecoder struct {
 	m map[uint32]func([]byte) []*acmelib.SignalDecoding
@@ -150,78 +145,32 @@ func (cd *canDecoder) decode(ctx context.Context, canID uint32, data []byte) []*
 	return fnDecode(data)
 }
 
-////////////////////////
-//  WORKER ARGUMENTS  //
-////////////////////////
+// ─── Environment ────────────────────────────────────────────────────────────|
 
-type canWorkerArgs struct {
+type canEnv struct {
+	*env.BaseEnv[*CANConfig, *metrics.CanStage]
+
 	decoder *canDecoder
 }
 
-func newCANWorkerArgs(decoder *canDecoder) *canWorkerArgs {
-	return &canWorkerArgs{
-		decoder: decoder,
+func newCANEnv(config *CANConfig) *canEnv {
+	return &canEnv{
+		BaseEnv: env.NewProcessorEnv(config, metrics.NewCanStage()),
+
+		decoder: newCANDecoder(config.Messages),
 	}
 }
 
-//////////////////////
-//  WORKER METRICS  //
-//////////////////////
-
-type canWorkerMetrics struct {
-	once sync.Once
-
-	canMessages atomic.Int64
-	canSignals  atomic.Int64
-}
-
-var canWorkerMetricsInst = &canWorkerMetrics{}
-
-func (cwm *canWorkerMetrics) init(tel *telemetry.Telemetry) {
-	cwm.once.Do(func() {
-		cwm.initMetrics(tel)
-	})
-}
-
-func (cwm *canWorkerMetrics) initMetrics(tel *telemetry.Telemetry) {
-	tel.NewCounterMetric("can_messages", func() int64 { return cwm.canMessages.Load() })
-	tel.NewCounterMetric("can_signals", func() int64 { return cwm.canSignals.Load() })
-}
-
-func (cwm *canWorkerMetrics) addCANMessages(amount int) {
-	cwm.canMessages.Add(int64(amount))
-}
-
-func (cwm *canWorkerMetrics) addCANSignals(amount int) {
-	cwm.canSignals.Add(int64(amount))
-}
-
-/////////////////////////////
-//  WORKER IMPLEMENTATION  //
-/////////////////////////////
+// ─── Worker ─────────────────────────────────────────────────────────────────|
 
 type canWorker[T CANMessageCarrier] struct {
-	pool.BaseWorker
-
-	decoder *canDecoder
-
-	metrics *canWorkerMetrics
+	worker.BaseWorker[*canEnv]
 }
 
-func newCANWorkerInstMaker[T CANMessageCarrier]() workerInstanceMaker[*canWorkerArgs, T, *CANMessage] {
-	return func() workerInstance[*canWorkerArgs, T, *CANMessage] {
-		return &canWorker[T]{
-			metrics: canWorkerMetricsInst,
-		}
+func newCANWorkerMaker[T CANMessageCarrier]() func() *canWorker[T] {
+	return func() *canWorker[T] {
+		return &canWorker[T]{}
 	}
-}
-
-func (cw *canWorker[T]) Init(_ context.Context, args *canWorkerArgs) error {
-	cw.decoder = args.decoder
-
-	cw.metrics.init(cw.Tel)
-
-	return nil
 }
 
 func (cw *canWorker[T]) Handle(ctx context.Context, msgIn *msg[T]) (*msg[*CANMessage], error) {
@@ -229,7 +178,7 @@ func (cw *canWorker[T]) Handle(ctx context.Context, msgIn *msg[T]) (*msg[*CANMes
 	defer span.End()
 
 	// Create the CAN message
-	canMsg := newCANMessage()
+	canMsg := NewCANMessage()
 
 	rawMessages := msgIn.GetBody().GetRawMessages()
 	rawMsgCount := len(rawMessages)
@@ -237,7 +186,7 @@ func (cw *canWorker[T]) Handle(ctx context.Context, msgIn *msg[T]) (*msg[*CANMes
 	for _, msg := range rawMessages {
 		canID := msg.CANID
 
-		decodings := cw.decoder.decode(ctx, canID, msg.RawData)
+		decodings := cw.Env.decoder.decode(ctx, canID, msg.RawData)
 		for _, dec := range decodings {
 			sig := CANSignal{
 				CANID:    canID,
@@ -279,37 +228,28 @@ func (cw *canWorker[T]) Handle(ctx context.Context, msgIn *msg[T]) (*msg[*CANMes
 	msgOut.SaveSpan(span)
 
 	// Update metrics
-	cw.metrics.addCANMessages(rawMsgCount)
-	cw.metrics.addCANSignals(canMsg.SignalCount)
+	cw.Env.Metrics.AddCanMessages(uint(rawMsgCount))
+	cw.Env.Metrics.AddCanSignals(uint(canMsg.SignalCount))
 
 	return msgOut, nil
 }
 
-func (cw *canWorker[T]) Close(_ context.Context) error {
-	return nil
-}
+// ─── Stage ──────────────────────────────────────────────────────────────────|
 
-/////////////
-//  STAGE  //
-/////////////
+var _ stage.Stage = (*CANStage[CANMessageCarrier])(nil)
 
 // CANStage is a processor stage that decodes CAN messages.
 type CANStage[T CANMessageCarrier] struct {
-	stage[*canWorkerArgs, T, *CANMessage, *CANConfig]
+	*stage.ProcessorStage[T, *CANMessage, *canEnv]
 }
 
 // NewCANStage returns a new CAN processor stage.
-func NewCANStage[T CANMessageCarrier](inputConnector msgConn[T], outputConnector msgConn[*CANMessage], cfg *CANConfig) *CANStage[T] {
+func NewCANStage[T CANMessageCarrier](inConnector msgConn[T], outConnector msgConn[*CANMessage], cfg *CANConfig) *CANStage[T] {
+	env := newCANEnv(cfg)
+
 	return &CANStage[T]{
-		stage: newStage(
-			"can", inputConnector, outputConnector, newCANWorkerInstMaker[T](), cfg,
+		ProcessorStage: stage.NewProcessorStage(
+			"can", inConnector, outConnector, env, newCANWorkerMaker[T](), cfg.Stage,
 		),
 	}
-}
-
-// Init initializes the stage.
-func (cs *CANStage[T]) Init(ctx context.Context) error {
-	decoder := newCANDecoder(cs.Config().Messages)
-
-	return cs.stage.Init(ctx, newCANWorkerArgs(decoder))
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/FerroO2000/goccia"
 	"github.com/FerroO2000/goccia/connector"
@@ -61,9 +62,9 @@ func main() {
 
 	ebpfStage := ingress.NewEBPFStage(ebpfToHandler, ebpfConfig)
 
-	pingHandlerConfig := processor.NewCustomConfig(goccia.StageRunningModeSingle)
+	pingHandlerConfig := processor.NewGenericConfig(goccia.StageRunningModeSingle)
 	pingHandlerConfig.Name = "ping_handler"
-	pingHandlerStage := processor.NewCustomStage(newPingHandler(), ebpfToHandler, handlerToSink, pingHandlerConfig)
+	pingHandlerStage := processor.NewGenericStage(newPingHandler(), ebpfToHandler, handlerToSink, pingHandlerConfig)
 
 	sinkStage := egress.NewSinkStage(handlerToSink)
 
@@ -78,7 +79,11 @@ func main() {
 	}
 
 	go pipeline.Run(ctx)
-	defer pipeline.Close()
 
 	<-ctx.Done()
+
+	closeCtx, cancelCloseCtx := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelCloseCtx()
+
+	pipeline.Close(closeCtx)
 }

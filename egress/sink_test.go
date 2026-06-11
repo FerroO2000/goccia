@@ -1,6 +1,7 @@
 package egress
 
 import (
+	"sync/atomic"
 	"testing"
 
 	"github.com/FerroO2000/goccia/connector"
@@ -19,17 +20,12 @@ func (m *sinkTestMsg) Destroy() {
 func Test_SinkStage(t *testing.T) {
 	assert := assert.New(t)
 
-	msgCount := 32
+	msgCount := int64(32)
 	conn := connector.NewRingBuffer[*sinkTestMsg](uint64(msgCount))
 
-	stopCh := make(chan struct{})
-
-	destroyCount := 0
+	var destroyCount atomic.Int64
 	call := func() {
-		destroyCount++
-		if destroyCount == msgCount {
-			close(stopCh)
-		}
+		destroyCount.Add(1)
 	}
 
 	for range msgCount {
@@ -45,9 +41,8 @@ func Test_SinkStage(t *testing.T) {
 
 	go stage.Run(t.Context())
 
-	<-stopCh
+	conn.Close()
+	stage.Close(t.Context())
 
-	stage.Close()
-
-	assert.Equal(msgCount, destroyCount)
+	assert.Equal(msgCount, destroyCount.Load())
 }

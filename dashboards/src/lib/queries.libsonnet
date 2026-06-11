@@ -8,7 +8,7 @@ local tempo = g.query.tempo;
   prometheus: {
     utils: {
       getField(name, stageKind, stageName):
-        std.format('%s{goccia_stage_kind="%s",goccia_stage_name="%s",exported_job="$service"}', [name, stageKind, stageName]),
+        std.format('%s{stage_kind="%s",stage_name="%s",exported_job="$service"}', [name, stageKind, stageName]),
     },
 
     base(expr, legend=''):

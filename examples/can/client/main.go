@@ -32,9 +32,9 @@ func main() {
 	tickerCfg.Interval = time.Millisecond
 	tickerStage := ingress.NewTickerStage(tickerToCustom, tickerCfg)
 
-	customCfg := processor.NewCustomConfig(goccia.StageRunningModeSingle)
+	customCfg := processor.NewGenericConfig(goccia.StageRunningModeSingle)
 	customCfg.Name = "ticker_to_cannelloni"
-	customStage := processor.NewCustomStage(newTickerToCannelloniHandler(), tickerToCustom, customToCannelloni, customCfg)
+	customStage := processor.NewGenericStage(newTickerToCannelloniHandler(), tickerToCustom, customToCannelloni, customCfg)
 
 	cannelloniCfg := processor.NewCannelloniConfig(goccia.StageRunningModeSingle)
 	cannelloniStage := processor.NewCannelloniEncoderStage(customToCannelloni, cannelloniToUDP, cannelloniCfg)
@@ -54,7 +54,11 @@ func main() {
 	}
 
 	go pipeline.Run(ctx)
-	defer pipeline.Close()
 
 	<-ctx.Done()
+
+	closeCtx, cancelCloseCtx := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelCloseCtx()
+
+	pipeline.Close(closeCtx)
 }

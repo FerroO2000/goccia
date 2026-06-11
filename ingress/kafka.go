@@ -3,19 +3,19 @@ package ingress
 import (
 	"context"
 	"errors"
-	"sync/atomic"
 	"time"
 
+	"github.com/FerroO2000/goccia/ingress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
+	"github.com/FerroO2000/goccia/internal/stage"
+	"github.com/FerroO2000/goccia/internal/stage/env"
 	"github.com/FerroO2000/goccia/internal/telemetry"
 	"github.com/segmentio/kafka-go"
 	"go.opentelemetry.io/otel/attribute"
 )
 
-//////////////
-//  CONFIG  //
-//////////////
+// ─── Config ─────────────────────────────────────────────────────────────────|
 
 // DefaultKafkaConfigBrokers is the default list of Kafka brokers to connect to.
 var DefaultKafkaConfigBrokers = []string{"localhost:9092"}
@@ -167,9 +167,9 @@ type KafkaConfig struct {
 	MaxAttempts int
 }
 
-// NewKafkaConfig returns a default kafka config.
+// DefaultKafkaConfig returns a default kafka config.
 // There are NO default topics set.
-func NewKafkaConfig(topics ...string) *KafkaConfig {
+func DefaultKafkaConfig(topics ...string) *KafkaConfig {
 	return &KafkaConfig{
 		Brokers:                DefaultKafkaConfigBrokers,
 		GroupID:                DefaultKafkaConfigGroupID,
@@ -203,9 +203,7 @@ func (c *KafkaConfig) Validate(ac *config.AnomalyCollector) {
 	config.CheckNotEmpty(ac, "GroupID", &c.GroupID, DefaultKafkaConfigGroupID)
 }
 
-///////////////
-//  MESSAGE  //
-///////////////
+// ─── Message ────────────────────────────────────────────────────────────────|
 
 var _ msgSer = (*KafkaMessage)(nil)
 
@@ -218,7 +216,8 @@ type KafkaMessage struct {
 	Headers []kafka.Header
 }
 
-func newKafkaMessage() *KafkaMessage {
+// NewKafkaMessage returns a new Kafka message.
+func NewKafkaMessage() *KafkaMessage {
 	return &KafkaMessage{}
 }
 
@@ -230,79 +229,98 @@ func (km *KafkaMessage) GetBytes() []byte {
 	return km.Value
 }
 
-//////////////
-//  SOURCE  //
-//////////////
+// ─── Environment ────────────────────────────────────────────────────────────|
 
-var _ source[*KafkaMessage] = (*kafkaSource)(nil)
+type kafkaEnv struct {
+	*env.BaseEnv[*KafkaConfig, *metrics.KafkaStage]
+}
 
-type kafkaSource struct {
-	tel *telemetry.Telemetry
+func newKafkaEnv(config *KafkaConfig) *kafkaEnv {
+	return &kafkaEnv{
+		BaseEnv: env.NewIngressEnv(config, metrics.NewKafkaStage()),
+	}
+}
+
+// ─── Runner ─────────────────────────────────────────────────────────────────|
+
+var _ stage.Runner[*kafkaEnv] = (*kafkaRunner)(nil)
+
+type kafkaRunner struct {
+	*runnerBase[*kafkaEnv, *KafkaMessage]
 
 	reader *kafka.Reader
-
-	// Metrics
-	receivedMessages atomic.Int64
-	receivedBytes    atomic.Int64
 }
 
-func newKafkaSource() *kafkaSource {
-	return &kafkaSource{}
+func newKafkaRunner(outConnector msgConn[*KafkaMessage]) *kafkaRunner {
+	return &kafkaRunner{
+		runnerBase: newRunnerBase[*kafkaEnv](outConnector),
+	}
 }
 
-func (ks *kafkaSource) setTelemetry(tel *telemetry.Telemetry) {
-	ks.tel = tel
+func (kr *kafkaRunner) Init(_ context.Context) error {
+	kr.reader = kafka.NewReader(kafka.ReaderConfig{
+		Brokers:                kr.env.Config.Brokers,
+		GroupID:                kr.env.Config.GroupID,
+		GroupTopics:            kr.env.Config.Topics,
+		Dialer:                 kr.env.Config.Dialer,
+		QueueCapacity:          kr.env.Config.QueueCapacity,
+		MinBytes:               kr.env.Config.MinBytes,
+		MaxBytes:               kr.env.Config.MaxBytes,
+		MaxWait:                kr.env.Config.MaxWait,
+		ReadBatchTimeout:       kr.env.Config.ReadBatchTimeout,
+		GroupBalancers:         kr.env.Config.GroupBalancers,
+		HeartbeatInterval:      kr.env.Config.HeartbeatInterval,
+		CommitInterval:         kr.env.Config.CommitInterval,
+		PartitionWatchInterval: kr.env.Config.PartitionWatchInterval,
+		WatchPartitionChanges:  kr.env.Config.WatchPartitionChanges,
+		SessionTimeout:         kr.env.Config.SessionTimeout,
+		RebalanceTimeout:       kr.env.Config.RebalanceTimeout,
+		JoinGroupBackoff:       kr.env.Config.JoinGroupBackoff,
+		RetentionTime:          kr.env.Config.RetentionTime,
+		StartOffset:            kr.env.Config.StartOffset,
+		ReadBackoffMin:         kr.env.Config.ReadBackoffMin,
+		ReadBackoffMax:         kr.env.Config.ReadBackoffMax,
+		IsolationLevel:         kr.env.Config.IsolationLevel,
+		MaxAttempts:            kr.env.Config.MaxAttempts,
+	})
+
+	return nil
 }
 
-func (ks *kafkaSource) init(readerCfg kafka.ReaderConfig) {
-	ks.reader = kafka.NewReader(readerCfg)
+func (kr *kafkaRunner) Run(ctx context.Context) {
+	defer kr.notifyRunDone()
 
-	ks.initMetrics()
-}
-
-func (ks *kafkaSource) initMetrics() {
-	ks.tel.NewCounterMetric("received_bytes", func() int64 { return ks.receivedBytes.Load() })
-	ks.tel.NewCounterMetric("received_messages", func() int64 { return ks.receivedMessages.Load() })
-}
-
-func (ks *kafkaSource) run(ctx context.Context, outConnector msgConn[*KafkaMessage]) {
 	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		msg, err := ks.reader.ReadMessage(ctx)
+		msg, err := kr.reader.ReadMessage(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
 				return
 			}
 
-			ks.tel.LogError("failed to read message", err)
+			kr.env.Tel.LogError("failed to read message", err)
 			continue
 		}
 
-		msgOut := ks.handleMessage(ctx, &msg)
-		if err := outConnector.Write(msgOut); err != nil {
+		msgOut := kr.handleMessage(ctx, &msg)
+		if err := kr.outConnector.Write(msgOut); err != nil {
 			msgOut.Destroy()
-			ks.tel.LogError("failed to write message to output connector", err)
+			kr.env.Tel.LogError("failed to write message to output connector", err)
 		}
 
-		ks.receivedMessages.Add(1)
+		kr.env.Metrics.IncrementReceivedMessages()
 	}
 }
 
-func (ks *kafkaSource) handleMessage(ctx context.Context, msg *kafka.Message) *msg[*KafkaMessage] {
+func (kr *kafkaRunner) handleMessage(ctx context.Context, msg *kafka.Message) *msg[*KafkaMessage] {
 	if len(msg.Headers) > 0 {
 		headerCarrier := telemetry.NewKafkaHeaderCarrier(msg.Headers)
-		ctx = ks.tel.ExtractTraceContext(ctx, headerCarrier)
+		ctx = kr.env.Tel.ExtractTraceContext(ctx, headerCarrier)
 	}
 
-	_, span := ks.tel.StartTrace(ctx, "handle kafka message")
+	_, span := kr.env.Tel.StartTrace(ctx, "handle kafka message")
 	defer span.End()
 
-	kafkaMsg := newKafkaMessage()
+	kafkaMsg := NewKafkaMessage()
 
 	kafkaMsg.Topic = msg.Topic
 	kafkaMsg.Key = msg.Key
@@ -320,72 +338,28 @@ func (ks *kafkaSource) handleMessage(ctx context.Context, msg *kafka.Message) *m
 	span.SetAttributes(attribute.Int("value_size", valueSize))
 	msgRes.SaveSpan(span)
 
-	ks.receivedBytes.Add(int64(valueSize))
+	kr.env.Metrics.AddReceivedBytes(uint(valueSize))
 
 	return msgRes
 }
 
-func (ks *kafkaSource) close() {
-	if err := ks.reader.Close(); err != nil {
-		ks.tel.LogError("failed to close reader", err)
-	}
+func (kr *kafkaRunner) Close(ctx context.Context) {
+	kr.Close(ctx)
+	kr.reader.Close()
 }
 
-/////////////
-//  STAGE  //
-/////////////
+// ─── Stage ──────────────────────────────────────────────────────────────────|
 
 // KafkaStage is an ingress stage that reads messages from Kafka.
 type KafkaStage struct {
-	*stage[*KafkaMessage, *KafkaConfig]
-
-	source *kafkaSource
+	*stage.IngressStage[*KafkaMessage, *kafkaEnv]
 }
 
 // NewKafkaStage returns a new Kafka ingress stage.
 func NewKafkaStage(outConnector msgConn[*KafkaMessage], cfg *KafkaConfig) *KafkaStage {
-	source := newKafkaSource()
-
 	return &KafkaStage{
-		stage: newStage("kafka", source, outConnector, cfg),
-
-		source: source,
+		IngressStage: stage.NewIngressStageFromRunner[*KafkaMessage](
+			"kafka", newKafkaEnv(cfg), newKafkaRunner(outConnector),
+		),
 	}
-}
-
-// Init initializes the stage.
-func (ks *KafkaStage) Init(ctx context.Context) error {
-	ks.source.init(kafka.ReaderConfig{
-		Brokers:                ks.cfg.Brokers,
-		GroupID:                ks.cfg.GroupID,
-		GroupTopics:            ks.cfg.Topics,
-		Dialer:                 ks.cfg.Dialer,
-		QueueCapacity:          ks.cfg.QueueCapacity,
-		MinBytes:               ks.cfg.MinBytes,
-		MaxBytes:               ks.cfg.MaxBytes,
-		MaxWait:                ks.cfg.MaxWait,
-		ReadBatchTimeout:       ks.cfg.ReadBatchTimeout,
-		GroupBalancers:         ks.cfg.GroupBalancers,
-		HeartbeatInterval:      ks.cfg.HeartbeatInterval,
-		CommitInterval:         ks.cfg.CommitInterval,
-		PartitionWatchInterval: ks.cfg.PartitionWatchInterval,
-		WatchPartitionChanges:  ks.cfg.WatchPartitionChanges,
-		SessionTimeout:         ks.cfg.SessionTimeout,
-		RebalanceTimeout:       ks.cfg.RebalanceTimeout,
-		JoinGroupBackoff:       ks.cfg.JoinGroupBackoff,
-		RetentionTime:          ks.cfg.RetentionTime,
-		StartOffset:            ks.cfg.StartOffset,
-		ReadBackoffMin:         ks.cfg.ReadBackoffMin,
-		ReadBackoffMax:         ks.cfg.ReadBackoffMax,
-		IsolationLevel:         ks.cfg.IsolationLevel,
-		MaxAttempts:            ks.cfg.MaxAttempts,
-	})
-
-	return ks.stage.Init(ctx)
-}
-
-// Close closes the stage.
-func (ks *KafkaStage) Close() {
-	ks.stage.Close()
-	ks.source.close()
 }

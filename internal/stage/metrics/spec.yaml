@@ -1,0 +1,24 @@
+package: metrics
+groups:
+  - name: processor_stage
+    metrics:
+      - name: processed_messages
+        type: counter
+
+      - name: dropped_messages
+        type: counter
+
+      - name: processing_errors
+        type: counter
+
+  - name: egress_stage
+    metrics:
+      - name: delivered_messages
+        type: counter
+
+      - name: delivering_errors
+        type: counter
+
+      - name: total_message_processing_time
+        type: histogram
+        unit: ms

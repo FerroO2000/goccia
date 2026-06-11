@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/FerroO2000/goccia"
 	"github.com/FerroO2000/goccia/connector"
@@ -26,14 +27,14 @@ func main() {
 	kafkaToRaw := connector.NewRingBuffer[*ingress.KafkaMessage](connectorSize)
 	customToKafka := connector.NewRingBuffer[*egress.KafkaMessage](connectorSize)
 
-	kafkaIngressCfg := ingress.NewKafkaConfig("example-topic")
+	kafkaIngressCfg := ingress.DefaultKafkaConfig("example-topic")
 	kafkaIngressStage := ingress.NewKafkaStage(kafkaToRaw, kafkaIngressCfg)
 
-	customCfg := processor.NewCustomConfig(goccia.StageRunningModePool)
+	customCfg := processor.NewGenericConfig(goccia.StageRunningModePool)
 	customCfg.Name = "ingress_to_egress"
-	customStage := processor.NewCustomStage(newIngressToEgressHandler(), kafkaToRaw, customToKafka, customCfg)
+	customStage := processor.NewGenericStage(newIngressToEgressHandler(), kafkaToRaw, customToKafka, customCfg)
 
-	kafkaEgressCfg := egress.NewKafkaConfig(goccia.StageRunningModePool)
+	kafkaEgressCfg := egress.DefaultKafkaConfig(goccia.StageRunningModePool)
 	kafkaEgressStage := egress.NewKafkaStage(customToKafka, kafkaEgressCfg)
 
 	pipeline := goccia.NewPipeline()
@@ -47,7 +48,11 @@ func main() {
 	}
 
 	go pipeline.Run(ctx)
-	defer pipeline.Close()
 
 	<-ctx.Done()
+
+	closeCtx, cancelCloseCtx := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelCloseCtx()
+
+	pipeline.Close(closeCtx)
 }

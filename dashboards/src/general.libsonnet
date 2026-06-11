@@ -22,6 +22,6 @@ local prometheus = q.prometheus;
 
   p.timeSeries.step(
     'Active Workers',
-    prometheus.base('worker_pool_active_workers{exported_job="$service"}', '{{goccia_stage_kind}} - {{goccia_stage_name}}')
+    prometheus.base('worker_pool_active_workers{exported_job="$service"}', '{{stage_kind}} - {{stage_name}}')
   ),
 ]

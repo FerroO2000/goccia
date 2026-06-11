@@ -7,12 +7,13 @@ import (
 	"time"
 
 	"github.com/FerroO2000/goccia/internal/message"
-	"github.com/FerroO2000/goccia/internal/pool"
+	"github.com/FerroO2000/goccia/internal/metrics"
+	"github.com/FerroO2000/goccia/internal/stage"
+	"github.com/FerroO2000/goccia/internal/stage/env"
+	"github.com/FerroO2000/goccia/internal/stage/worker"
 )
 
-///////////////
-//  MESSAGE  //
-///////////////
+// ─── Message ────────────────────────────────────────────────────────────────|
 
 var _ msgSer = (*CSVEncodedMessage)(nil)
 
@@ -35,9 +36,7 @@ func (m *CSVEncodedMessage) GetBytes() []byte {
 	return m.Data
 }
 
-///////////////
-//  ENCODER  //
-///////////////
+// ─── Encoder ────────────────────────────────────────────────────────────────|
 
 type csvEncoderConfig struct {
 	columns []*CSVColumnDef
@@ -129,35 +128,34 @@ func (e *csvEncoder) encodeDefaultColumn(sb *strings.Builder, currCol int) {
 	}
 }
 
-//////////////
-//  WORKER  //
-//////////////
+// ─── Environment ────────────────────────────────────────────────────────────|
 
-type csvEncoderWorkerArgs struct {
+type csvEncoderEnv struct {
+	*env.BaseEnv[*CSVConfig, *metrics.EmptyMetrics]
+
 	encoder *csvEncoder
 }
 
-func newCSVEncoderWorkerArgs(encoder *csvEncoder) *csvEncoderWorkerArgs {
-	return &csvEncoderWorkerArgs{
-		encoder: encoder,
+func newCSVEncoderEnv(config *CSVConfig) *csvEncoderEnv {
+	return &csvEncoderEnv{
+		BaseEnv: env.NewProcessorEnv(config, metrics.NewEmptyMetrics()),
+
+		encoder: newCSVEncoder(&csvEncoderConfig{
+			columns: config.Columns,
+		}),
 	}
 }
+
+// ─── Worker ─────────────────────────────────────────────────────────────────|
 
 type csvEncoderWorker struct {
-	pool.BaseWorker
-
-	encoder *csvEncoder
+	worker.BaseWorker[*csvEncoderEnv]
 }
 
-func newCSVEncoderWorkerInstMaker() workerInstanceMaker[*csvEncoderWorkerArgs, *CSVMessage, *CSVEncodedMessage] {
-	return func() workerInstance[*csvEncoderWorkerArgs, *CSVMessage, *CSVEncodedMessage] {
+func newCSVEncoderWorkerMaker() func() *csvEncoderWorker {
+	return func() *csvEncoderWorker {
 		return &csvEncoderWorker{}
 	}
-}
-
-func (w *csvEncoderWorker) Init(_ context.Context, args *csvEncoderWorkerArgs) error {
-	w.encoder = args.encoder
-	return nil
 }
 
 func (w *csvEncoderWorker) Handle(ctx context.Context, msgIn *msg[*CSVMessage]) (*msg[*CSVEncodedMessage], error) {
@@ -165,7 +163,7 @@ func (w *csvEncoderWorker) Handle(ctx context.Context, msgIn *msg[*CSVMessage]) 
 	defer span.End()
 
 	rows := msgIn.GetBody().Rows
-	data := w.encoder.encode(rows)
+	data := w.Env.encoder.encode(rows)
 
 	csvEncMsg := newCSVEncodedMessage(data)
 	msgOut := message.NewMessage(csvEncMsg)
@@ -175,33 +173,25 @@ func (w *csvEncoderWorker) Handle(ctx context.Context, msgIn *msg[*CSVMessage]) 
 	return msgOut, nil
 }
 
-func (w *csvEncoderWorker) Close(_ context.Context) error {
-	return nil
-}
+// ─── Stage ──────────────────────────────────────────────────────────────────|
 
-/////////////
-//  STAGE  //
-/////////////
+var _ stage.Stage = (*CSVEncoderStage)(nil)
 
 // CSVEncoderStage is a processor stage that encodes CSV messages.
 type CSVEncoderStage struct {
-	stage[*csvEncoderWorkerArgs, *CSVMessage, *CSVEncodedMessage, *CSVConfig]
+	*stage.ProcessorStage[*CSVMessage, *CSVEncodedMessage, *csvEncoderEnv]
 }
 
 // NewCSVEncoderStage returns a new CSV encoder stage.
 func NewCSVEncoderStage(
-	inputConnector msgConn[*CSVMessage], outputConnector msgConn[*CSVEncodedMessage], cfg *CSVConfig,
+	inConnector msgConn[*CSVMessage], outConnector msgConn[*CSVEncodedMessage], cfg *CSVConfig,
 ) *CSVEncoderStage {
+
+	env := newCSVEncoderEnv(cfg)
+
 	return &CSVEncoderStage{
-		stage: newStage("csv_encoder", inputConnector, outputConnector, newCSVEncoderWorkerInstMaker(), cfg),
+		ProcessorStage: stage.NewProcessorStage(
+			"csv_encoder", inConnector, outConnector, env, newCSVEncoderWorkerMaker(), cfg.Stage,
+		),
 	}
-}
-
-// Init initializes the stage.
-func (s *CSVEncoderStage) Init(ctx context.Context) error {
-	encoder := newCSVEncoder(&csvEncoderConfig{
-		columns: s.Config().Columns,
-	})
-
-	return s.stage.Init(ctx, newCSVEncoderWorkerArgs(encoder))
 }
