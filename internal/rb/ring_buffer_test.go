@@ -501,9 +501,6 @@ func benchContention(b *testing.B, rb benchmarkRingBuffer, numWriters, numReader
 	var wg sync.WaitGroup
 	wg.Add(numReaders)
 
-	ctx, cancelCtx := context.WithTimeout(b.Context(), benchmarkTimeout)
-	defer cancelCtx()
-
 	// Multiple readers
 	itemsPerReader := b.N / numReaders
 	readerRemainder := b.N % numReaders
@@ -522,7 +519,7 @@ func benchContention(b *testing.B, rb benchmarkRingBuffer, numWriters, numReader
 			count := 0
 
 			for count < target {
-				_, err := rb.Read(ctx)
+				_, err := rb.Read(b.Context())
 				if err != nil {
 					hasError.Store(true)
 					b.Errorf("read error: %v", err)
@@ -640,9 +637,6 @@ func benchBoneShape(b *testing.B, capacity, parallelism int) {
 	var wg sync.WaitGroup
 	wg.Add(parallelism)
 
-	ctx, cancelCtx := context.WithTimeout(b.Context(), benchmarkTimeout)
-	defer cancelCtx()
-
 	// Multiple readers
 	itemsPerReader := b.N / parallelism
 	readerRemainder := b.N % parallelism
@@ -661,7 +655,7 @@ func benchBoneShape(b *testing.B, capacity, parallelism int) {
 			count := 0
 
 			for count < target {
-				_, err := fanOut.Read(ctx)
+				_, err := fanOut.Read(b.Context())
 				if err != nil {
 					hasError.Store(true)
 					b.Errorf("read error: %v", err)
