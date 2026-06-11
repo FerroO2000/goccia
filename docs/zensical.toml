@@ -34,6 +34,7 @@ nav = [
       { "Generic" = "stages/processor/generic.md" },
       { "Filter" = "stages/processor/filter.md" },
       { "Tee" = "stages/processor/tee.md" },
+      { "Merge" = "stages/processor/merge.md" },
       { "CSV" = [
         { "Decoder" = "stages/processor/csv-decoder.md" },
         { "Encoder" = "stages/processor/csv-encoder.md" },
