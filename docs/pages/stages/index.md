@@ -7,7 +7,7 @@ icon: lucide/library
 Goccia ships stages in three categories:
 
 - [Ingress](ingress/index.md): create messages from external sources.
-- [Processor](processor/index.md): transform, filter, fan out, or reorder messages.
+- [Processor](processor/index.md): transform, filter, fan in, fan out, or reorder messages.
 - [Egress](egress/index.md): deliver messages to external destinations.
 
 ## Message Interfaces
@@ -39,6 +39,7 @@ cfg := processor.NewGenericConfig(goccia.StageRunningModePool)
 `StageRunningModeSingle` runs one executor. `StageRunningModePool` enables the
 generic worker pool and exposes `cfg.Stage.Pool` for worker counts, queue sizes,
 and auto-scaling. Stages with custom runners, such as ingress stages, `tee`,
-`rob`, `sink`, file egress, and TCP egress, document their own execution model.
+`merge`, `rob`, `sink`, file egress, and TCP egress, document their own
+execution model.
 
 For lifecycle details, see [Stages](../concepts/stages.md).
