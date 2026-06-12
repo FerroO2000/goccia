@@ -1,0 +1,41 @@
+name: Release Workflow
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate Release Notes
+        uses: orhun/git-cliff-action@v4
+        id: git-cliff
+        with:
+          config: cliff.toml
+          args: -vv --latest --strip header
+          github_token: ${{ github.token }}
+        env:
+          OUTPUT: CHANGES.md
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Publish GitHub Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          file: CHANGES.md
+          asset_name: changes-${{ github.ref_name }}.md
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref }}
+          release_name: ${{ github.ref_name }}
+          overwrite: true
+          body: ${{ steps.git-cliff.outputs.content }}
