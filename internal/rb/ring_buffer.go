@@ -166,7 +166,12 @@ func (rb *RingBuffer[T]) wait(ctx context.Context, cond *sync.Cond) error {
 	stop := context.AfterFunc(ctx, func() {
 		cond.L.Lock()
 		cond.Broadcast()
-		<-done
+		cond.L.Unlock()
+	})
+
+	cond.Wait()
+
+	if !stop() {
 		return ctx.Err()
 	}
 
@@ -279,7 +284,14 @@ func (rb *RingBuffer[T]) Read(ctx context.Context) (T, error) {
 			return item, ErrClosed
 		}
 
-		// Wait for data, return an error if the timeout is reached
+		// Re-check after arming isEmpty
+		item, popOk = rb.pop()
+		if popOk {
+			rb.mux.Unlock()
+			goto cleanup
+		}
+
+		// Wait for data, return ctx.Err() if done
 		if err := rb.wait(ctx, rb.notEmpty); err != nil {
 			rb.mux.Unlock()
 			return item, err
