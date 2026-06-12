@@ -298,6 +298,7 @@ const benchmarkTimeout = 120 * time.Second
 type benchmarkRingBuffer interface {
 	Write(int) error
 	Read(context.Context) (int, error)
+	Close()
 }
 
 func newBenchmarkRingBuffer(kind BufferKind, capacity int) benchmarkRingBuffer {
@@ -305,25 +306,42 @@ func newBenchmarkRingBuffer(kind BufferKind, capacity int) benchmarkRingBuffer {
 }
 
 type baselineRingBuffer struct {
-	ch chan int
+	ch        chan int
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
 func newBaselineRingBuffer(capacity int) *baselineRingBuffer {
-	return &baselineRingBuffer{ch: make(chan int, capacity)}
+	return &baselineRingBuffer{
+		ch:   make(chan int, capacity),
+		done: make(chan struct{}),
+	}
 }
 
 func (b *baselineRingBuffer) Write(val int) error {
-	b.ch <- val
-	return nil
+	select {
+	case <-b.done:
+		return ErrClosed
+	case b.ch <- val:
+		return nil
+	}
 }
 
 func (b *baselineRingBuffer) Read(ctx context.Context) (int, error) {
 	select {
 	case <-ctx.Done():
 		return 0, ctx.Err()
+	case <-b.done:
+		return 0, ErrClosed
 	case val := <-b.ch:
 		return val, nil
 	}
+}
+
+func (b *baselineRingBuffer) Close() {
+	b.closeOnce.Do(func() {
+		close(b.done)
+	})
 }
 
 func Benchmark_RingBuffers(b *testing.B) {
@@ -475,6 +493,32 @@ func benchWriteReadSteady(b *testing.B, rb benchmarkRingBuffer) {
 func benchContention(b *testing.B, rb benchmarkRingBuffer, numWriters, numReaders int) {
 	b.ResetTimer()
 
+	var closeOnce sync.Once
+	closeBuffer := func() {
+		closeOnce.Do(rb.Close)
+	}
+	defer closeBuffer()
+
+	stopMonitor := make(chan struct{})
+	defer close(stopMonitor)
+	go func() {
+		select {
+		case <-b.Context().Done():
+			closeBuffer()
+		case <-stopMonitor:
+		}
+	}()
+
+	var hasError atomic.Bool
+	recordError := func(format string, args ...any) {
+		hasError.Store(true)
+		closeBuffer()
+		b.Errorf(format, args...)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(numWriters + numReaders)
+
 	// Multiple writers
 	itemsPerWriter := b.N / numWriters
 	writerRemainder := b.N % numWriters
@@ -488,9 +532,11 @@ func benchContention(b *testing.B, rb benchmarkRingBuffer, numWriters, numReader
 		}
 
 		go func(count int) {
+			defer wg.Done()
+
 			for i := range count {
 				if err := rb.Write(i); err != nil {
-					b.Errorf("write error: %v", err)
+					recordError("write error: %v", err)
 					return
 				}
 				written.Add(1)
@@ -498,18 +544,9 @@ func benchContention(b *testing.B, rb benchmarkRingBuffer, numWriters, numReader
 		}(items)
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(numReaders)
-
-	ctx, cancelCtx := context.WithTimeout(b.Context(), benchmarkTimeout)
-	defer cancelCtx()
-
 	// Multiple readers
 	itemsPerReader := b.N / numReaders
 	readerRemainder := b.N % numReaders
-
-	var hasError atomic.Bool
-	hasError.Store(false)
 
 	for r := range numReaders {
 		items := itemsPerReader
@@ -522,10 +559,9 @@ func benchContention(b *testing.B, rb benchmarkRingBuffer, numWriters, numReader
 			count := 0
 
 			for count < target {
-				_, err := rb.Read(ctx)
+				_, err := rb.Read(b.Context())
 				if err != nil {
-					hasError.Store(true)
-					b.Errorf("read error: %v", err)
+					recordError("read error: %v", err)
 					return
 				}
 				count++
@@ -568,15 +604,45 @@ func Benchmark_RingBuffers_MPMC(b *testing.B) {
 func benchBoneShape(b *testing.B, capacity, parallelism int) {
 	b.ResetTimer()
 
+	fanIn := newBenchmarkRingBuffer(BufferKindMPSC, capacity/4)
+	straight := newBenchmarkRingBuffer(BufferKindSPSC, capacity/2)
+	fanOut := newBenchmarkRingBuffer(BufferKindSPMC, capacity/4)
+
+	var closeOnce sync.Once
+	closeBuffers := func() {
+		closeOnce.Do(func() {
+			fanIn.Close()
+			straight.Close()
+			fanOut.Close()
+		})
+	}
+	defer closeBuffers()
+
+	stopMonitor := make(chan struct{})
+	defer close(stopMonitor)
+	go func() {
+		select {
+		case <-b.Context().Done():
+			closeBuffers()
+		case <-stopMonitor:
+		}
+	}()
+
+	var hasError atomic.Bool
+	recordError := func(format string, args ...any) {
+		hasError.Store(true)
+		closeBuffers()
+		b.Errorf(format, args...)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(parallelism + 2 + parallelism)
+
 	// Multiple writers
 	itemsPerWriter := b.N / parallelism
 	writerRemainder := b.N % parallelism
 
 	var written atomic.Uint64
-
-	fanIn := newBenchmarkRingBuffer(BufferKindMPSC, capacity/4)
-	straight := newBenchmarkRingBuffer(BufferKindSPSC, capacity/2)
-	fanOut := newBenchmarkRingBuffer(BufferKindSPMC, capacity/4)
 
 	for w := range parallelism {
 		items := itemsPerWriter
@@ -585,9 +651,11 @@ func benchBoneShape(b *testing.B, capacity, parallelism int) {
 		}
 
 		go func(count int) {
+			defer wg.Done()
+
 			for i := range count {
 				if err := fanIn.Write(i); err != nil {
-					b.Errorf("write error: %v", err)
+					recordError("write error: %v", err)
 					return
 				}
 				written.Add(1)
@@ -596,16 +664,18 @@ func benchBoneShape(b *testing.B, capacity, parallelism int) {
 	}
 
 	go func() {
+		defer wg.Done()
+
 		count := 0
 		for {
 			item, err := fanIn.Read(b.Context())
 			if err != nil {
-				b.Errorf("read error: %v", err)
+				recordError("read error: %v", err)
 				return
 			}
 
 			if err := straight.Write(item); err != nil {
-				b.Errorf("write error: %v", err)
+				recordError("write error: %v", err)
 				return
 			}
 
@@ -617,16 +687,18 @@ func benchBoneShape(b *testing.B, capacity, parallelism int) {
 	}()
 
 	go func() {
+		defer wg.Done()
+
 		count := 0
 		for {
 			item, err := straight.Read(b.Context())
 			if err != nil {
-				b.Errorf("read error: %v", err)
+				recordError("read error: %v", err)
 				return
 			}
 
 			if err := fanOut.Write(item); err != nil {
-				b.Errorf("write error: %v", err)
+				recordError("write error: %v", err)
 				return
 			}
 
@@ -637,18 +709,9 @@ func benchBoneShape(b *testing.B, capacity, parallelism int) {
 		}
 	}()
 
-	var wg sync.WaitGroup
-	wg.Add(parallelism)
-
-	ctx, cancelCtx := context.WithTimeout(b.Context(), benchmarkTimeout)
-	defer cancelCtx()
-
 	// Multiple readers
 	itemsPerReader := b.N / parallelism
 	readerRemainder := b.N % parallelism
-
-	var hasError atomic.Bool
-	hasError.Store(false)
 
 	for r := range parallelism {
 		items := itemsPerReader
@@ -661,10 +724,9 @@ func benchBoneShape(b *testing.B, capacity, parallelism int) {
 			count := 0
 
 			for count < target {
-				_, err := fanOut.Read(ctx)
+				_, err := fanOut.Read(b.Context())
 				if err != nil {
-					hasError.Store(true)
-					b.Errorf("read error: %v", err)
+					recordError("read error: %v", err)
 					return
 				}
 				count++

@@ -159,18 +159,14 @@ func (rb *RingBuffer[T]) len() uint64 {
 }
 
 func (rb *RingBuffer[T]) wait(ctx context.Context, cond *sync.Cond) error {
-	timedOut := false
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
 	stop := context.AfterFunc(ctx, func() {
 		cond.L.Lock()
-		timedOut = true
 		cond.Broadcast()
-		cond.L.Unlock()
-	})
-
-	cond.Wait()
-
-	if !stop() && timedOut {
+		<-done
 		return ctx.Err()
 	}
 
@@ -213,6 +209,12 @@ func (rb *RingBuffer[T]) Write(item T) error {
 		if rb.isClosed.Load() {
 			rb.mux.Unlock()
 			return ErrClosed
+		}
+
+		// Re-check after arming isFull
+		if rb.push(item) {
+			rb.mux.Unlock()
+			goto cleanup
 		}
 
 		// Wait for space
@@ -277,7 +279,7 @@ func (rb *RingBuffer[T]) Read(ctx context.Context) (T, error) {
 			return item, ErrClosed
 		}
 
-		// Wait for data, return ctx.Err() if done
+		// Wait for data, return an error if the timeout is reached
 		if err := rb.wait(ctx, rb.notEmpty); err != nil {
 			rb.mux.Unlock()
 			return item, err
