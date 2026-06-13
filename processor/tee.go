@@ -72,6 +72,7 @@ func (tr *teeRunner[T]) Run(ctx context.Context) {
 			return
 		}
 
+		tr.GetProcessorMetrics().IncrementProcessedMessages()
 		tr.clone(ctx, msgIn)
 	}
 }
