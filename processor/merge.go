@@ -123,6 +123,7 @@ func (mr *mergeRunner[T]) readInput(ctx context.Context, inConnector msgConn[T])
 			return
 		}
 
+		mr.GetProcessorMetrics().IncrementProcessedMessages()
 		if err := mr.fanIn.Write(msgIn); err != nil {
 			msgIn.Destroy()
 		}

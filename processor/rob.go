@@ -145,6 +145,8 @@ func (rr *robRunner[T]) Run(ctx context.Context) {
 			continue
 		}
 
+		rr.GetProcessorMetrics().IncrementProcessedMessages()
+
 		// Set the sequence number encoded in the message
 		// value into the main message struct
 		msgIn.SetSequenceNumber(msgIn.GetBody().GetSequenceNumber())

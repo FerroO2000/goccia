@@ -2,6 +2,7 @@ package egress
 
 import (
 	"context"
+	"time"
 
 	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/internal/config"
@@ -58,6 +59,12 @@ func (sr *sinkRunner[T]) Run(ctx context.Context) {
 			// and there are no more messages in it
 			return
 		}
+
+		metricsCtx := msgIn.LoadSpanContext(ctx)
+		sr.GetEgressMetrics().IncrementDeliveredMessages()
+		sr.GetEgressMetrics().RecordTotalMessageProcessingTime(
+			metricsCtx, int(time.Since(msgIn.GetReceiveTime()).Milliseconds()),
+		)
 
 		msgIn.Destroy()
 	}
