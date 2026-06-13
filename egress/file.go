@@ -3,17 +3,16 @@ package egress
 import (
 	"bufio"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
-	"sync"
-	"sync/atomic"
 	"time"
 
+	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/egress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/stage/env"
-	"github.com/FerroO2000/goccia/internal/stage/worker"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -122,114 +121,138 @@ func (fe *fileEnv) Close(ctx context.Context) {
 	fe.BaseEnv.Close(ctx)
 }
 
-// ─── Worker ─────────────────────────────────────────────────────────────────|
+// ─── Runner ─────────────────────────────────────────────────────────────────|
 
-type fileWorker[T msgSer] struct {
-	worker.BaseWorker[*fileEnv]
+var _ stage.Runner[*fileEnv] = (*fileRunner[msgSer])(nil)
 
-	ticker   *time.Ticker
-	tickerWg *sync.WaitGroup
-	flushMux *sync.Mutex
+type fileRunner[T msgSer] struct {
+	*fileEnv
 
-	notFlushedBytes atomic.Int64
+	inConnector msgConn[T]
+
+	runDone chan struct{}
 }
 
-func newFileWorkerMaker[T msgSer]() func() *fileWorker[T] {
-	return func() *fileWorker[T] {
-		return &fileWorker[T]{
-			tickerWg: &sync.WaitGroup{},
-			flushMux: &sync.Mutex{},
-		}
+func newFileRunner[T msgSer](inConnector msgConn[T]) *fileRunner[T] {
+	return &fileRunner[T]{
+		inConnector: inConnector,
+
+		runDone: make(chan struct{}),
 	}
 }
 
-func (fw *fileWorker[T]) Init(ctx context.Context) error {
-	// Create the ticker
-	fw.ticker = time.NewTicker(fw.Env.Config.FlushDeadline)
-	go fw.runTicker(ctx)
-
-	return fw.BaseWorker.Init(ctx)
+func (r *fileRunner[T]) SetEnvironment(env *fileEnv) {
+	r.fileEnv = env
 }
 
-func (fw *fileWorker[T]) runTicker(ctx context.Context) {
-	fw.tickerWg.Add(1)
-	defer fw.tickerWg.Done()
+func (r *fileRunner[T]) Init(_ context.Context) error {
+	return nil
+}
 
-	defer fw.ticker.Stop()
+// Run owns the writer loop, so writes and flushes are never concurrent.
+func (r *fileRunner[T]) Run(ctx context.Context) {
+	defer close(r.runDone)
 
 	for {
-		select {
-		case <-ctx.Done():
-			return
+		msgIn, err := r.read(ctx)
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
+				if err := r.flush(); err != nil {
+					r.Tel.LogError("periodic flush failed", err, "path", r.Config.Path)
+				}
 
-		case <-fw.ticker.C:
-			if err := fw.flush(); err != nil {
-				fw.Tel.LogError("periodic flush failed", err, "path", fw.Env.Config.Path)
+				continue
 			}
+
+			return
 		}
+
+		r.deliver(ctx, msgIn)
+		msgIn.Destroy()
 	}
 }
 
-func (fw *fileWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
-	ctx, span := fw.Tel.StartTrace(ctx, "writing file")
+// read uses a timeout only while data is buffered, turning idle time into a
+// flush deadline without a separate ticker goroutine.
+func (r *fileRunner[T]) read(ctx context.Context) (*msg[T], error) {
+	if r.writer.Buffered() == 0 {
+		return r.inConnector.Read(ctx)
+	}
+
+	readCtx, cancelReadCtx := context.WithTimeout(ctx, r.Config.FlushDeadline)
+	defer cancelReadCtx()
+
+	return r.inConnector.Read(readCtx)
+}
+
+func (r *fileRunner[T]) deliver(ctx context.Context, msgIn *msg[T]) {
+	if err := r.write(ctx, msgIn); err != nil {
+		r.GetEgressMetrics().IncrementDeliveringErrors()
+	}
+
+	r.GetEgressMetrics().IncrementDeliveredMessages()
+	r.GetEgressMetrics().RecordTotalMessageProcessingTime(
+		ctx, int(time.Since(msgIn.GetReceiveTime()).Milliseconds()),
+	)
+}
+
+func (r *fileRunner[T]) write(ctx context.Context, msgIn *msg[T]) error {
+	_, span := r.Tel.StartTrace(msgIn.LoadSpanContext(ctx), "writing file")
 	defer span.End()
 
-	// Write message bytes to file
 	chunk := msgIn.GetBody().GetBytes()
-	n, err := fw.Env.writer.Write(chunk)
+	n, err := r.writer.Write(chunk)
 	if err != nil {
-		fw.Tel.LogError("failed to write to file", err, "path", fw.Env.Config.Path)
-		fw.Env.Metrics.IncrementWriteErrors()
+		r.Tel.LogError("failed to write to file", err, "path", r.Config.Path)
+		r.Metrics.IncrementWriteErrors()
 
 		return err
 	}
 
 	writtenBytes := int64(n)
-	bytesUnflushed := fw.notFlushedBytes.Add(writtenBytes)
-
 	span.SetAttributes(attribute.Int64("chunk_size", writtenBytes))
 
-	// Check wether to flush the writer
-	if bytesUnflushed >= fw.Env.bufSizeThreshold {
-		if err := fw.flush(); err != nil {
+	if int64(r.writer.Buffered()) >= r.bufSizeThreshold {
+		if err := r.flush(); err != nil {
 			return err
 		}
 	}
 
-	// Update metrics
-	fw.Env.Metrics.AddWrittenBytes(uint(writtenBytes))
+	r.Metrics.AddWrittenBytes(uint(writtenBytes))
 
 	return nil
 }
 
-func (fw *fileWorker[T]) flush() error {
-	fw.flushMux.Lock()
-	defer fw.flushMux.Unlock()
-
-	// Check if there is anything to flush
-	if fw.notFlushedBytes.Load() == 0 {
+func (r *fileRunner[T]) flush() error {
+	if r.writer.Buffered() == 0 {
 		return nil
 	}
 
-	if err := fw.Env.writer.Flush(); err != nil {
-		fw.Tel.LogError("failed to flush writer", err, "path", fw.Env.Config.Path)
-		fw.Env.Metrics.IncrementFlushErrors()
+	if err := r.writer.Flush(); err != nil {
+		r.Tel.LogError("failed to flush writer", err, "path", r.Config.Path)
+		r.Metrics.IncrementFlushErrors()
 
 		return err
 	}
-
-	fw.notFlushedBytes.Store(0)
 
 	return nil
 }
 
-func (fw *fileWorker[T]) Close(ctx context.Context) error {
-	fw.tickerWg.Wait()
-	if err := fw.flush(); err != nil {
-		return err
-	}
+// Close waits for Run to drain before flushing the remaining buffered bytes.
+func (r *fileRunner[T]) Close(_ context.Context) {
+	<-r.runDone
 
-	return fw.BaseWorker.Close(ctx)
+	if err := r.flush(); err != nil {
+		r.Tel.LogError("failed to flush writer", err, "path", r.Config.Path)
+	}
+}
+
+func (r *fileRunner[T]) Inputs() []uintptr {
+	return []uintptr{connector.GetConnectorID(r.inConnector)}
+}
+
+func (r *fileRunner[T]) Outputs() []uintptr {
+	return []uintptr{}
 }
 
 // ─── Stage ──────────────────────────────────────────────────────────────────|
@@ -242,13 +265,9 @@ type FileStage[T msgSer] struct {
 
 // NewFileStage returns a new file egress stage.
 func NewFileStage[T msgSer](inConnector msgConn[T], cfg *FileConfig) *FileStage[T] {
-	env := newFileEnv(cfg)
-
 	return &FileStage[T]{
-		EgressStage: stage.NewEgressStage(
-			"file", inConnector, env, newFileWorkerMaker[T](), &config.Stage{
-				RunningMode: config.StageRunningModeSingle,
-			},
+		EgressStage: stage.NewEgressStageFromRunner[T](
+			"file", newFileEnv(cfg), newFileRunner(inConnector),
 		),
 	}
 }
