@@ -28,14 +28,18 @@ This egress stage produces no downstream output message.
 | --- | --- | --- |
 | `Path` | constructor arg | Output file path. Parent directories are created automatically. |
 | `BufferSize` | `4096` | `bufio.Writer` buffer size. |
-| `FlushThresholdPercentage` | `0.75` | Flush when pending bytes reach this fraction of `BufferSize`. |
-| `FlushDeadline` | `time.Second` | Periodic flush interval. |
+| `FlushThresholdPercentage` | `0.75` | Flush when buffered bytes reach this fraction of `BufferSize`. |
+| `FlushDeadline` | `time.Second` | Maximum idle time before flushing buffered bytes. |
 
-File egress always runs in single mode and does not expose the generic
-worker-pool config.
+File egress always runs with a custom single runner and does not expose the
+generic worker-pool config.
 
 ## Internals
 
 The stage uses `os.File` and `bufio.Writer` from the standard library. It opens
-the file append-only, writes each message byte slice, flushes on threshold or
-deadline, and syncs/closes the file during stage close.
+the file append-only and writes each message byte slice exactly as returned by
+`GetBytes()`.
+
+A single runner goroutine owns the writer. It flushes when the buffer reaches
+the configured threshold, after `FlushDeadline` of input idleness while data is
+buffered, and during stage close before the file is synced and closed.
