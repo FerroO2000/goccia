@@ -166,3 +166,31 @@ make kafka producer
 # Run the Kafka consumer
 make kafka consumer
 ```
+
+---
+
+### Routing
+
+Demonstrates the router processor stage. A ticker ingress emits messages, the
+router sends even and odd tick numbers to different output connectors, and two
+generic processor stages print the routed messages before sending them to sink
+egress stages. The pipeline is composed of 6 stages:
+
+1. Ticker Ingress
+2. Router Processor
+3. Generic Processor (prints even ticks)
+4. Generic Processor (prints odd ticks)
+5. Sink Egress (even branch)
+6. Sink Egress (odd branch)
+
+#### Commands
+```bash
+# Start telemetry infrastructure
+make routing up
+
+# Stop telemetry infrastructure
+make routing down
+
+# Run the routing application
+make routing run
+```

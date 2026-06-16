@@ -12,6 +12,7 @@ Processor stages read from an input connector and write to an output connector.
 | Generic | [Filter](filter.md) | `processor.NewFilterStage` | [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool } | Drop messages by predicate |
 | Generic | [Tee](tee.md) | `processor.NewTeeStage` | Single runner | Clone one stream to many outputs |
 | Generic | [Merge](merge.md) | `processor.NewMergeStage` | Single runner | Combine many streams into one output |
+| Generic | [Router](router.md) | `processor.NewRouterStage` | Single runner | Route each message to one output |
 | CSV | [Decoder](csv-decoder.md) | `processor.NewCSVDecoderStage` | [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool } | Bytes to typed CSV rows |
 | CSV | [Encoder](csv-encoder.md) | `processor.NewCSVEncoderStage` | [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool } | Typed CSV rows to bytes |
 | CAN | [CAN](can.md) | `processor.NewCANStage` | [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool } | Raw CAN frames to decoded signals |

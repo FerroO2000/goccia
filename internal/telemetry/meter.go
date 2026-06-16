@@ -26,6 +26,12 @@ func (h *Histogram) Record(ctx context.Context, value int64) {
 	h.histogram.Record(ctx, value, h.measurementOpt)
 }
 
+// CounterMetricDataPoint defines a single observable counter data point.
+type CounterMetricDataPoint struct {
+	Getter     func() int64
+	Attributes []attribute.KeyValue
+}
+
 type meter struct {
 	m metric.Meter
 
@@ -58,6 +64,30 @@ func (m *meter) NewCounterMetric(name string, getter func() int64, opts ...metri
 	measurementOpt := m.measurementOpt
 	_, err = m.m.RegisterCallback(func(_ context.Context, o metric.Observer) error {
 		o.ObserveInt64(counter, getter(), measurementOpt)
+		return nil
+	}, counter)
+
+	return err
+}
+
+// NewCounterMetricSet creates a new counter metric with multiple observable data points.
+func (m *meter) NewCounterMetricSet(name string, dataPoints []CounterMetricDataPoint, opts ...metric.Int64ObservableCounterOption) error {
+	counter, err := m.m.Int64ObservableCounter(name, opts...)
+	if err != nil {
+		return err
+	}
+
+	measurementOpt := m.measurementOpt
+	attributeOpts := make([]metric.MeasurementOption, 0, len(dataPoints))
+	for _, dataPoint := range dataPoints {
+		attributeOpts = append(attributeOpts, metric.WithAttributes(dataPoint.Attributes...))
+	}
+
+	_, err = m.m.RegisterCallback(func(_ context.Context, o metric.Observer) error {
+		for id, dataPoint := range dataPoints {
+			o.ObserveInt64(counter, dataPoint.Getter(), measurementOpt, attributeOpts[id])
+		}
+
 		return nil
 	}, counter)
 

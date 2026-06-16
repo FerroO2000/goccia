@@ -15,6 +15,7 @@ directory.
 | eBPF | XDP ingress, custom processing, and sink egress |
 | File | File ingress, custom processing, and file egress |
 | Kafka | Ticker and Kafka ingress with Kafka egress |
+| Routing | Ticker ingress, router processing, generic branch processing, and sink egress |
 
 ## Run an Example
 

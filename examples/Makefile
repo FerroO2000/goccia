@@ -1,4 +1,4 @@
-.PHONY: help _telemetry-up _telemetry-down can csv ebpf file kafka
+.PHONY: help _telemetry-up _telemetry-down can csv ebpf file kafka routing
 
 help:
 	@echo "Available commands:"
@@ -7,6 +7,7 @@ help:
 	@echo "  make ebpf [up|down|build|run] - Runs eBPF example"
 	@echo "  make file [up|down|gen|run] - Runs file example"
 	@echo "  make kafka [up|down|producer|consumer] - Runs Kafka example"
+	@echo "  make routing [up|down|run] - Runs routing example"
 
 _telemetry-up:
 	@cd telemetry && docker compose up -d
@@ -97,6 +98,19 @@ kafka:
 		cd kafka/consumer && go run .; \
 	else \
 		echo "Usage: make kafka [up|down|producer|consumer]"; \
+		exit 1; \
+	fi
+
+# Routing
+routing:
+	@if [ "$(filter-out $@,$(MAKECMDGOALS))" = "up" ]; then \
+		$(MAKE) _telemetry-up; \
+	elif [ "$(filter-out $@,$(MAKECMDGOALS))" = "down" ]; then \
+		$(MAKE) _telemetry-down; \
+	elif [ "$(filter-out $@,$(MAKECMDGOALS))" = "run" ]; then \
+		cd routing && go run .; \
+	else \
+		echo "Usage: make routing [up|down|run]"; \
 		exit 1; \
 	fi
 

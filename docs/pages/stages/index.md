@@ -7,7 +7,7 @@ icon: lucide/library
 Goccia ships stages in three categories:
 
 - [Ingress](ingress/index.md): create messages from external sources.
-- [Processor](processor/index.md): transform, filter, fan in, fan out, or reorder messages.
+- [Processor](processor/index.md): transform, filter, route, fan in, fan out, or reorder messages.
 - [Egress](egress/index.md): deliver messages to external destinations.
 
 ## Message Interfaces

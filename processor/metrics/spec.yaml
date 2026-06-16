@@ -33,3 +33,8 @@ groups:
         type: counter
       - name: resets
         type: counter
+
+  - name: router_stage
+    metrics:
+      - name: total_routed_messages
+        type: counter
