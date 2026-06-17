@@ -54,10 +54,32 @@ func newCSVEncoder(config *csvEncoderConfig) *csvEncoder {
 	}
 }
 
-func (e *csvEncoder) encode(rows [][]*CSVColumn) []byte {
+func (e *csvEncoder) getStringBuilder() *strings.Builder {
 	sb := &strings.Builder{}
+	sb.Grow(e.columnCount * 16)
+	return sb
+}
 
-	sb.Grow(len(rows) * e.columnCount * 16)
+func (e *csvEncoder) encodeHeader(sb *strings.Builder) []byte {
+	for idx, colDef := range e.columnDefs {
+		if idx > 0 {
+			sb.WriteByte(',')
+		}
+
+		sb.WriteString(colDef.Name)
+	}
+
+	sb.WriteByte('\n')
+
+	return []byte(sb.String())
+}
+
+func (e *csvEncoder) encode(rows [][]*CSVColumn, writeHeader bool) []byte {
+	sb := e.getStringBuilder()
+
+	if writeHeader {
+		e.encodeHeader(sb)
+	}
 
 	for _, row := range rows {
 		colCount := len(row)
@@ -162,8 +184,9 @@ func (w *csvEncoderWorker) Handle(ctx context.Context, msgIn *msg[*CSVMessage]) 
 	_, span := w.Tel.StartTrace(ctx, "encode csv data")
 	defer span.End()
 
-	rows := msgIn.GetBody().Rows
-	data := w.Env.encoder.encode(rows)
+	msgBody := msgIn.GetBody()
+	rows := msgBody.Rows
+	data := w.Env.encoder.encode(rows, msgBody.WriteHeader)
 
 	csvEncMsg := newCSVEncodedMessage(data)
 	msgOut := message.NewMessage(csvEncMsg)

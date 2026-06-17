@@ -20,7 +20,23 @@ stage := processor.NewCSVEncoderStage(in, out, cfg)
 
 Accepted body type: `*processor.CSVMessage`.
 
+| Field | Description |
+| --- | --- |
+| `Rows` | Rows to encode, where each row is a list of `*CSVColumn`. |
+| `WriteHeader` | When `true`, the encoder writes a header row before `Rows` using the configured `Columns` names. |
+
 Additional input interfaces: none beyond the standard `message.Body` contract.
+
+Set `WriteHeader` on the input message when the encoded chunk should include a
+CSV header:
+
+``` go
+msg := processor.NewCSVMessage()
+msg.WriteHeader = true
+msg.AddRow([]*processor.CSVColumn{
+	processor.NewCSVIntColumn("frame", 1),
+})
+```
 
 ### Output Message
 
@@ -44,5 +60,6 @@ Additional interfaces: `message.Serializable`. `GetBytes()` returns `Data`.
 ## Internals
 
 The encoder uses Goccia's generic worker-backed processor runner. It builds
-rows with `strings.Builder`, formats scalar values with `strconv`, appends a
-newline after each row, and emits one encoded byte message per input message.
+rows with `strings.Builder`, formats scalar values with `strconv`, optionally
+writes a header row from the configured column definitions, appends a newline
+after each row, and emits one encoded byte message per input message.

@@ -169,6 +169,10 @@ type CSVMessage struct {
 	// Rows is the list of rows in the message.
 	// Each row consists of a list of columns.
 	Rows [][]*CSVColumn
+
+	// WriteHeader states whether to write the header row
+	// when encoding the message.
+	WriteHeader bool
 }
 
 // NewCSVMessage returns a new CSV message.
@@ -181,6 +185,7 @@ func NewCSVMessage() *CSVMessage {
 func (m *CSVMessage) Destroy() {
 	m.RowCount = 0
 	m.Rows = m.Rows[:0]
+	m.WriteHeader = false
 	csvMessagePool.Put(m)
 }
 
