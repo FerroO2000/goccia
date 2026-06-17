@@ -222,6 +222,10 @@ func (r *genericFanInRunner[Data, Out]) handleData(ctx context.Context, data Dat
 			continue
 		}
 
+		if msgOut == nil {
+			continue
+		}
+
 		if err := r.fanIn.Write(msgOut); err != nil {
 			msgOut.Destroy()
 			r.env.Tel.LogError("failed to write message to fan in connector", err)

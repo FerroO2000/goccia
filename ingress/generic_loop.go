@@ -133,6 +133,10 @@ func (r *genericLoopRunner[Out]) Run(ctx context.Context) {
 			continue
 		}
 
+		if msgOut == nil {
+			continue
+		}
+
 		if err := r.outConnector.Write(msgOut); err != nil {
 			msgOut.Destroy()
 			r.env.Tel.LogError("failed to write message to output connector", err)
