@@ -82,6 +82,11 @@ func (m *Message[T]) IsDropped() bool {
 	return m.isDropped
 }
 
+// GetSpanContext returns the trace span for the message.
+func (m *Message[T]) GetSpanContext() trace.SpanContext {
+	return m.span
+}
+
 // SaveSpan saves the trace span for the message.
 func (m *Message[T]) SaveSpan(span trace.Span) {
 	m.span = span.SpanContext()

@@ -35,6 +35,7 @@ nav = [
       { "Filter" = "stages/processor/filter.md" },
       { "Tee" = "stages/processor/tee.md" },
       { "Merge" = "stages/processor/merge.md" },
+      { "Aggregate" = "stages/processor/aggregate.md" },
       { "Router" = "stages/processor/router.md" },
       { "CSV" = [
         { "Decoder" = "stages/processor/csv-decoder.md" },
