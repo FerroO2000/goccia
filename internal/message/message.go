@@ -26,6 +26,7 @@ type Message[T Body] struct {
 	receiveTime    time.Time
 	timestamp      time.Time
 	sequenceNumber uint64
+	correlationID  uint64 // Maps to a future id
 	isDropped      bool
 	span           trace.SpanContext
 
@@ -70,6 +71,18 @@ func (m *Message[T]) GetSequenceNumber() uint64 {
 // This is used in the context of the re-order buffer.
 func (m *Message[T]) SetSequenceNumber(sequenceNumber uint64) {
 	m.sequenceNumber = sequenceNumber
+}
+
+// GetCorrelationID returns the correlation id of the message.
+// Useful for working with futures.
+func (m *Message[T]) GetCorrelationID() uint64 {
+	return m.correlationID
+}
+
+// SetCorrelationID sets the correlation id of the message.
+// This shall be used for propagating correlation ids between stages.
+func (m *Message[T]) SetCorrelationID(correlationID uint64) {
+	m.correlationID = correlationID
 }
 
 // Drop marks the message as dropped.
