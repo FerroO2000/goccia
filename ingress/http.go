@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/FerroO2000/goccia/internal/config"
@@ -25,7 +27,7 @@ const (
 	DefaultHTTPConfigShutdownTimeout    = 10 * time.Second
 	DefaultHTTPConfigIdleTimeout        = 60 * time.Second
 	DefaultHTTPConfigMaxRequestBodySize = 4 << 20 // 4 MiB
-	DefaultHTTPConfigResponseTimeout    = 10 * time.Second
+	DefaultHTTPConfigWriteTimeout       = 10 * time.Second
 	DefaultHTTPConfigOutputQueueSize    = 512
 )
 
@@ -37,7 +39,7 @@ type HTTPConfig struct {
 	ShutdownTimeout    time.Duration
 	IdleTimeout        time.Duration
 	MaxRequestBodySize int
-	ResponseTimeout    time.Duration
+	WriteTimeout       time.Duration
 	OutputQueueSize    int
 }
 
@@ -50,7 +52,7 @@ func NewHTTPConfig() *HTTPConfig {
 		ShutdownTimeout:    DefaultHTTPConfigShutdownTimeout,
 		IdleTimeout:        DefaultHTTPConfigIdleTimeout,
 		MaxRequestBodySize: DefaultHTTPConfigMaxRequestBodySize,
-		ResponseTimeout:    DefaultHTTPConfigResponseTimeout,
+		WriteTimeout:       DefaultHTTPConfigWriteTimeout,
 		OutputQueueSize:    DefaultHTTPConfigOutputQueueSize,
 	}
 }
@@ -60,26 +62,19 @@ func (c *HTTPConfig) Validate(ac *config.AnomalyCollector) {
 	config.CheckNotEmpty(ac, "IPAddr", &c.IPAddr, DefaultHTTPConfigIPAddr)
 	config.CheckNotZero(ac, "Port", &c.Port, DefaultHTTPConfigPort)
 
-	config.CheckNotNegative(ac, "ReadTimeout", &c.ReadTimeout, DefaultHTTPConfigReadTimeout)
-	config.CheckNotZero(ac, "ReadTimeout", &c.ReadTimeout, DefaultHTTPConfigReadTimeout)
+	config.CheckGreaterThanZero(ac, "ReadTimeout", &c.ReadTimeout, DefaultHTTPConfigReadTimeout)
 
-	config.CheckNotNegative(ac, "ReadHeaderTimeout", &c.ReadHeaderTimeout, DefaultHTTPConfigReadHeaderTimeout)
-	config.CheckNotZero(ac, "ReadHeaderTimeout", &c.ReadHeaderTimeout, DefaultHTTPConfigReadHeaderTimeout)
+	config.CheckGreaterThanZero(ac, "ReadHeaderTimeout", &c.ReadHeaderTimeout, DefaultHTTPConfigReadHeaderTimeout)
 
-	config.CheckNotNegative(ac, "ShutdownTimeout", &c.ShutdownTimeout, DefaultHTTPConfigShutdownTimeout)
-	config.CheckNotZero(ac, "ShutdownTimeout", &c.ShutdownTimeout, DefaultHTTPConfigShutdownTimeout)
+	config.CheckGreaterThanZero(ac, "ShutdownTimeout", &c.ShutdownTimeout, DefaultHTTPConfigShutdownTimeout)
 
-	config.CheckNotNegative(ac, "IdleTimeout", &c.IdleTimeout, DefaultHTTPConfigIdleTimeout)
-	config.CheckNotZero(ac, "IdleTimeout", &c.IdleTimeout, DefaultHTTPConfigIdleTimeout)
+	config.CheckGreaterThanZero(ac, "IdleTimeout", &c.IdleTimeout, DefaultHTTPConfigIdleTimeout)
 
-	config.CheckNotNegative(ac, "MaxRequestBodySize", &c.MaxRequestBodySize, DefaultHTTPConfigMaxRequestBodySize)
-	config.CheckNotZero(ac, "MaxRequestBodySize", &c.MaxRequestBodySize, DefaultHTTPConfigMaxRequestBodySize)
+	config.CheckGreaterThanZero(ac, "MaxRequestBodySize", &c.MaxRequestBodySize, DefaultHTTPConfigMaxRequestBodySize)
 
-	config.CheckNotNegative(ac, "ResponseTimeout", &c.ResponseTimeout, DefaultHTTPConfigResponseTimeout)
-	config.CheckNotZero(ac, "ResponseTimeout", &c.ResponseTimeout, DefaultHTTPConfigResponseTimeout)
+	config.CheckGreaterThanZero(ac, "WriteTimeout", &c.WriteTimeout, DefaultHTTPConfigWriteTimeout)
 
-	config.CheckNotNegative(ac, "OutputQueueSize", &c.OutputQueueSize, DefaultHTTPConfigOutputQueueSize)
-	config.CheckNotZero(ac, "OutputQueueSize", &c.OutputQueueSize, DefaultHTTPConfigOutputQueueSize)
+	config.CheckGreaterThanZero(ac, "OutputQueueSize", &c.OutputQueueSize, DefaultHTTPConfigOutputQueueSize)
 }
 
 // ─── Message ────────────────────────────────────────────────────────────────|
@@ -108,11 +103,35 @@ type httpEnv struct {
 	*env.BaseEnv[*HTTPConfig, *metrics.EmptyMetrics]
 
 	server *http.Server
+
+	maxRequestBodySize int64
 }
 
 func newHTTPEnv(config *HTTPConfig) *httpEnv {
 	return &httpEnv{
 		BaseEnv: env.NewIngressEnv(config, metrics.NewEmptyMetrics()),
+	}
+}
+
+func (e *httpEnv) Init(ctx context.Context) error {
+	if err := e.BaseEnv.Init(ctx); err != nil {
+		return err
+	}
+
+	e.initServer()
+
+	e.maxRequestBodySize = int64(e.Config.MaxRequestBodySize)
+
+	return nil
+}
+
+func (e *httpEnv) initServer() {
+	e.server = &http.Server{
+		Addr:              net.JoinHostPort(e.Config.IPAddr, strconv.Itoa(int(e.Config.Port))),
+		ReadTimeout:       e.Config.ReadTimeout,
+		ReadHeaderTimeout: e.Config.ReadHeaderTimeout,
+		WriteTimeout:      e.Config.WriteTimeout,
+		IdleTimeout:       e.Config.IdleTimeout,
 	}
 }
 
@@ -185,7 +204,7 @@ func (r *httpRunner) Run(ctx context.Context) {
 func (r *httpRunner) handleRequest(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
-	bodyReader := http.MaxBytesReader(w, req.Body, int64(r.env.Config.MaxRequestBodySize))
+	bodyReader := http.MaxBytesReader(w, req.Body, r.env.maxRequestBodySize)
 	body, err := io.ReadAll(bodyReader)
 	if err != nil {
 		http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
