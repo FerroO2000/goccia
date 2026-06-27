@@ -1,10 +1,17 @@
 package link
 
-import "github.com/FerroO2000/goccia/internal/future"
+import (
+	"net/http"
+
+	"github.com/FerroO2000/goccia/internal/future"
+	"github.com/FerroO2000/goccia/internal/message"
+)
+
+type msg[T message.Body] = message.Message[T]
 
 type HTTPResponseMessage struct {
 	StatusCode int
-	Header     map[string]string
+	Header     http.Header
 	Body       []byte
 }
 
@@ -28,20 +35,20 @@ func NewHTTPConfig() *HTTPConfig {
 }
 
 type HTTP struct {
-	futureRegistry *future.Registry[*HTTPResponseMessage]
+	futureRegistry *future.Registry[*msg[*HTTPResponseMessage]]
 }
 
 func NewHTTP(config *HTTPConfig) *HTTP {
 	return &HTTP{
-		futureRegistry: future.NewRegistry[*HTTPResponseMessage](config.FutureShards),
+		futureRegistry: future.NewRegistry[*msg[*HTTPResponseMessage]](config.FutureShards),
 	}
 }
 
-func (h *HTTP) NewFuture() (uint64, *future.Future[*HTTPResponseMessage]) {
+func (h *HTTP) NewFuture() (uint64, *future.Future[*msg[*HTTPResponseMessage]]) {
 	return h.futureRegistry.New()
 }
 
-func (h *HTTP) ResolveFuture(id uint64, value *HTTPResponseMessage) bool {
+func (h *HTTP) ResolveFuture(id uint64, value *msg[*HTTPResponseMessage]) bool {
 	return h.futureRegistry.Resolve(id, value)
 }
 

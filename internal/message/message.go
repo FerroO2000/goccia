@@ -116,10 +116,12 @@ func (m *Message[T]) Clone() *Message[T] {
 	m.body.refs.Add(1)
 
 	return &Message[T]{
-		receiveTime: m.receiveTime,
-		timestamp:   m.receiveTime,
-		span:        m.span,
-		body:        m.body,
+		receiveTime:    m.receiveTime,
+		timestamp:      m.timestamp,
+		span:           m.span,
+		body:           m.body,
+		correlationID:  m.correlationID,
+		sequenceNumber: m.sequenceNumber,
 	}
 }
 

@@ -2,6 +2,7 @@ package egress
 
 import (
 	"context"
+	"errors"
 
 	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/internal/config"
@@ -64,7 +65,7 @@ func (r *httpRunner) Run(ctx context.Context) {
 
 	for {
 		msgIn, err := r.inConnector.Read(ctx)
-		if err != nil && ctx.Err() != nil {
+		if err != nil {
 			return
 		}
 
@@ -74,9 +75,25 @@ func (r *httpRunner) Run(ctx context.Context) {
 
 func (r *httpRunner) handle(msgIn *msg[*link.HTTPResponseMessage]) {
 	correlationID := msgIn.GetCorrelationID()
+	res := msgIn.GetBody()
 
-	if !r.link.ResolveFuture(correlationID, msgIn.GetBody()) {
+	// Check the status code
+	if res.StatusCode < 200 || res.StatusCode >= 600 {
+		err := errors.New("invalid http status code")
+
+		r.Tel.LogError("invalid status code", err, "correlation_id", correlationID)
+
+		if !r.link.RejectFuture(correlationID, err) {
+			r.Tel.LogWarn("request has no future", "correlation_id", correlationID)
+		}
+
+		msgIn.Destroy()
+		return
+	}
+
+	if !r.link.ResolveFuture(correlationID, msgIn) {
 		r.Tel.LogWarn("request has no future", "correlation_id", correlationID)
+		msgIn.Destroy()
 	}
 }
 
@@ -95,12 +112,12 @@ func (r *httpRunner) Outputs() []uintptr {
 // ─── Stage ──────────────────────────────────────────────────────────────────|
 
 type HTTPStage struct {
-	*stage.IngressStage[*link.HTTPResponseMessage, *httpEnv]
+	*stage.EgressStage[*link.HTTPResponseMessage, *httpEnv]
 }
 
 func NewHTTPStage(link *link.HTTP, outConnector msgConn[*HTTPMessage]) *HTTPStage {
 	return &HTTPStage{
-		IngressStage: stage.NewIngressStageFromRunner[*HTTPMessage](
+		EgressStage: stage.NewEgressStageFromRunner[*HTTPMessage](
 			"http", newHTTPEnv(link), newHTTPRunner(outConnector),
 		),
 	}

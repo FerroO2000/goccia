@@ -140,6 +140,28 @@ make file run
 
 ---
 
+### HTTP
+
+Runs an HTTP echo server whose pipeline is composed of 3 stages:
+
+1. HTTP Ingress
+2. Generic Processor (echoes the request body)
+3. HTTP Egress
+
+#### Commands
+```bash
+# Run the HTTP echo server on port 8080
+make http server
+
+# Send one request per second until Ctrl+C
+make http client
+
+# Send one request every 0.2 seconds
+make http client 0.2
+```
+
+---
+
 ### Kafka 
 
 Manages Kafka producer and consumer applications.

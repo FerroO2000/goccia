@@ -41,7 +41,7 @@ type HTTPConfig struct {
 	ShutdownTimeout    time.Duration
 	IdleTimeout        time.Duration
 	MaxRequestBodySize int
-	responseTimeout    time.Duration
+	ResponseTimeout    time.Duration
 	WriteTimeout       time.Duration
 	OutputQueueSize    int
 }
@@ -55,6 +55,7 @@ func NewHTTPConfig() *HTTPConfig {
 		ShutdownTimeout:    DefaultHTTPConfigShutdownTimeout,
 		IdleTimeout:        DefaultHTTPConfigIdleTimeout,
 		MaxRequestBodySize: DefaultHTTPConfigMaxRequestBodySize,
+		ResponseTimeout:    DefaultHTTPConfigResponseTimeout,
 		WriteTimeout:       DefaultHTTPConfigWriteTimeout,
 		OutputQueueSize:    DefaultHTTPConfigOutputQueueSize,
 	}
@@ -74,6 +75,8 @@ func (c *HTTPConfig) Validate(ac *config.AnomalyCollector) {
 	config.CheckGreaterThanZero(ac, "IdleTimeout", &c.IdleTimeout, DefaultHTTPConfigIdleTimeout)
 
 	config.CheckGreaterThanZero(ac, "MaxRequestBodySize", &c.MaxRequestBodySize, DefaultHTTPConfigMaxRequestBodySize)
+
+	config.CheckGreaterThanZero(ac, "ResponseTimeout", &c.ResponseTimeout, DefaultHTTPConfigResponseTimeout)
 
 	config.CheckGreaterThanZero(ac, "WriteTimeout", &c.WriteTimeout, DefaultHTTPConfigWriteTimeout)
 
@@ -127,7 +130,7 @@ func (e *httpEnv) Init(ctx context.Context) error {
 
 	e.initServer()
 
-	e.responseTimeout = e.Config.responseTimeout
+	e.responseTimeout = e.Config.ResponseTimeout
 	e.maxRequestBodySize = int64(e.Config.MaxRequestBodySize)
 
 	return nil
@@ -242,6 +245,7 @@ func (r *httpRunner) handleRequest(w http.ResponseWriter, req *http.Request) {
 	msgOut.SetCorrelationID(correlationID)
 
 	if err := r.fanIn.Write(msgOut); err != nil {
+		r.env.link.RejectFuture(correlationID, err)
 		msgOut.Destroy()
 		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
 		return
@@ -252,15 +256,30 @@ func (r *httpRunner) handleRequest(w http.ResponseWriter, req *http.Request) {
 
 	res, err := future.Await(futureCtx)
 	if err != nil {
-		w.WriteHeader(http.StatusGatewayTimeout)
+		r.env.link.RejectFuture(correlationID, err)
+
+		switch {
+		case errors.Is(err, context.DeadlineExceeded):
+			http.Error(w, "gateway timeout", http.StatusGatewayTimeout)
+		case errors.Is(err, context.Canceled):
+			return
+		default:
+			http.Error(w, "bad gateway", http.StatusBadGateway)
+		}
+
 		return
 	}
 
-	for k, v := range res.Header {
-		w.Header().Add(k, v)
+	defer res.Destroy()
+
+	httpRes := res.GetBody()
+	for key, values := range httpRes.Header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
 	}
-	w.WriteHeader(res.StatusCode)
-	w.Write(res.Body)
+	w.WriteHeader(httpRes.StatusCode)
+	w.Write(httpRes.Body)
 
 	requestDuration := time.Since(now).Milliseconds()
 	r.env.Metrics.RecordRequestDuration(ctx, int(requestDuration))
