@@ -9,11 +9,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/FerroO2000/goccia/ingress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
-	"github.com/FerroO2000/goccia/internal/metrics"
 	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/stage/env"
+	"github.com/FerroO2000/goccia/link"
 )
 
 // ─── Config ─────────────────────────────────────────────────────────────────|
@@ -27,6 +28,7 @@ const (
 	DefaultHTTPConfigShutdownTimeout    = 10 * time.Second
 	DefaultHTTPConfigIdleTimeout        = 60 * time.Second
 	DefaultHTTPConfigMaxRequestBodySize = 4 << 20 // 4 MiB
+	DefaultHTTPConfigResponseTimeout    = 10 * time.Second
 	DefaultHTTPConfigWriteTimeout       = 10 * time.Second
 	DefaultHTTPConfigOutputQueueSize    = 512
 )
@@ -39,6 +41,7 @@ type HTTPConfig struct {
 	ShutdownTimeout    time.Duration
 	IdleTimeout        time.Duration
 	MaxRequestBodySize int
+	responseTimeout    time.Duration
 	WriteTimeout       time.Duration
 	OutputQueueSize    int
 }
@@ -100,16 +103,20 @@ func (m *HTTPMessage) Destroy() {
 // ─── Environment ────────────────────────────────────────────────────────────|
 
 type httpEnv struct {
-	*env.BaseEnv[*HTTPConfig, *metrics.EmptyMetrics]
+	*env.BaseEnv[*HTTPConfig, *metrics.HttpStage]
 
+	link   *link.HTTP
 	server *http.Server
 
+	responseTimeout    time.Duration
 	maxRequestBodySize int64
 }
 
-func newHTTPEnv(config *HTTPConfig) *httpEnv {
+func newHTTPEnv(link *link.HTTP, config *HTTPConfig) *httpEnv {
 	return &httpEnv{
-		BaseEnv: env.NewIngressEnv(config, metrics.NewEmptyMetrics()),
+		BaseEnv: env.NewIngressEnv(config, metrics.NewHttpStage()),
+
+		link: link,
 	}
 }
 
@@ -120,6 +127,7 @@ func (e *httpEnv) Init(ctx context.Context) error {
 
 	e.initServer()
 
+	e.responseTimeout = e.Config.responseTimeout
 	e.maxRequestBodySize = int64(e.Config.MaxRequestBodySize)
 
 	return nil
@@ -204,6 +212,10 @@ func (r *httpRunner) Run(ctx context.Context) {
 func (r *httpRunner) handleRequest(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
+	ctx := req.Context()
+
+	r.env.Metrics.IncrementRequests()
+
 	bodyReader := http.MaxBytesReader(w, req.Body, r.env.maxRequestBodySize)
 	body, err := io.ReadAll(bodyReader)
 	if err != nil {
@@ -225,15 +237,33 @@ func (r *httpRunner) handleRequest(w http.ResponseWriter, req *http.Request) {
 	msgOut.SetReceiveTime(now)
 	msgOut.SetTimestamp(now)
 
+	// Create the future
+	correlationID, future := r.env.link.NewFuture()
+	msgOut.SetCorrelationID(correlationID)
+
 	if err := r.fanIn.Write(msgOut); err != nil {
 		msgOut.Destroy()
 		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
 		return
 	}
 
-	// TODO! wait the future
+	futureCtx, cancel := context.WithTimeout(ctx, r.env.responseTimeout)
+	defer cancel()
 
-	w.WriteHeader(http.StatusAccepted)
+	res, err := future.Await(futureCtx)
+	if err != nil {
+		w.WriteHeader(http.StatusGatewayTimeout)
+		return
+	}
+
+	for k, v := range res.Header {
+		w.Header().Add(k, v)
+	}
+	w.WriteHeader(res.StatusCode)
+	w.Write(res.Body)
+
+	requestDuration := time.Since(now).Milliseconds()
+	r.env.Metrics.RecordRequestDuration(ctx, int(requestDuration))
 }
 
 // ─── Stage ──────────────────────────────────────────────────────────────────|
@@ -242,10 +272,10 @@ type HTTPStage struct {
 	*stage.IngressStage[*HTTPMessage, *httpEnv]
 }
 
-func NewHTTPStage(outConnector msgConn[*HTTPMessage], config *HTTPConfig) *HTTPStage {
+func NewHTTPStage(link *link.HTTP, outConnector msgConn[*HTTPMessage], config *HTTPConfig) *HTTPStage {
 	return &HTTPStage{
 		IngressStage: stage.NewIngressStageFromRunner[*HTTPMessage](
-			"http", newHTTPEnv(config), newHTTPRunner(outConnector),
+			"http", newHTTPEnv(link, config), newHTTPRunner(outConnector),
 		),
 	}
 }

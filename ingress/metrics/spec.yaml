@@ -18,6 +18,14 @@ groups:
       - name: read_bytes
         type: counter
 
+  - name: http_stage
+    metrics:
+      - name: requests
+        type: counter
+      - name: request_duration
+        type: histogram
+        unit: ms
+
   - name: kafka_stage
     metrics:
       - name: received_messages
