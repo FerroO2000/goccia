@@ -194,6 +194,9 @@ func (r *aggregateRunner[T]) aggregate(ctx context.Context, accumulator []*msg[T
 	// Set the timestamp of the last message
 	msgOut.SetTimestamp(accumulator[batchSize-1].GetTimestamp())
 
+	// Set the correlation ID of the first message
+	msgOut.SetCorrelationID(accumulator[0].GetCorrelationID())
+
 	// Telemetry
 	span.SetAttributes(attribute.Int("batch_size", batchSize))
 	msgOut.SaveSpan(span)
