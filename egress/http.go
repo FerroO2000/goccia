@@ -6,6 +6,7 @@ import (
 
 	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/internal/config"
+	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/metrics"
 	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/stage/env"
@@ -14,7 +15,7 @@ import (
 
 // ─── Message ────────────────────────────────────────────────────────────────|
 
-type HTTPMessage = link.HTTPResponseMessage
+type HTTPMessage = message.HTTPResponse
 
 // ─── Environment ────────────────────────────────────────────────────────────|
 
@@ -69,32 +70,44 @@ func (r *httpRunner) Run(ctx context.Context) {
 			return
 		}
 
-		r.handle(msgIn)
+		r.handleResponse(msgIn)
 	}
 }
 
-func (r *httpRunner) handle(msgIn *msg[*link.HTTPResponseMessage]) {
-	correlationID := msgIn.GetCorrelationID()
-	res := msgIn.GetBody()
+func (r *httpRunner) checkStatusCode(statusCode int) error {
+	if statusCode < 200 || statusCode >= 600 {
+		return errors.New("invalid http status code")
+	}
+	return nil
+}
 
-	// Check the status code
-	if res.StatusCode < 200 || res.StatusCode >= 600 {
-		err := errors.New("invalid http status code")
-
-		r.Tel.LogError("invalid status code", err, "correlation_id", correlationID)
-
-		if !r.link.RejectFuture(correlationID, err) {
-			r.Tel.LogWarn("request has no future", "correlation_id", correlationID)
-		}
-
+func (r *httpRunner) resolveResponse(correlationID uint64, msgIn *msg[*HTTPMessage]) {
+	if !r.link.ResolveFuture(correlationID, msgIn) {
+		r.Tel.LogWarn("failed to resolve request, future not found", "correlation_id", correlationID)
 		msgIn.Destroy()
+	}
+}
+
+func (r *httpRunner) rejectResponse(correlationID uint64, msgIn *msg[*HTTPMessage], err error) {
+	if !r.link.RejectFuture(correlationID, err) {
+		r.Tel.LogWarn("failed to reject request, future not found", "correlation_id", correlationID)
+	}
+
+	// Always destroy the input message
+	msgIn.Destroy()
+}
+
+func (r *httpRunner) handleResponse(msgIn *msg[*HTTPMessage]) {
+	correlationID := msgIn.GetCorrelationID()
+	httpResponse := msgIn.GetBody()
+
+	if err := r.checkStatusCode(httpResponse.StatusCode); err != nil {
+		r.Tel.LogError("invalid status code", err, "correlation_id", correlationID)
+		r.rejectResponse(correlationID, msgIn, err)
 		return
 	}
 
-	if !r.link.ResolveFuture(correlationID, msgIn) {
-		r.Tel.LogWarn("request has no future", "correlation_id", correlationID)
-		msgIn.Destroy()
-	}
+	r.resolveResponse(correlationID, msgIn)
 }
 
 func (r *httpRunner) Close(_ context.Context) {
@@ -112,7 +125,7 @@ func (r *httpRunner) Outputs() []uintptr {
 // ─── Stage ──────────────────────────────────────────────────────────────────|
 
 type HTTPStage struct {
-	*stage.EgressStage[*link.HTTPResponseMessage, *httpEnv]
+	*stage.EgressStage[*HTTPMessage, *httpEnv]
 }
 
 func NewHTTPStage(link *link.HTTP, outConnector msgConn[*HTTPMessage]) *HTTPStage {

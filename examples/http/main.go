@@ -28,7 +28,7 @@ func main() {
 	httpIngressToEcho := connector.NewRingBuffer[*ingress.HTTPMessage](connectorSize)
 	echoToHTTPEgress := connector.NewRingBuffer[*egress.HTTPMessage](connectorSize)
 
-	httpLink := link.NewHTTP(link.NewHTTPConfig())
+	httpLink := link.NewHTTP()
 
 	httpIngressCfg := ingress.NewHTTPConfig()
 	httpIngressStage := ingress.NewHTTPStage(httpLink, httpIngressToEcho, httpIngressCfg)

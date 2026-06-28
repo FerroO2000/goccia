@@ -11,6 +11,7 @@ import (
 
 	"github.com/FerroO2000/goccia/ingress/metrics"
 	"github.com/FerroO2000/goccia/internal/config"
+	"github.com/FerroO2000/goccia/internal/future"
 	"github.com/FerroO2000/goccia/internal/message"
 	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/stage/env"
@@ -85,23 +86,7 @@ func (c *HTTPConfig) Validate(ac *config.AnomalyCollector) {
 
 // ─── Message ────────────────────────────────────────────────────────────────|
 
-type HTTPMessage struct {
-	Method     string
-	Path       string
-	Query      string
-	Header     http.Header
-	Body       []byte
-	RemoteAddr string
-}
-
-func (m *HTTPMessage) Destroy() {
-	m.Method = ""
-	m.Path = ""
-	m.Query = ""
-	m.Header = nil
-	m.Body = nil
-	m.RemoteAddr = ""
-}
+type HTTPMessage = message.HTTPRequest
 
 // ─── Environment ────────────────────────────────────────────────────────────|
 
@@ -212,20 +197,19 @@ func (r *httpRunner) Run(ctx context.Context) {
 	}
 }
 
-func (r *httpRunner) handleRequest(w http.ResponseWriter, req *http.Request) {
-	defer req.Body.Close()
+func (r *httpRunner) readBody(resWriter http.ResponseWriter, bodyReader io.ReadCloser) ([]byte, bool) {
+	reader := http.MaxBytesReader(resWriter, bodyReader, r.env.maxRequestBodySize)
 
-	ctx := req.Context()
-
-	r.env.Metrics.IncrementRequests()
-
-	bodyReader := http.MaxBytesReader(w, req.Body, r.env.maxRequestBodySize)
-	body, err := io.ReadAll(bodyReader)
+	body, err := io.ReadAll(reader)
 	if err != nil {
-		http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
-		return
+		http.Error(resWriter, "request body too large", http.StatusRequestEntityTooLarge)
+		return nil, false
 	}
 
+	return body, true
+}
+
+func (r *httpRunner) makeRequestMessage(req *http.Request, body []byte) *msg[*HTTPMessage] {
 	msgBody := &HTTPMessage{
 		Method:     req.Method,
 		Path:       req.URL.Path,
@@ -235,54 +219,104 @@ func (r *httpRunner) handleRequest(w http.ResponseWriter, req *http.Request) {
 		RemoteAddr: req.RemoteAddr,
 	}
 
-	msgOut := message.NewMessage(msgBody)
-	now := time.Now()
-	msgOut.SetReceiveTime(now)
-	msgOut.SetTimestamp(now)
+	return message.NewMessage(msgBody)
+}
 
-	// Create the future
-	correlationID, future := r.env.link.NewFuture()
-	msgOut.SetCorrelationID(correlationID)
+func (r *httpRunner) writeRequestMessage(
+	resWriter http.ResponseWriter, correlationID uint64, reqMessage *msg[*HTTPMessage],
+) bool {
 
-	if err := r.fanIn.Write(msgOut); err != nil {
+	err := r.fanIn.Write(reqMessage)
+	if err != nil {
+		// If the shutdown sequence order is correct,
+		// this error should never happen
 		r.env.link.RejectFuture(correlationID, err)
-		msgOut.Destroy()
-		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+		reqMessage.Destroy()
+		http.Error(resWriter, "service unavailable", http.StatusServiceUnavailable)
+		return false
+	}
+
+	return true
+}
+
+func (r *httpRunner) writeResponse(resWriter http.ResponseWriter, res *message.HTTPResponse) {
+	// Write the headers
+	for key, values := range res.Header {
+		for _, value := range values {
+			resWriter.Header().Add(key, value)
+		}
+	}
+
+	resWriter.WriteHeader(res.StatusCode)
+	resWriter.Write(res.Body)
+}
+
+func (r *httpRunner) handleRequest(w http.ResponseWriter, req *http.Request) {
+	defer req.Body.Close()
+
+	ctx := req.Context()
+
+	r.env.Metrics.IncrementRequests()
+
+	body, ok := r.readBody(w, req.Body)
+	if !ok {
 		return
 	}
 
+	reqMessage := r.makeRequestMessage(req, body)
+
+	// Set the receive time and the timestamp
+	now := time.Now()
+	reqMessage.SetReceiveTime(now)
+	reqMessage.SetTimestamp(now)
+
+	// Create the future
+	correlationID, fut := r.env.link.NewFuture()
+	reqMessage.SetCorrelationID(correlationID)
+
+	// Send the message to the output (next stage)
+	if ok := r.writeRequestMessage(w, correlationID, reqMessage); !ok {
+		return
+	}
+
+	// Wait for the response using the future
 	futureCtx, cancel := context.WithTimeout(ctx, r.env.responseTimeout)
 	defer cancel()
 
-	res, err := future.Await(futureCtx)
-	if err != nil {
-		r.env.link.RejectFuture(correlationID, err)
+	resMessage, state, err := fut.Await(futureCtx)
 
-		switch {
-		case errors.Is(err, context.DeadlineExceeded):
-			http.Error(w, "gateway timeout", http.StatusGatewayTimeout)
-		case errors.Is(err, context.Canceled):
-			return
-		default:
+	switch state {
+	case future.StateResolved:
+		if resMessage == nil {
 			http.Error(w, "bad gateway", http.StatusBadGateway)
+			return
 		}
 
-		return
-	}
+		r.writeResponse(w, resMessage.GetBody())
+		resMessage.Destroy()
 
-	defer res.Destroy()
+		requestDuration := time.Since(now).Milliseconds()
+		r.env.Metrics.RecordRequestDuration(ctx, int(requestDuration))
 
-	httpRes := res.GetBody()
-	for key, values := range httpRes.Header {
-		for _, value := range values {
-			w.Header().Add(key, value)
+	case future.StateRejected:
+		http.Error(w, "bad gateway", http.StatusBadGateway)
+
+	case future.StateTimedOut:
+		if errors.Is(err, context.DeadlineExceeded) {
+			http.Error(w, "gateway timeout", http.StatusGatewayTimeout)
+		}
+
+		if !r.env.link.DeleteFuture(correlationID) {
+			// Resolve or reject won the shard lock before cancellation could
+			// delete the future. Completion happens while that lock is held, so
+			// Result is nonblocking here. Collect a resolved response to preserve
+			// the ownership transfer from egress and release its message.
+			lateResponse, lateState, _ := fut.Result()
+			if lateState == future.StateResolved && lateResponse != nil {
+				lateResponse.Destroy()
+			}
 		}
 	}
-	w.WriteHeader(httpRes.StatusCode)
-	w.Write(httpRes.Body)
-
-	requestDuration := time.Since(now).Milliseconds()
-	r.env.Metrics.RecordRequestDuration(ctx, int(requestDuration))
 }
 
 // ─── Stage ──────────────────────────────────────────────────────────────────|

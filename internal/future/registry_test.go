@@ -12,6 +12,8 @@ import (
 )
 
 func Test_Registry_NewDefaultsInvalidShardCount(t *testing.T) {
+	assert := assert.New(t)
+
 	r := NewRegistry[int](0)
 
 	id, f := r.New()
@@ -19,58 +21,99 @@ func Test_Registry_NewDefaultsInvalidShardCount(t *testing.T) {
 	require.NotZero(t, id)
 	require.True(t, r.Resolve(id, 12))
 
-	value, err := f.Await(t.Context())
-	require.NoError(t, err)
-	assert.Equal(t, 12, value)
+	value, state, err := f.Await(t.Context())
+	assert.NoError(err)
+	assert.Equal(12, value)
+	assert.Equal(StateResolved, state)
 }
 
 func Test_Registry_NewRoundsShardCountToPowerOfTwo(t *testing.T) {
+	assert := assert.New(t)
+
 	r := NewRegistry[int](3)
 
-	assert.Len(t, r.shards, 4)
-	assert.Equal(t, uint64(3), r.shardMask)
+	assert.Len(r.shards, 4)
+	assert.Equal(uint64(3), r.shardMask)
 }
 
 func Test_Registry_ResolveCompletesAndDeletesFuture(t *testing.T) {
+	assert := assert.New(t)
+
 	r := NewRegistry[string](4)
 	id, f := r.New()
 
-	require.True(t, r.Resolve(id, "ok"))
-	assert.False(t, r.Resolve(id, "again"))
+	assert.True(r.Resolve(id, "ok"))
+	assert.False(r.Resolve(id, "again"))
 
-	value, err := f.Await(t.Context())
-	require.NoError(t, err)
-	assert.Equal(t, "ok", value)
+	value, state, err := f.Await(t.Context())
+	assert.NoError(err)
+	assert.Equal("ok", value)
+	assert.Equal(StateResolved, state)
 }
 
 func Test_Registry_RejectCompletesAndDeletesFuture(t *testing.T) {
+	assert := assert.New(t)
+
 	expectedErr := errors.New("request timed out")
 	r := NewRegistry[int](4)
 	id, f := r.New()
 
-	require.True(t, r.Reject(id, expectedErr))
-	assert.False(t, r.Reject(id, errors.New("again")))
+	assert.True(r.Reject(id, expectedErr))
+	assert.False(r.Reject(id, errors.New("again")))
 
-	value, err := f.Await(t.Context())
-	assert.Zero(t, value)
-	assert.ErrorIs(t, err, expectedErr)
+	value, state, err := f.Await(t.Context())
+	assert.Zero(value)
+	assert.ErrorIs(err, expectedErr)
+	assert.Equal(StateRejected, state)
 }
 
 func Test_Registry_ResolveUnknownFuture(t *testing.T) {
+	assert := assert.New(t)
+
 	r := NewRegistry[int](4)
 
-	assert.False(t, r.Resolve(0, 1))
-	assert.False(t, r.Resolve(99, 1))
+	assert.False(r.Resolve(0, 1))
+	assert.False(r.Resolve(99, 1))
 }
 
 func Test_Registry_RejectUnknownFuture(t *testing.T) {
+	assert := assert.New(t)
+
 	r := NewRegistry[int](4)
 
-	assert.False(t, r.Reject(0, errors.New("missing")))
-	assert.False(t, r.Reject(99, errors.New("missing")))
+	assert.False(r.Reject(0, errors.New("missing")))
+	assert.False(r.Reject(99, errors.New("missing")))
+}
+
+func Test_Registry_DeleteReportsWhetherFutureWasPending(t *testing.T) {
+	assert := assert.New(t)
+
+	r := NewRegistry[int](4)
+	id, _ := r.New()
+
+	assert.True(r.Delete(id))
+	assert.False(r.Delete(id))
+	assert.False(r.Resolve(id, 1))
+}
+
+func Test_Registry_DeleteLosesToCompletedFuture(t *testing.T) {
+	assert := assert.New(t)
+
+	r := NewRegistry[int](4)
+	id, f := r.New()
+
+	assert.True(r.Resolve(id, 42))
+	assert.False(r.Delete(id))
+
+	value, state, err := f.Result()
+	assert.NoError(err)
+	assert.Equal(42, value)
+	assert.Equal(StateResolved, state)
 }
 
 func Test_Registry_UsesEveryShard(t *testing.T) {
+	assert := assert.New(t)
+
 	r := NewRegistry[int](4)
 
 	for range 4 {
@@ -79,18 +122,20 @@ func Test_Registry_UsesEveryShard(t *testing.T) {
 		shard.mux.Lock()
 		_, ok := shard.pendingFutures[id]
 		shard.mux.Unlock()
-		assert.True(t, ok)
+		assert.True(ok)
 	}
 
 	for idx := range r.shards {
 		r.shards[idx].mux.Lock()
 		pendingCount := len(r.shards[idx].pendingFutures)
 		r.shards[idx].mux.Unlock()
-		assert.Equal(t, 1, pendingCount)
+		assert.Equal(1, pendingCount)
 	}
 }
 
 func Test_Registry_ConcurrentNewAndResolve(t *testing.T) {
+	assert := assert.New(t)
+
 	r := NewRegistry[int](8)
 	const futureCount = 512
 
@@ -110,7 +155,7 @@ func Test_Registry_ConcurrentNewAndResolve(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 			defer cancel()
 
-			got, err := f.Await(ctx)
+			got, _, err := f.Await(ctx)
 			if err != nil {
 				errCh <- err
 				return
@@ -127,6 +172,6 @@ func Test_Registry_ConcurrentNewAndResolve(t *testing.T) {
 	close(errCh)
 
 	for err := range errCh {
-		require.NoError(t, err)
+		assert.NoError(err)
 	}
 }

@@ -7,41 +7,51 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_Future_AwaitReturnsResolvedValue(t *testing.T) {
+	assert := assert.New(t)
+
 	f := newFuture[int]()
 
 	f.resolve(42)
 
-	value, err := f.Await(t.Context())
-	require.NoError(t, err)
-	assert.Equal(t, 42, value)
+	value, state, err := f.Await(t.Context())
+	assert.NoError(err)
+	assert.Equal(42, value)
+	assert.Equal(StateResolved, state)
 }
 
 func Test_Future_AwaitReturnsRejectedError(t *testing.T) {
+	assert := assert.New(t)
+
 	expectedErr := errors.New("future rejected")
 	f := newFuture[int]()
 
 	f.reject(expectedErr)
 
-	value, err := f.Await(t.Context())
-	assert.Zero(t, value)
-	assert.ErrorIs(t, err, expectedErr)
+	value, state, err := f.Await(t.Context())
+	assert.Zero(value)
+	assert.ErrorIs(err, expectedErr)
+	assert.Equal(StateRejected, state)
 }
 
 func Test_Future_AwaitReturnsContextError(t *testing.T) {
+	assert := assert.New(t)
+
 	f := newFuture[int]()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	value, err := f.Await(ctx)
-	assert.Zero(t, value)
-	assert.ErrorIs(t, err, context.Canceled)
+	value, state, err := f.Await(ctx)
+	assert.Zero(value)
+	assert.ErrorIs(err, context.Canceled)
+	assert.Equal(StateTimedOut, state)
 }
 
 func Test_Future_AwaitBlocksUntilResolved(t *testing.T) {
+	assert := assert.New(t)
+
 	f := newFuture[int]()
 
 	go func() {
@@ -49,7 +59,31 @@ func Test_Future_AwaitBlocksUntilResolved(t *testing.T) {
 		f.resolve(7)
 	}()
 
-	value, err := f.Await(t.Context())
-	require.NoError(t, err)
-	assert.Equal(t, 7, value)
+	value, state, err := f.Await(t.Context())
+	assert.NoError(err)
+	assert.Equal(7, value)
+	assert.Equal(StateResolved, state)
+}
+
+func Test_Future_ResultReturnsPendingWithoutBlocking(t *testing.T) {
+	assert := assert.New(t)
+
+	f := newFuture[int]()
+
+	value, state, err := f.Result()
+	assert.NoError(err)
+	assert.Zero(value)
+	assert.Equal(StatePending, state)
+}
+
+func Test_Future_ResultReturnsCompletedResult(t *testing.T) {
+	assert := assert.New(t)
+
+	f := newFuture[int]()
+	f.resolve(42)
+
+	value, state, err := f.Result()
+	assert.NoError(err)
+	assert.Equal(42, value)
+	assert.Equal(StateResolved, state)
 }

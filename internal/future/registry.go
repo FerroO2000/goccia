@@ -34,17 +34,38 @@ func (rs *registryShard[T]) insert(id uint64, future *Future[T]) {
 	rs.mux.Unlock()
 }
 
-func (rs *registryShard[T]) extract(id uint64) *Future[T] {
+func (rs *registryShard[T]) resolve(id uint64, value T) (resolved bool) {
 	rs.mux.Lock()
-
 	future, ok := rs.pendingFutures[id]
 	if ok {
 		delete(rs.pendingFutures, id)
+		future.resolve(value)
+		resolved = true
 	}
-
 	rs.mux.Unlock()
+	return resolved
+}
 
-	return future
+func (rs *registryShard[T]) reject(id uint64, err error) (rejected bool) {
+	rs.mux.Lock()
+	future, ok := rs.pendingFutures[id]
+	if ok {
+		delete(rs.pendingFutures, id)
+		future.reject(err)
+		rejected = true
+	}
+	rs.mux.Unlock()
+	return rejected
+}
+
+func (rs *registryShard[T]) delete(id uint64) (deleted bool) {
+	rs.mux.Lock()
+	if _, ok := rs.pendingFutures[id]; ok {
+		delete(rs.pendingFutures, id)
+		deleted = true
+	}
+	rs.mux.Unlock()
+	return deleted
 }
 
 // Registry holds a collection of pending futures.
@@ -93,26 +114,19 @@ func (r *Registry[T]) New() (uint64, *Future[T]) {
 // It returns true if the future was found and completed.
 func (r *Registry[T]) Resolve(id uint64, value T) bool {
 	shard := r.getShard(id)
-
-	future := shard.extract(id)
-	if future != nil {
-		future.resolve(value)
-		return true
-	}
-
-	return false
+	return shard.resolve(id, value)
 }
 
 // Reject rejects the future with the given error.
 // It returns true if the future was found and completed.
 func (r *Registry[T]) Reject(id uint64, err error) bool {
 	shard := r.getShard(id)
+	return shard.reject(id, err)
+}
 
-	future := shard.extract(id)
-	if future != nil {
-		future.reject(err)
-		return true
-	}
-
-	return false
+// Delete deletes the future with the given ID.
+// It returns true if the future was pending and has been deleted.
+func (r *Registry[T]) Delete(id uint64) bool {
+	shard := r.getShard(id)
+	return shard.delete(id)
 }
