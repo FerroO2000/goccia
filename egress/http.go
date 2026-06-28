@@ -3,6 +3,7 @@ package egress
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"github.com/FerroO2000/goccia/connector"
 	"github.com/FerroO2000/goccia/internal/config"
@@ -13,6 +14,20 @@ import (
 	"github.com/FerroO2000/goccia/link"
 )
 
+// ─── Config ─────────────────────────────────────────────────────────────────|
+
+type HTTPConfig struct {
+	Header http.Header
+}
+
+func NewHTTPConfig() *HTTPConfig {
+	return &HTTPConfig{
+		Header: nil,
+	}
+}
+
+func (*HTTPConfig) Validate(_ *config.AnomalyCollector) {}
+
 // ─── Message ────────────────────────────────────────────────────────────────|
 
 type HTTPMessage = message.HTTPResponse
@@ -20,14 +35,14 @@ type HTTPMessage = message.HTTPResponse
 // ─── Environment ────────────────────────────────────────────────────────────|
 
 type httpEnv struct {
-	*env.BaseEnv[*config.Empty, *metrics.EmptyMetrics]
+	*env.BaseEnv[*HTTPConfig, *metrics.EmptyMetrics]
 
 	link *link.HTTP
 }
 
-func newHTTPEnv(link *link.HTTP) *httpEnv {
+func newHTTPEnv(link *link.HTTP, config *HTTPConfig) *httpEnv {
 	return &httpEnv{
-		BaseEnv: env.NewEgressEnv(config.NewEmpty(), metrics.NewEmptyMetrics()),
+		BaseEnv: env.NewEgressEnv(config, metrics.NewEmptyMetrics()),
 
 		link: link,
 	}
@@ -97,6 +112,19 @@ func (r *httpRunner) rejectResponse(correlationID uint64, msgIn *msg[*HTTPMessag
 	msgIn.Destroy()
 }
 
+func (r *httpRunner) handleHeader(httpResponse *HTTPMessage) {
+	baseHeader := r.Config.Header
+	if baseHeader == nil {
+		return
+	}
+
+	for key, values := range baseHeader {
+		for _, value := range values {
+			httpResponse.Header.Add(key, value)
+		}
+	}
+}
+
 func (r *httpRunner) handleResponse(msgIn *msg[*HTTPMessage]) {
 	correlationID := msgIn.GetCorrelationID()
 	httpResponse := msgIn.GetBody()
@@ -107,6 +135,7 @@ func (r *httpRunner) handleResponse(msgIn *msg[*HTTPMessage]) {
 		return
 	}
 
+	r.handleHeader(httpResponse)
 	r.resolveResponse(correlationID, msgIn)
 }
 
@@ -128,10 +157,10 @@ type HTTPStage struct {
 	*stage.EgressStage[*HTTPMessage, *httpEnv]
 }
 
-func NewHTTPStage(link *link.HTTP, outConnector msgConn[*HTTPMessage]) *HTTPStage {
+func NewHTTPStage(link *link.HTTP, outConnector msgConn[*HTTPMessage], config *HTTPConfig) *HTTPStage {
 	return &HTTPStage{
 		EgressStage: stage.NewEgressStageFromRunner[*HTTPMessage](
-			"http", newHTTPEnv(link), newHTTPRunner(outConnector),
+			"http", newHTTPEnv(link, config), newHTTPRunner(outConnector),
 		),
 	}
 }

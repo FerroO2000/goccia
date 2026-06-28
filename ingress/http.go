@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"io"
 	"net"
@@ -45,6 +46,8 @@ type HTTPConfig struct {
 	ResponseTimeout    time.Duration
 	WriteTimeout       time.Duration
 	OutputQueueSize    int
+	TLSEnabled         bool
+	TLSConfig          *tls.Config
 }
 
 func NewHTTPConfig() *HTTPConfig {
@@ -59,6 +62,8 @@ func NewHTTPConfig() *HTTPConfig {
 		ResponseTimeout:    DefaultHTTPConfigResponseTimeout,
 		WriteTimeout:       DefaultHTTPConfigWriteTimeout,
 		OutputQueueSize:    DefaultHTTPConfigOutputQueueSize,
+		TLSEnabled:         false,
+		TLSConfig:          nil,
 	}
 }
 
@@ -98,6 +103,7 @@ type httpEnv struct {
 
 	responseTimeout    time.Duration
 	maxRequestBodySize int64
+	tlsEnabled         bool
 }
 
 func newHTTPEnv(link *link.HTTP, config *HTTPConfig) *httpEnv {
@@ -114,9 +120,36 @@ func (e *httpEnv) Init(ctx context.Context) error {
 	}
 
 	e.initServer()
+	if err := e.initTLS(); err != nil {
+		return err
+	}
 
 	e.responseTimeout = e.Config.ResponseTimeout
 	e.maxRequestBodySize = int64(e.Config.MaxRequestBodySize)
+
+	return nil
+}
+
+func (e *httpEnv) initTLS() error {
+	if !e.Config.TLSEnabled {
+		return nil
+	}
+
+	if e.Config.TLSConfig == nil {
+		return errors.New("HTTP TLS is enabled but its configuration is missing")
+	}
+
+	serverTLSConfig := e.Config.TLSConfig.Clone()
+	if serverTLSConfig.MinVersion == 0 {
+		serverTLSConfig.MinVersion = tls.VersionTLS12
+	}
+
+	if len(serverTLSConfig.Certificates) == 0 && serverTLSConfig.GetCertificate == nil {
+		return errors.New("HTTP TLS requires a certificate or GetCertificate callback")
+	}
+
+	e.server.TLSConfig = serverTLSConfig
+	e.tlsEnabled = true
 
 	return nil
 }
@@ -159,11 +192,19 @@ func (r *httpRunner) runServer() {
 
 	r.env.server.Handler = http.HandlerFunc(r.handleRequest)
 
-	err := r.env.server.ListenAndServe()
+	err := r.listenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		r.env.Tel.LogError("HTTP server stopped", err)
 		r.runServerDone <- struct{}{}
 	}
+}
+
+func (r *httpRunner) listenAndServe() error {
+	if r.env.tlsEnabled {
+		return r.env.server.ListenAndServeTLS("", "")
+	}
+
+	return r.env.server.ListenAndServe()
 }
 
 func (r *httpRunner) shutdownServer() {

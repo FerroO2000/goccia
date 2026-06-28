@@ -37,7 +37,8 @@ func main() {
 	echoCfg.Name = "http_echo"
 	echoStage := processor.NewGenericStage(newEchoHandler(), httpIngressToEcho, echoToHTTPEgress, echoCfg)
 
-	httpEgressStage := egress.NewHTTPStage(httpLink, echoToHTTPEgress)
+	httpEgressCfg := egress.NewHTTPConfig()
+	httpEgressStage := egress.NewHTTPStage(httpLink, echoToHTTPEgress, httpEgressCfg)
 
 	pipeline := goccia.NewPipeline()
 	pipeline.AddStage(httpIngressStage)
