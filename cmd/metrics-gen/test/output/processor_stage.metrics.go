@@ -7,10 +7,16 @@ import (
 	"sync/atomic"
 )
 
-// ProcessorStage structs contains the metrics for the processor_stage object.
+// ProcessorStage structs contains the metrics for the processor_stage group.
 type ProcessorStage struct {
 	countedItems atomic.Int64
 	currentItems atomic.Int64
+	myGauge      atomic.Int64
+}
+
+// NewProcessorStage returns a new instance of the ProcessorStage struct.
+func NewProcessorStage() *ProcessorStage {
+	return &ProcessorStage{}
 }
 
 // InitMetrics initializes the metrics for the ProcessorStage.
@@ -28,6 +34,12 @@ func (m *ProcessorStage) InitMetrics(tel *telemetry.Telemetry) error {
 
 	// Initialize current_items up/down counter metric
 	err = tel.NewUpDownCounterMetric("current_items", func() int64 { return m.currentItems.Load() })
+	if err != nil {
+		return err
+	}
+
+	// Initialize my_gauge gauge metric
+	err = tel.NewGaugeMetric("my_gauge", func() int64 { return m.myGauge.Load() })
 	if err != nil {
 		return err
 	}
@@ -70,4 +82,26 @@ func (m *ProcessorStage) IncrementCurrentItems() {
 // This function is thread-safe.
 func (m *ProcessorStage) DecrementCurrentItems() {
 	m.currentItems.Add(-1)
+}
+
+// AddMyGauge adds the given amount to the gauge metric.
+// The amount to be added must be an integer.
+//
+// This function is thread-safe.
+func (m *ProcessorStage) AddMyGauge(amount int) {
+	m.myGauge.Add(int64(amount))
+}
+
+// IncrementMyGauge increments the gauge metric by 1.
+//
+// This function is thread-safe.
+func (m *ProcessorStage) IncrementMyGauge() {
+	m.myGauge.Add(1)
+}
+
+// DecrementMyGauge decrements the gauge metric by 1.
+//
+// This function is thread-safe.
+func (m *ProcessorStage) DecrementMyGauge() {
+	m.myGauge.Add(-1)
 }

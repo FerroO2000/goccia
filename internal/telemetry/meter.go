@@ -110,6 +110,22 @@ func (m *meter) NewUpDownCounterMetric(name string, getter func() int64, opts ..
 	return err
 }
 
+// NewGaugeMetric creates a new observable integer gauge metric.
+func (m *meter) NewGaugeMetric(name string, getter func() int64, opts ...metric.Int64ObservableGaugeOption) error {
+	gauge, err := m.m.Int64ObservableGauge(name, opts...)
+	if err != nil {
+		return err
+	}
+
+	measurementOpt := m.measurementOpt
+	_, err = m.m.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
+		o.ObserveInt64(gauge, getter(), measurementOpt)
+		return nil
+	})
+
+	return err
+}
+
 // NewHistogramMetric creates a new histogram metric.
 func (m *meter) NewHistogramMetric(name string, opts ...metric.Int64HistogramOption) (*Histogram, error) {
 	histogram, err := m.m.Int64Histogram(name, opts...)

@@ -4,15 +4,21 @@ package output
 
 import (
 	"context"
-	"github.com/FerroO2000/goccia/internal/telemetry"
 	"sync/atomic"
+
+	"github.com/FerroO2000/goccia/internal/telemetry"
 )
 
-// EgressStage structs contains the metrics for the egress_stage object.
+// EgressStage structs contains the metrics for the egress_stage group.
 type EgressStage struct {
 	countedItems atomic.Int64
 	currentItems atomic.Int64
 	myHistogram  *telemetry.Histogram
+}
+
+// NewEgressStage returns a new instance of the EgressStage struct.
+func NewEgressStage() *EgressStage {
+	return &EgressStage{}
 }
 
 // InitMetrics initializes the metrics for the EgressStage.

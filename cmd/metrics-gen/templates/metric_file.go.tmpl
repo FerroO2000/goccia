@@ -35,6 +35,9 @@ func (m *{{ $structType }}) InitMetrics(tel *telemetry.Telemetry) error {
 {{- else if eq .Type "upDownCounter" }}
     // Initialize {{ .Name }} up/down counter metric
     err = tel.NewUpDownCounterMetric("{{ .Name }}", func() int64 { return m.{{ $metricField }}.Load() }{{ if .Unit }}, metric.WithUnit("{{ .Unit }}"){{ end }})
+{{- else if eq .Type "gauge" }}
+    // Initialize {{ .Name }} gauge metric
+    err = tel.NewGaugeMetric("{{ .Name }}", func() int64 { return m.{{ $metricField }}.Load() }{{ if .Unit }}, metric.WithUnit("{{ .Unit }}"){{ end }})
 {{- else if eq .Type "histogram" }}
     // Initialize {{ .Name }} histogram metric
     m.{{ $metricField }}, err = tel.NewHistogramMetric("{{ .Name }}"{{ if .Unit }}, metric.WithUnit("{{ .Unit }}"){{ end }})
@@ -81,6 +84,28 @@ func (m *{{ $structType }}) Increment{{ $methodSuffix }}() {
 }
 
 // Decrement{{ $methodSuffix }} decrements the up/down counter metric by 1.
+//
+// This function is thread-safe.
+func (m *{{ $structType }}) Decrement{{ $methodSuffix }}() {
+    m.{{ $metricName }}.Add(-1)
+}
+{{- else if eq .Type "gauge" }}
+// Add{{ $methodSuffix }} adds the given amount to the gauge metric.
+// The amount to be added must be an integer.
+//
+// This function is thread-safe.
+func (m *{{ $structType }}) Add{{ $methodSuffix }}(amount int) {
+    m.{{ $metricName }}.Add(int64(amount))
+}
+
+// Increment{{ $methodSuffix }} increments the gauge metric by 1.
+//
+// This function is thread-safe.
+func (m *{{ $structType }}) Increment{{ $methodSuffix }}() {
+    m.{{ $metricName }}.Add(1)
+}
+
+// Decrement{{ $methodSuffix }} decrements the gauge metric by 1.
 //
 // This function is thread-safe.
 func (m *{{ $structType }}) Decrement{{ $methodSuffix }}() {

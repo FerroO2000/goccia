@@ -11,6 +11,8 @@ const (
 	MetricTypeCounter MetricType = "counter"
 	// MetricTypeUpDownCounter is an up/down counter metric.
 	MetricTypeUpDownCounter MetricType = "upDownCounter"
+	// MetricTypeGauge is a gauge metric.
+	MetricTypeGauge MetricType = "gauge"
 	// MetricTypeHistogram is a histogram metric.
 	MetricTypeHistogram MetricType = "histogram"
 )
