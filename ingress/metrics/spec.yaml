@@ -22,9 +22,18 @@ groups:
     metrics:
       - name: requests
         type: counter
-      - name: request_duration
+      - name: http.server.request.duration
         type: histogram
-        unit: ms
+        unit: s
+      - name: http.server.active_requests
+        type: upDownCounter
+        unit: "{request}"
+      - name: http.server.request.body.size
+        type: histogram
+        unit: By
+      - name: http.server.response.body.size
+        type: histogram
+        unit: By
 
   - name: kafka_stage
     metrics:

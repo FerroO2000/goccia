@@ -20,7 +20,7 @@ func camelCase(s string, upper bool) string {
 	capitalizeNext := upper
 
 	for _, r := range s {
-		if r == '_' || r == '-' {
+		if r == '_' || r == '-' || r == '.' {
 			capitalizeNext = true
 			continue
 		}

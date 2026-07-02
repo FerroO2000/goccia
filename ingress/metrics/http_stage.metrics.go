@@ -11,8 +11,11 @@ import (
 
 // HttpStage structs contains the metrics for the http_stage group.
 type HttpStage struct {
-	requests        atomic.Int64
-	requestDuration *telemetry.Histogram
+	requests                   atomic.Int64
+	httpServerRequestDuration  *telemetry.Histogram
+	httpServerActiveRequests   atomic.Int64
+	httpServerRequestBodySize  *telemetry.Histogram
+	httpServerResponseBodySize *telemetry.Histogram
 }
 
 // NewHttpStage returns a new instance of the HttpStage struct.
@@ -33,8 +36,26 @@ func (m *HttpStage) InitMetrics(tel *telemetry.Telemetry) error {
 		return err
 	}
 
-	// Initialize request_duration histogram metric
-	m.requestDuration, err = tel.NewHistogramMetric("request_duration", metric.WithUnit("ms"))
+	// Initialize http.server.request.duration histogram metric
+	m.httpServerRequestDuration, err = tel.NewHistogramMetric("http.server.request.duration", metric.WithUnit("s"))
+	if err != nil {
+		return err
+	}
+
+	// Initialize http.server.active_requests up/down counter metric
+	err = tel.NewUpDownCounterMetric("http.server.active_requests", func() int64 { return m.httpServerActiveRequests.Load() }, metric.WithUnit("{request}"))
+	if err != nil {
+		return err
+	}
+
+	// Initialize http.server.request.body.size histogram metric
+	m.httpServerRequestBodySize, err = tel.NewHistogramMetric("http.server.request.body.size", metric.WithUnit("By"))
+	if err != nil {
+		return err
+	}
+
+	// Initialize http.server.response.body.size histogram metric
+	m.httpServerResponseBodySize, err = tel.NewHistogramMetric("http.server.response.body.size", metric.WithUnit("By"))
 	if err != nil {
 		return err
 	}
@@ -57,9 +78,45 @@ func (m *HttpStage) IncrementRequests() {
 	m.requests.Add(1)
 }
 
-// RecordRequestDuration records the given value into the histogram metric.
+// RecordHttpServerRequestDuration records the given value into the histogram metric.
 //
 // This function is thread-safe.
-func (m *HttpStage) RecordRequestDuration(ctx context.Context, value int) {
-	m.requestDuration.Record(ctx, int64(value))
+func (m *HttpStage) RecordHttpServerRequestDuration(ctx context.Context, value int) {
+	m.httpServerRequestDuration.Record(ctx, int64(value))
+}
+
+// AddHttpServerActiveRequests adds the given amount to the up/down counter metric.
+// The amount to be added must be an integer.
+//
+// This function is thread-safe.
+func (m *HttpStage) AddHttpServerActiveRequests(amount int) {
+	m.httpServerActiveRequests.Add(int64(amount))
+}
+
+// IncrementHttpServerActiveRequests increments the up/down counter metric by 1.
+//
+// This function is thread-safe.
+func (m *HttpStage) IncrementHttpServerActiveRequests() {
+	m.httpServerActiveRequests.Add(1)
+}
+
+// DecrementHttpServerActiveRequests decrements the up/down counter metric by 1.
+//
+// This function is thread-safe.
+func (m *HttpStage) DecrementHttpServerActiveRequests() {
+	m.httpServerActiveRequests.Add(-1)
+}
+
+// RecordHttpServerRequestBodySize records the given value into the histogram metric.
+//
+// This function is thread-safe.
+func (m *HttpStage) RecordHttpServerRequestBodySize(ctx context.Context, value int) {
+	m.httpServerRequestBodySize.Record(ctx, int64(value))
+}
+
+// RecordHttpServerResponseBodySize records the given value into the histogram metric.
+//
+// This function is thread-safe.
+func (m *HttpStage) RecordHttpServerResponseBodySize(ctx context.Context, value int) {
+	m.httpServerResponseBodySize.Record(ctx, int64(value))
 }

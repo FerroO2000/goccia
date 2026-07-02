@@ -190,7 +190,7 @@ func (r *httpRunner) Init(_ context.Context) error {
 func (r *httpRunner) runServer() {
 	defer close(r.runServerDone)
 
-	r.env.server.Handler = http.HandlerFunc(r.handleRequest)
+	r.env.server.Handler = http.HandlerFunc(r.handle)
 
 	err := r.listenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -292,14 +292,50 @@ func (r *httpRunner) writeResponse(resWriter http.ResponseWriter, res *message.H
 	resWriter.Write(res.Body)
 }
 
-func (r *httpRunner) handleRequest(w http.ResponseWriter, req *http.Request) {
-	defer req.Body.Close()
+type httpResponseWriter struct {
+	http.ResponseWriter
+	timestamp    time.Time
+	bytesWritten int
+	writeErr     error
+}
 
+func (r *httpResponseWriter) Write(b []byte) (int, error) {
+	n, err := r.ResponseWriter.Write(b)
+	r.bytesWritten += n
+
+	if err != nil && r.writeErr == nil {
+		r.writeErr = err
+	}
+
+	return n, err
+}
+
+func (r *httpRunner) handle(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
+	rw := &httpResponseWriter{
+		ResponseWriter: w,
+		timestamp:      time.Now(),
+	}
+
+	r.handleRequest(ctx, rw, req)
+
+	resBodySize := rw.bytesWritten
+	if req.Method == http.MethodHead {
+		resBodySize = 0
+	}
+
+	r.env.Metrics.RecordHttpServerResponseBodySize(ctx, resBodySize)
+
+	reqDuration := time.Since(rw.timestamp)
+	r.env.Metrics.RecordHttpServerRequestDuration(ctx, int(reqDuration.Seconds()))
+}
+
+func (r *httpRunner) handleRequest(ctx context.Context, rw *httpResponseWriter, req *http.Request) {
+	defer req.Body.Close()
 
 	r.env.Metrics.IncrementRequests()
 
-	body, ok := r.readBody(w, req.Body)
+	body, ok := r.readBody(rw, req.Body)
 	if !ok {
 		return
 	}
@@ -307,16 +343,15 @@ func (r *httpRunner) handleRequest(w http.ResponseWriter, req *http.Request) {
 	reqMessage := r.makeRequestMessage(req, body)
 
 	// Set the receive time and the timestamp
-	now := time.Now()
-	reqMessage.SetReceiveTime(now)
-	reqMessage.SetTimestamp(now)
+	reqMessage.SetReceiveTime(rw.timestamp)
+	reqMessage.SetTimestamp(rw.timestamp)
 
 	// Create the future
 	correlationID, fut := r.env.link.NewFuture()
 	reqMessage.SetCorrelationID(correlationID)
 
 	// Send the message to the output (next stage)
-	if ok := r.writeRequestMessage(w, correlationID, reqMessage); !ok {
+	if ok := r.writeRequestMessage(rw, correlationID, reqMessage); !ok {
 		return
 	}
 
@@ -329,22 +364,19 @@ func (r *httpRunner) handleRequest(w http.ResponseWriter, req *http.Request) {
 	switch state {
 	case future.StateResolved:
 		if resMessage == nil {
-			http.Error(w, "bad gateway", http.StatusBadGateway)
+			http.Error(rw, "bad gateway", http.StatusBadGateway)
 			return
 		}
 
-		r.writeResponse(w, resMessage.GetBody())
+		r.writeResponse(rw, resMessage.GetBody())
 		resMessage.Destroy()
 
-		requestDuration := time.Since(now).Milliseconds()
-		r.env.Metrics.RecordRequestDuration(ctx, int(requestDuration))
-
 	case future.StateRejected:
-		http.Error(w, "bad gateway", http.StatusBadGateway)
+		http.Error(rw, "bad gateway", http.StatusBadGateway)
 
 	case future.StateTimedOut:
 		if errors.Is(err, context.DeadlineExceeded) {
-			http.Error(w, "gateway timeout", http.StatusGatewayTimeout)
+			http.Error(rw, "gateway timeout", http.StatusGatewayTimeout)
 		}
 
 		if !r.env.link.DeleteFuture(correlationID) {

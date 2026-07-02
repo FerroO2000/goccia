@@ -1,0 +1,22 @@
+| Priority | What to measure | How to measure in this ingress | OTel instrument / metric |
+|---|---|---|---|
+| P0 | End-to-end request duration | Start immediately on entering `handleRequest`; record in a `defer` after the final response write or abort. Include 413, 502, 503, 504, cancellation, panic and successful responses. | **Histogram**, `http.server.request.duration`, unit `s` |
+| P0 | Request throughput | Use the count of observations in `http.server.request.duration`; rate its histogram count. No separate counter is necessary. | Derived from `http.server.request.duration` count |
+| P0 | Request outcomes/error rate | Capture the actual status written through a wrapped `ResponseWriter`. Add `http.response.status_code`; add low-cardinality `error.type` for server failures. | Attributes on `http.server.request.duration` |
+| P0 | Concurrent requests | Increment at handler entry and decrement in a `defer`, including early returns and cancellation. | **UpDownCounter**, `http.server.active_requests`, unit `{request}` |
+| P0 | Request body size | Record bytes actually read. Use a counting reader so oversized and interrupted reads are included—not only successful `len(body)`. | **Histogram**, `http.server.request.body.size`, unit `By` |
+| P0 | Response body size | Wrap `ResponseWriter.Write` and count bytes actually accepted, including bodies produced by `http.Error`. | **Histogram**, `http.server.response.body.size`, unit `By` |
+| P0 | Fan-in queue depth | Observe `r.fanIn.Len()` at collection time. This identifies pipeline saturation before timeouts appear. | **ObservableGauge**, `goccia.http.ingress.queue.size`, unit `{message}` |
+| P0 | Fan-in queue capacity | Export the configured/rounded capacity so queue utilization can be calculated reliably. | **ObservableGauge**, `goccia.http.ingress.queue.capacity`, unit `{message}` |
+| P0 | Queue handoff latency | Time `r.fanIn.Write(reqMessage)`. Because this call blocks when full, its tail latency is a direct backpressure signal. | **Histogram**, `goccia.http.ingress.queue.wait.duration`, unit `s` |
+| P0 | Pending downstream responses | Increment after creating the future; decrement whenever it resolves, rejects, times out or is canceled. | **UpDownCounter**, `goccia.http.ingress.pending_responses`, unit `{request}` |
+| P0 | Downstream response latency | Measure from successful queue handoff until the future terminates. Record every state with a bounded `outcome` attribute. | **Histogram**, `goccia.http.ingress.response.wait.duration`, unit `s` |
+| P1 | Late/orphaned responses | Increment when egress tries to resolve/reject a future that was already removed after timeout or cancellation. | **Counter**, `goccia.http.ingress.late_responses`, unit `{response}` |
+| P1 | Response write failures | Check and classify the error returned by `ResponseWriter.Write`; the current implementation ignores it. Prefer marking the request-duration observation with `error.type`; optionally retain a dedicated counter for alerting. | `error.type` on standard duration; optional **Counter** `goccia.http.server.response.write_errors` |
+| P1 | Current connections by state | Use `http.Server.ConnState` and maintain counts for `new`, `active` and `idle`; remove closed/hijacked connections. | **ObservableGauge**, `goccia.http.server.connections`, unit `{connection}`, attribute `state` |
+| P1 | Connection churn | Count `StateNew` transitions. High churn often reveals disabled keep-alive or load-balancer behavior. | **Counter**, `goccia.http.server.connections.accepted`, unit `{connection}` |
+| P1 | Handler panics | Add recovery middleware, increment before converting the panic into a 500/closed request, then log/trace it. | **Counter**, `goccia.http.server.panics`, unit `{error}` |
+| P1 | Server/listener failures | Increment for unexpected `ListenAndServe` termination, shutdown failure and forced `Close`, classified by `operation`. | **Counter**, `goccia.http.server.errors`, unit `{error}` |
+| P2 | Graceful-shutdown duration | Time `server.Shutdown` until completion or timeout. | **Histogram**, `goccia.http.server.shutdown.duration`, unit `s` |
+| P2 | Forced shutdowns | Increment when graceful shutdown times out and `server.Close` is required. | **Counter**, `goccia.http.server.forced_shutdowns`, unit `{shutdown}` |
+| P2 | TLS handshake failures | Capture classified TLS handshake errors through the server error path, without using raw error messages as labels. | **Counter**, `goccia.http.server.tls.handshake_errors`, unit `{error}` |
