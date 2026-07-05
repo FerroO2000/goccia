@@ -11,11 +11,14 @@ import (
 
 // HttpStage structs contains the metrics for the http_stage group.
 type HttpStage struct {
-	requests                   atomic.Int64
-	httpServerRequestDuration  *telemetry.Histogram
-	httpServerActiveRequests   atomic.Int64
-	httpServerRequestBodySize  *telemetry.Histogram
-	httpServerResponseBodySize *telemetry.Histogram
+	httpServerRequestDuration             *telemetry.FloatHistogram
+	httpServerActiveRequests              atomic.Int64
+	httpServerRequestBodySize             *telemetry.IntHistogram
+	httpServerResponseBodySize            *telemetry.IntHistogram
+	gocciaHttpIngressQueueLen             atomic.Int64
+	gocciaHttpIngressQueueWaitDuration    *telemetry.FloatHistogram
+	gocciaHttpIngressPendingResponses     atomic.Int64
+	gocciaHttpIngressResponseWaitDuration *telemetry.FloatHistogram
 }
 
 // NewHttpStage returns a new instance of the HttpStage struct.
@@ -30,14 +33,8 @@ func NewHttpStage() *HttpStage {
 func (m *HttpStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
-	// Initialize requests counter metric
-	err = tel.NewCounterMetric("requests", func() int64 { return m.requests.Load() })
-	if err != nil {
-		return err
-	}
-
 	// Initialize http.server.request.duration histogram metric
-	m.httpServerRequestDuration, err = tel.NewHistogramMetric("http.server.request.duration", metric.WithUnit("s"))
+	m.httpServerRequestDuration, err = tel.NewFloatHistogramMetric("http.server.request.duration", metric.WithUnit("s"))
 	if err != nil {
 		return err
 	}
@@ -49,13 +46,37 @@ func (m *HttpStage) InitMetrics(tel *telemetry.Telemetry) error {
 	}
 
 	// Initialize http.server.request.body.size histogram metric
-	m.httpServerRequestBodySize, err = tel.NewHistogramMetric("http.server.request.body.size", metric.WithUnit("By"))
+	m.httpServerRequestBodySize, err = tel.NewIntHistogramMetric("http.server.request.body.size", metric.WithUnit("By"))
 	if err != nil {
 		return err
 	}
 
 	// Initialize http.server.response.body.size histogram metric
-	m.httpServerResponseBodySize, err = tel.NewHistogramMetric("http.server.response.body.size", metric.WithUnit("By"))
+	m.httpServerResponseBodySize, err = tel.NewIntHistogramMetric("http.server.response.body.size", metric.WithUnit("By"))
+	if err != nil {
+		return err
+	}
+
+	// Initialize goccia.http.ingress.queue.len gauge metric
+	err = tel.NewGaugeMetric("goccia.http.ingress.queue.len", func() int64 { return m.gocciaHttpIngressQueueLen.Load() }, metric.WithUnit("{message}"))
+	if err != nil {
+		return err
+	}
+
+	// Initialize goccia.http.ingress.queue.wait.duration histogram metric
+	m.gocciaHttpIngressQueueWaitDuration, err = tel.NewFloatHistogramMetric("goccia.http.ingress.queue.wait.duration", metric.WithUnit("s"))
+	if err != nil {
+		return err
+	}
+
+	// Initialize goccia.http.ingress.pending_responses up/down counter metric
+	err = tel.NewUpDownCounterMetric("goccia.http.ingress.pending_responses", func() int64 { return m.gocciaHttpIngressPendingResponses.Load() }, metric.WithUnit("{request}"))
+	if err != nil {
+		return err
+	}
+
+	// Initialize goccia.http.ingress.response.wait.duration histogram metric
+	m.gocciaHttpIngressResponseWaitDuration, err = tel.NewFloatHistogramMetric("goccia.http.ingress.response.wait.duration", metric.WithUnit("s"))
 	if err != nil {
 		return err
 	}
@@ -63,26 +84,11 @@ func (m *HttpStage) InitMetrics(tel *telemetry.Telemetry) error {
 	return nil
 }
 
-// AddRequests adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *HttpStage) AddRequests(amount uint) {
-	m.requests.Add(int64(amount))
-}
-
-// IncrementRequests increments the counter metric by 1.
-//
-// This function is thread-safe.
-func (m *HttpStage) IncrementRequests() {
-	m.requests.Add(1)
-}
-
 // RecordHttpServerRequestDuration records the given value into the histogram metric.
 //
 // This function is thread-safe.
-func (m *HttpStage) RecordHttpServerRequestDuration(ctx context.Context, value int) {
-	m.httpServerRequestDuration.Record(ctx, int64(value))
+func (m *HttpStage) RecordHttpServerRequestDuration(ctx context.Context, value float64) {
+	m.httpServerRequestDuration.Record(ctx, value)
 }
 
 // AddHttpServerActiveRequests adds the given amount to the up/down counter metric.
@@ -110,13 +116,71 @@ func (m *HttpStage) DecrementHttpServerActiveRequests() {
 // RecordHttpServerRequestBodySize records the given value into the histogram metric.
 //
 // This function is thread-safe.
-func (m *HttpStage) RecordHttpServerRequestBodySize(ctx context.Context, value int) {
-	m.httpServerRequestBodySize.Record(ctx, int64(value))
+func (m *HttpStage) RecordHttpServerRequestBodySize(ctx context.Context, value int64) {
+	m.httpServerRequestBodySize.Record(ctx, value)
 }
 
 // RecordHttpServerResponseBodySize records the given value into the histogram metric.
 //
 // This function is thread-safe.
-func (m *HttpStage) RecordHttpServerResponseBodySize(ctx context.Context, value int) {
-	m.httpServerResponseBodySize.Record(ctx, int64(value))
+func (m *HttpStage) RecordHttpServerResponseBodySize(ctx context.Context, value int64) {
+	m.httpServerResponseBodySize.Record(ctx, value)
+}
+
+// AddGocciaHttpIngressQueueLen adds the given amount to the gauge metric.
+// The amount to be added must be an integer.
+//
+// This function is thread-safe.
+func (m *HttpStage) AddGocciaHttpIngressQueueLen(amount int) {
+	m.gocciaHttpIngressQueueLen.Add(int64(amount))
+}
+
+// IncrementGocciaHttpIngressQueueLen increments the gauge metric by 1.
+//
+// This function is thread-safe.
+func (m *HttpStage) IncrementGocciaHttpIngressQueueLen() {
+	m.gocciaHttpIngressQueueLen.Add(1)
+}
+
+// DecrementGocciaHttpIngressQueueLen decrements the gauge metric by 1.
+//
+// This function is thread-safe.
+func (m *HttpStage) DecrementGocciaHttpIngressQueueLen() {
+	m.gocciaHttpIngressQueueLen.Add(-1)
+}
+
+// RecordGocciaHttpIngressQueueWaitDuration records the given value into the histogram metric.
+//
+// This function is thread-safe.
+func (m *HttpStage) RecordGocciaHttpIngressQueueWaitDuration(ctx context.Context, value float64) {
+	m.gocciaHttpIngressQueueWaitDuration.Record(ctx, value)
+}
+
+// AddGocciaHttpIngressPendingResponses adds the given amount to the up/down counter metric.
+// The amount to be added must be an integer.
+//
+// This function is thread-safe.
+func (m *HttpStage) AddGocciaHttpIngressPendingResponses(amount int) {
+	m.gocciaHttpIngressPendingResponses.Add(int64(amount))
+}
+
+// IncrementGocciaHttpIngressPendingResponses increments the up/down counter metric by 1.
+//
+// This function is thread-safe.
+func (m *HttpStage) IncrementGocciaHttpIngressPendingResponses() {
+	m.gocciaHttpIngressPendingResponses.Add(1)
+}
+
+// DecrementGocciaHttpIngressPendingResponses decrements the up/down counter metric by 1.
+//
+// This function is thread-safe.
+func (m *HttpStage) DecrementGocciaHttpIngressPendingResponses() {
+	m.gocciaHttpIngressPendingResponses.Add(-1)
+}
+
+// RecordGocciaHttpIngressResponseWaitDuration records the given value into the histogram metric.
+//
+// This function is thread-safe.
+func (m *HttpStage) RecordGocciaHttpIngressResponseWaitDuration(ctx context.Context, value float64) {
+	m.gocciaHttpIngressResponseWaitDuration.Record(ctx, value)
 }

@@ -264,8 +264,12 @@ func (r *httpRunner) makeRequestMessage(req *http.Request, body []byte) *msg[*HT
 }
 
 func (r *httpRunner) writeRequestMessage(
-	resWriter http.ResponseWriter, correlationID uint64, reqMessage *msg[*HTTPMessage],
+	ctx context.Context, resWriter http.ResponseWriter, correlationID uint64, reqMessage *msg[*HTTPMessage],
 ) bool {
+	queueWriteTime := time.Now()
+	defer r.env.Metrics.RecordGocciaHttpIngressQueueWaitDuration(
+		ctx, time.Since(queueWriteTime).Seconds(),
+	)
 
 	err := r.fanIn.Write(reqMessage)
 	if err != nil {
@@ -295,13 +299,13 @@ func (r *httpRunner) writeResponse(resWriter http.ResponseWriter, res *message.H
 type httpResponseWriter struct {
 	http.ResponseWriter
 	timestamp    time.Time
-	bytesWritten int
+	bytesWritten int64
 	writeErr     error
 }
 
 func (r *httpResponseWriter) Write(b []byte) (int, error) {
 	n, err := r.ResponseWriter.Write(b)
-	r.bytesWritten += n
+	r.bytesWritten += int64(n)
 
 	if err != nil && r.writeErr == nil {
 		r.writeErr = err
@@ -311,6 +315,8 @@ func (r *httpResponseWriter) Write(b []byte) (int, error) {
 }
 
 func (r *httpRunner) handle(w http.ResponseWriter, req *http.Request) {
+	r.env.Metrics.IncrementHttpServerActiveRequests()
+
 	ctx := req.Context()
 	rw := &httpResponseWriter{
 		ResponseWriter: w,
@@ -327,13 +333,13 @@ func (r *httpRunner) handle(w http.ResponseWriter, req *http.Request) {
 	r.env.Metrics.RecordHttpServerResponseBodySize(ctx, resBodySize)
 
 	reqDuration := time.Since(rw.timestamp)
-	r.env.Metrics.RecordHttpServerRequestDuration(ctx, int(reqDuration.Seconds()))
+	r.env.Metrics.RecordHttpServerRequestDuration(ctx, reqDuration.Seconds())
+
+	r.env.Metrics.DecrementHttpServerActiveRequests()
 }
 
 func (r *httpRunner) handleRequest(ctx context.Context, rw *httpResponseWriter, req *http.Request) {
 	defer req.Body.Close()
-
-	r.env.Metrics.IncrementRequests()
 
 	body, ok := r.readBody(rw, req.Body)
 	if !ok {
@@ -351,15 +357,24 @@ func (r *httpRunner) handleRequest(ctx context.Context, rw *httpResponseWriter, 
 	reqMessage.SetCorrelationID(correlationID)
 
 	// Send the message to the output (next stage)
-	if ok := r.writeRequestMessage(rw, correlationID, reqMessage); !ok {
+	if ok := r.writeRequestMessage(ctx, rw, correlationID, reqMessage); !ok {
 		return
 	}
+
+	r.env.Metrics.IncrementGocciaHttpIngressPendingResponses()
+	defer r.env.Metrics.DecrementGocciaHttpIngressPendingResponses()
+
+	awaitStartTime := time.Now()
 
 	// Wait for the response using the future
 	futureCtx, cancel := context.WithTimeout(ctx, r.env.responseTimeout)
 	defer cancel()
 
 	resMessage, state, err := fut.Await(futureCtx)
+
+	r.env.Metrics.RecordGocciaHttpIngressResponseWaitDuration(
+		ctx, time.Since(awaitStartTime).Seconds(),
+	)
 
 	switch state {
 	case future.StateResolved:

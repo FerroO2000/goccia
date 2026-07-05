@@ -8,21 +8,39 @@ import (
 	"go.opentelemetry.io/otel/metric"
 )
 
-// Histogram represents a histogram metric.
-type Histogram struct {
+// IntHistogram represents an integer histogram metric.
+type IntHistogram struct {
 	histogram      metric.Int64Histogram
 	measurementOpt metric.MeasurementOption
 }
 
-func newHistogram(histogram metric.Int64Histogram, measurementOpt metric.MeasurementOption) *Histogram {
-	return &Histogram{
+func newIntHistogram(histogram metric.Int64Histogram, measurementOpt metric.MeasurementOption) *IntHistogram {
+	return &IntHistogram{
 		histogram:      histogram,
 		measurementOpt: measurementOpt,
 	}
 }
 
 // Record records a value into the histogram.
-func (h *Histogram) Record(ctx context.Context, value int64) {
+func (h *IntHistogram) Record(ctx context.Context, value int64) {
+	h.histogram.Record(ctx, value, h.measurementOpt)
+}
+
+// FloatHistogram represents a float histogram metric.
+type FloatHistogram struct {
+	histogram      metric.Float64Histogram
+	measurementOpt metric.MeasurementOption
+}
+
+func newFloatHistogram(histogram metric.Float64Histogram, measurementOpt metric.MeasurementOption) *FloatHistogram {
+	return &FloatHistogram{
+		histogram:      histogram,
+		measurementOpt: measurementOpt,
+	}
+}
+
+// Record records a value into the histogram.
+func (h *FloatHistogram) Record(ctx context.Context, value float64) {
 	h.histogram.Record(ctx, value, h.measurementOpt)
 }
 
@@ -118,7 +136,7 @@ func (m *meter) NewGaugeMetric(name string, getter func() int64, opts ...metric.
 	}
 
 	measurementOpt := m.measurementOpt
-	_, err = m.m.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
+	_, err = m.m.RegisterCallback(func(_ context.Context, o metric.Observer) error {
 		o.ObserveInt64(gauge, getter(), measurementOpt)
 		return nil
 	})
@@ -126,12 +144,22 @@ func (m *meter) NewGaugeMetric(name string, getter func() int64, opts ...metric.
 	return err
 }
 
-// NewHistogramMetric creates a new histogram metric.
-func (m *meter) NewHistogramMetric(name string, opts ...metric.Int64HistogramOption) (*Histogram, error) {
+// NewIntHistogramMetric creates a new integer histogram metric.
+func (m *meter) NewIntHistogramMetric(name string, opts ...metric.Int64HistogramOption) (*IntHistogram, error) {
 	histogram, err := m.m.Int64Histogram(name, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	return newHistogram(histogram, m.measurementOpt), nil
+	return newIntHistogram(histogram, m.measurementOpt), nil
+}
+
+// NewFloatHistogramMetric creates a new float histogram metric.
+func (m *meter) NewFloatHistogramMetric(name string, opts ...metric.Float64HistogramOption) (*FloatHistogram, error) {
+	histogram, err := m.m.Float64Histogram(name, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return newFloatHistogram(histogram, m.measurementOpt), nil
 }

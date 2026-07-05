@@ -13,7 +13,7 @@ import (
 type EgressStage struct {
 	deliveredMessages          atomic.Int64
 	deliveringErrors           atomic.Int64
-	totalMessageProcessingTime *telemetry.Histogram
+	totalMessageProcessingTime *telemetry.IntHistogram
 }
 
 // NewEgressStage returns a new instance of the EgressStage struct.
@@ -41,7 +41,7 @@ func (m *EgressStage) InitMetrics(tel *telemetry.Telemetry) error {
 	}
 
 	// Initialize total_message_processing_time histogram metric
-	m.totalMessageProcessingTime, err = tel.NewHistogramMetric("total_message_processing_time", metric.WithUnit("ms"))
+	m.totalMessageProcessingTime, err = tel.NewIntHistogramMetric("total_message_processing_time", metric.WithUnit("ms"))
 	if err != nil {
 		return err
 	}
@@ -82,6 +82,6 @@ func (m *EgressStage) IncrementDeliveringErrors() {
 // RecordTotalMessageProcessingTime records the given value into the histogram metric.
 //
 // This function is thread-safe.
-func (m *EgressStage) RecordTotalMessageProcessingTime(ctx context.Context, value int) {
-	m.totalMessageProcessingTime.Record(ctx, int64(value))
+func (m *EgressStage) RecordTotalMessageProcessingTime(ctx context.Context, value int64) {
+	m.totalMessageProcessingTime.Record(ctx, value)
 }

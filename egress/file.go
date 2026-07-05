@@ -276,7 +276,7 @@ func (r *fileRunner[T]) deliver(ctx context.Context, msgIn *msg[T]) {
 
 	r.GetEgressMetrics().IncrementDeliveredMessages()
 	r.GetEgressMetrics().RecordTotalMessageProcessingTime(
-		ctx, int(time.Since(msgIn.GetReceiveTime()).Milliseconds()),
+		ctx, time.Since(msgIn.GetReceiveTime()).Milliseconds(),
 	)
 }
 

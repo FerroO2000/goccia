@@ -4,16 +4,16 @@ package output
 
 import (
 	"context"
-	"sync/atomic"
-
 	"github.com/FerroO2000/goccia/internal/telemetry"
+	"sync/atomic"
 )
 
 // EgressStage structs contains the metrics for the egress_stage group.
 type EgressStage struct {
-	countedItems atomic.Int64
-	currentItems atomic.Int64
-	myHistogram  *telemetry.Histogram
+	countedItems   atomic.Int64
+	currentItems   atomic.Int64
+	intHistogram   *telemetry.IntHistogram
+	floatHistogram *telemetry.FloatHistogram
 }
 
 // NewEgressStage returns a new instance of the EgressStage struct.
@@ -40,8 +40,14 @@ func (m *EgressStage) InitMetrics(tel *telemetry.Telemetry) error {
 		return err
 	}
 
-	// Initialize my_histogram histogram metric
-	m.myHistogram, err = tel.NewHistogramMetric("my_histogram")
+	// Initialize int_histogram histogram metric
+	m.intHistogram, err = tel.NewIntHistogramMetric("int_histogram")
+	if err != nil {
+		return err
+	}
+
+	// Initialize float_histogram histogram metric
+	m.floatHistogram, err = tel.NewFloatHistogramMetric("float_histogram")
 	if err != nil {
 		return err
 	}
@@ -86,9 +92,16 @@ func (m *EgressStage) DecrementCurrentItems() {
 	m.currentItems.Add(-1)
 }
 
-// RecordMyHistogram records the given value into the histogram metric.
+// RecordIntHistogram records the given value into the histogram metric.
 //
 // This function is thread-safe.
-func (m *EgressStage) RecordMyHistogram(ctx context.Context, value int) {
-	m.myHistogram.Record(ctx, int64(value))
+func (m *EgressStage) RecordIntHistogram(ctx context.Context, value int64) {
+	m.intHistogram.Record(ctx, value)
+}
+
+// RecordFloatHistogram records the given value into the histogram metric.
+//
+// This function is thread-safe.
+func (m *EgressStage) RecordFloatHistogram(ctx context.Context, value float64) {
+	m.floatHistogram.Record(ctx, value)
 }

@@ -19,5 +19,10 @@ groups:
       - name: current_items
         type: upDownCounter
 
-      - name: my_histogram
+      - name: int_histogram
         type: histogram
+        data_type: integer
+
+      - name: float_histogram
+        type: histogram
+        data_type: float

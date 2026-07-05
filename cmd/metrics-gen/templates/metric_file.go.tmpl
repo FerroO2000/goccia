@@ -12,7 +12,7 @@ import (
 // {{ $structType }} structs contains the metrics for the {{ .Name }} group.
 type {{ $structType }} struct {
 {{- range .Metrics }}
-    {{ .Name | toLowerCamelCase }} {{ if eq .Type "histogram" }}*telemetry.Histogram{{ else }}atomic.Int64{{ end }}
+    {{ .Name | toLowerCamelCase }} {{ if eq .Type "histogram" }}{{ if eq .DataType "float" }}*telemetry.FloatHistogram{{ else }}*telemetry.IntHistogram{{ end }}{{ else }}atomic.Int64{{ end }}
 {{- end }}
 }
 
@@ -40,7 +40,11 @@ func (m *{{ $structType }}) InitMetrics(tel *telemetry.Telemetry) error {
     err = tel.NewGaugeMetric("{{ .Name }}", func() int64 { return m.{{ $metricField }}.Load() }{{ if .Unit }}, metric.WithUnit("{{ .Unit }}"){{ end }})
 {{- else if eq .Type "histogram" }}
     // Initialize {{ .Name }} histogram metric
-    m.{{ $metricField }}, err = tel.NewHistogramMetric("{{ .Name }}"{{ if .Unit }}, metric.WithUnit("{{ .Unit }}"){{ end }})
+    {{- if eq .DataType "float" }}
+    m.{{ $metricField }}, err = tel.NewFloatHistogramMetric("{{ .Name }}"{{ if .Unit }}, metric.WithUnit("{{ .Unit }}"){{ end }})
+    {{- else }}
+    m.{{ $metricField }}, err = tel.NewIntHistogramMetric("{{ .Name }}"{{ if .Unit }}, metric.WithUnit("{{ .Unit }}"){{ end }})
+    {{- end }}
 {{- end }}
     if err != nil {
         return err
@@ -115,8 +119,8 @@ func (m *{{ $structType }}) Decrement{{ $methodSuffix }}() {
 // Record{{ $methodSuffix }} records the given value into the histogram metric.
 //
 // This function is thread-safe.
-func (m *{{ $structType }}) Record{{ $methodSuffix }}(ctx context.Context, value int) {
-    m.{{ $metricName }}.Record(ctx, int64(value))
+func (m *{{ $structType }}) Record{{ $methodSuffix }}(ctx context.Context, value {{ if eq .DataType "float" }}float64{{ else }}int64{{ end }}) {
+    m.{{ $metricName }}.Record(ctx, value)
 }
 {{- end }}
 {{- end }}

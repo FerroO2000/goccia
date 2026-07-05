@@ -20,10 +20,9 @@ groups:
 
   - name: http_stage
     metrics:
-      - name: requests
-        type: counter
       - name: http.server.request.duration
         type: histogram
+        data_type: float
         unit: s
       - name: http.server.active_requests
         type: upDownCounter
@@ -34,6 +33,20 @@ groups:
       - name: http.server.response.body.size
         type: histogram
         unit: By
+      - name: goccia.http.ingress.queue.len
+        type: gauge
+        unit: "{message}"
+      - name: goccia.http.ingress.queue.wait.duration
+        type: histogram
+        data_type: float
+        unit: s
+      - name: goccia.http.ingress.pending_responses
+        type: upDownCounter
+        unit: "{request}"
+      - name: goccia.http.ingress.response.wait.duration
+        type: histogram
+        data_type: float
+        unit: s
 
   - name: kafka_stage
     metrics:

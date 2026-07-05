@@ -140,7 +140,7 @@ func (ewh *egressWorkerHandler[Env, In, W]) handle(ctx context.Context) error {
 	}
 
 	ewh.stageMetrics.IncrementDeliveredMessages()
-	ewh.stageMetrics.RecordTotalMessageProcessingTime(ctx, int(time.Since(msg.GetReceiveTime()).Milliseconds()))
+	ewh.stageMetrics.RecordTotalMessageProcessingTime(ctx, time.Since(msg.GetReceiveTime()).Milliseconds())
 
 	return nil
 }
