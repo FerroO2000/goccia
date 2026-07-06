@@ -26,10 +26,12 @@ const (
 
 // Metric defines a metric.
 type Metric struct {
-	Name     string     `yaml:"name"`
-	Type     MetricType `yaml:"type"`
-	DataType DataType   `yaml:"data_type"`
-	Unit     string     `yaml:"unit"`
+	Name         string     `yaml:"name"`
+	Description  string     `yaml:"description"`
+	Type         MetricType `yaml:"type"`
+	DataType     DataType   `yaml:"data_type"`
+	Unit         string     `yaml:"unit"`
+	CustomGetter bool       `yaml:"custom_getter"`
 }
 
 func (m *Metric) validate() error {

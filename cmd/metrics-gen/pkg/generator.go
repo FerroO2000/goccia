@@ -4,20 +4,22 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
-	"html/template"
 	"os"
 	"path"
+	"text/template"
 
 	"github.com/FerroO2000/goccia/cmd/metrics-gen/templates"
 )
 
 var metricFileTmpl = template.Must(
-	template.New("codegen").
+	template.New("metric_file.go.tmpl").
 		Funcs(template.FuncMap{
+			"dict":             dict,
 			"toUpperCamelCase": toUpperCamelCase,
 			"toLowerCamelCase": toLowerCamelCase,
+			"getDataType":      getDataType,
 		}).
-		Parse(templates.MetricFileTmplSource),
+		ParseFS(templates.Templates, "*.tmpl"),
 )
 
 var defaultImports = []string{"github.com/FerroO2000/goccia/internal/telemetry"}
@@ -106,7 +108,7 @@ func (g *Generator) Generate(spec *Spec) error {
 func (g *Generator) generateMetricsFile(mf *metricsFile) error {
 	var buf bytes.Buffer
 
-	if err := metricFileTmpl.Execute(&buf, mf); err != nil {
+	if err := metricFileTmpl.ExecuteTemplate(&buf, "metric_file.go.tmpl", mf); err != nil {
 		return fmt.Errorf("execute template: %w", err)
 	}
 

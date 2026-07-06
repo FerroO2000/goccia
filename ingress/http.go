@@ -265,23 +265,27 @@ func (r *httpRunner) makeRequestMessage(req *http.Request, body []byte) *msg[*HT
 
 func (r *httpRunner) writeRequestMessage(
 	ctx context.Context, resWriter http.ResponseWriter, correlationID uint64, reqMessage *msg[*HTTPMessage],
-) bool {
+) (ok bool) {
 	queueWriteTime := time.Now()
-	defer r.env.Metrics.RecordGocciaHttpIngressQueueWaitDuration(
-		ctx, time.Since(queueWriteTime).Seconds(),
-	)
 
 	err := r.fanIn.Write(reqMessage)
 	if err != nil {
+		ok = false
+
 		// If the shutdown sequence order is correct,
 		// this error should never happen
 		r.env.link.RejectFuture(correlationID, err)
 		reqMessage.Destroy()
 		http.Error(resWriter, "service unavailable", http.StatusServiceUnavailable)
-		return false
+	} else {
+		ok = true
 	}
 
-	return true
+	r.env.Metrics.RecordGocciaHttpIngressQueueWaitDuration(
+		ctx, time.Since(queueWriteTime).Seconds(),
+	)
+
+	return ok
 }
 
 func (r *httpRunner) writeResponse(resWriter http.ResponseWriter, res *message.HTTPResponse) {
@@ -316,6 +320,7 @@ func (r *httpResponseWriter) Write(b []byte) (int, error) {
 
 func (r *httpRunner) handle(w http.ResponseWriter, req *http.Request) {
 	r.env.Metrics.IncrementHttpServerActiveRequests()
+	defer r.env.Metrics.DecrementHttpServerActiveRequests()
 
 	ctx := req.Context()
 	rw := &httpResponseWriter{
@@ -334,8 +339,27 @@ func (r *httpRunner) handle(w http.ResponseWriter, req *http.Request) {
 
 	reqDuration := time.Since(rw.timestamp)
 	r.env.Metrics.RecordHttpServerRequestDuration(ctx, reqDuration.Seconds())
+}
 
-	r.env.Metrics.DecrementHttpServerActiveRequests()
+func (r *httpRunner) awaitResponse(
+	ctx context.Context, future *future.Future[*link.HTTPFuture],
+) (*link.HTTPFuture, future.State, error) {
+	r.env.Metrics.IncrementGocciaHttpIngressPendingResponses()
+	defer r.env.Metrics.DecrementGocciaHttpIngressPendingResponses()
+
+	// Wait for the response using the future
+	futureCtx, cancel := context.WithTimeout(ctx, r.env.responseTimeout)
+	defer cancel()
+
+	awaitStartTime := time.Now()
+
+	res, state, err := future.Await(futureCtx)
+
+	r.env.Metrics.RecordGocciaHttpIngressResponseWaitDuration(
+		ctx, time.Since(awaitStartTime).Seconds(),
+	)
+
+	return res, state, err
 }
 
 func (r *httpRunner) handleRequest(ctx context.Context, rw *httpResponseWriter, req *http.Request) {
@@ -361,20 +385,8 @@ func (r *httpRunner) handleRequest(ctx context.Context, rw *httpResponseWriter, 
 		return
 	}
 
-	r.env.Metrics.IncrementGocciaHttpIngressPendingResponses()
-	defer r.env.Metrics.DecrementGocciaHttpIngressPendingResponses()
-
-	awaitStartTime := time.Now()
-
-	// Wait for the response using the future
-	futureCtx, cancel := context.WithTimeout(ctx, r.env.responseTimeout)
-	defer cancel()
-
-	resMessage, state, err := fut.Await(futureCtx)
-
-	r.env.Metrics.RecordGocciaHttpIngressResponseWaitDuration(
-		ctx, time.Since(awaitStartTime).Seconds(),
-	)
+	// Wait for the response
+	resMessage, state, err := r.awaitResponse(ctx, fut)
 
 	switch state {
 	case future.StateResolved:

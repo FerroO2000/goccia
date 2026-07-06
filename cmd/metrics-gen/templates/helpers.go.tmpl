@@ -1,0 +1,44 @@
+{{ define "integerVar" -}}
+{{ .MetricVar }} atomic.Int64
+{{- end }}
+
+{{ define "integerGetter" -}}
+func() int64 { return m.{{ .MetricVar }}.Load() }
+{{- end }}
+
+{{ define "unitArg" -}}
+{{- if .Unit}}
+, metric.WithUnit("{{ .Unit }}")
+{{ end }}
+{{- end }}
+
+{{ define "methodDescComment" -}}
+{{- if .Description -}}
+//
+// {{ .Name | toUpperCamelCase }}: {{ .Description }}
+{{ end }}{{ end -}}
+
+{{ define "addMethod" -}}
+// Add{{ .TitleName }} adds the given amount to the metric.
+// The amount can be either positive or negative.
+{{ template "methodDescComment" .Metric -}}
+func (m *{{ .StructType }}) Add{{ .TitleName }}(amount int) {
+    m.{{ .MetricVar }}.Add(int64(amount))
+}
+{{ end -}}
+
+{{ define "incrementMethod" -}}
+// Increment{{ .TitleName }} increments the metric by 1.
+{{ template "methodDescComment" .Metric -}}
+func (m *{{ .StructType }}) Increment{{ .TitleName }}() {
+    m.{{ .MetricVar }}.Add(1)
+}
+{{ end -}}
+
+{{ define "decrementMethod" -}}
+// Decrement{{ .TitleName }} decrements the metric by 1.
+{{ template "methodDescComment" .Metric -}}
+func (m *{{ .StructType }}) Decrement{{ .TitleName }}() {
+    m.{{ .MetricVar }}.Add(-1)
+}
+{{ end -}}

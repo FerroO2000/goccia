@@ -38,3 +38,22 @@ func camelCase(s string, upper bool) string {
 func toLowerSnakeCase(s string) string {
 	return strings.ToLower(s)
 }
+
+func getDataType(dataType DataType) string {
+	switch dataType {
+	case DataTypeInteger:
+		return "int64"
+	case DataTypeFloat:
+		return "float64"
+	default:
+		return "int64"
+	}
+}
+
+func dict(values ...any) map[string]any {
+	result := make(map[string]any)
+	for i := 0; i < len(values); i += 2 {
+		result[values[i].(string)] = values[i+1]
+	}
+	return result
+}

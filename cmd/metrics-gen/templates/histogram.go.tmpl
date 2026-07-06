@@ -1,0 +1,15 @@
+{{ define "histogramType" -}}
+{{ .MetricVar }} *telemetry.{{ if eq .Metric.DataType "float" }}Float{{ else }}Int{{ end }}Histogram
+{{- end }}
+
+{{ define "histogramInit" -}}
+m.{{ .MetricVar }}, err = tel.New{{ if eq .Metric.DataType "float" }}Float{{ else }}Int{{ end }}HistogramMetric("{{ .Metric.Name }}")
+{{- end }}
+
+{{ define "histogramMethods" -}}
+// Record{{ .TitleName }} records the given value into the histogram metric.
+{{ template "methodDescComment" .Metric -}}
+func (m *{{ .StructType }}) Record{{ .TitleName }}(ctx context.Context, value {{ .Metric.DataType | getDataType}}) {
+    m.{{ .MetricVar }}.Record(ctx, value)
+}
+{{- end }}
