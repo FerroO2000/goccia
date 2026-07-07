@@ -309,7 +309,7 @@ func (r *fileRunner[T]) write(ctx context.Context, msgIn *msg[T]) error {
 		}
 	}
 
-	r.Metrics.AddWrittenBytes(uint(writtenBytes))
+	r.Metrics.AddWrittenBytes(int(writtenBytes))
 
 	return nil
 }

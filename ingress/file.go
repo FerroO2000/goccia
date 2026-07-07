@@ -371,7 +371,7 @@ func (fr *fileReader) read(ctx context.Context) {
 		span.End()
 
 		// Update metrics
-		fr.Metrics.AddReadBytes(uint(readBytes))
+		fr.Metrics.AddReadBytes(int(readBytes))
 
 		if err := fr.dataConnector.Write(msgOut); err != nil {
 			msgOut.Destroy()

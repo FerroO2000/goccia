@@ -3,7 +3,11 @@
 {{- end }}
 
 {{ define "gaugeInit" -}}
-err = tel.NewGaugeMetric("{{ .Metric.Name }}", {{ template "integerGetter" . }}, {{ template "unitArg" .Metric }})
+err = tel.NewGaugeMetric(
+    "{{ .Metric.Name }}",
+    {{ template "integerGetter" . }},
+    {{ template "unitArg" .Metric }}
+)
 {{- end }}
 
 {{ define "gaugeMethods" -}}

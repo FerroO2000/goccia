@@ -7,10 +7,9 @@ func() int64 { return m.{{ .MetricVar }}.Load() }
 {{- end }}
 
 {{ define "unitArg" -}}
-{{- if .Unit}}
-, metric.WithUnit("{{ .Unit }}")
-{{ end }}
-{{- end }}
+{{- if .Unit -}}
+metric.WithUnit("{{ .Unit }}"),
+{{ end }}{{ end -}}
 
 {{ define "methodDescComment" -}}
 {{- if .Description -}}

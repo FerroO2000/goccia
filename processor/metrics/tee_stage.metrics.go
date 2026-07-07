@@ -24,8 +24,11 @@ func NewTeeStage() *TeeStage {
 func (m *TeeStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
-	// Initialize cloned_messages counter metric
-	err = tel.NewCounterMetric("cloned_messages", func() int64 { return m.clonedMessages.Load() })
+	// Initialize cloned_messages metric
+	err = tel.NewCounterMetric(
+		"cloned_messages",
+		func() int64 { return m.clonedMessages.Load() },
+	)
 	if err != nil {
 		return err
 	}
@@ -33,17 +36,18 @@ func (m *TeeStage) InitMetrics(tel *telemetry.Telemetry) error {
 	return nil
 }
 
-// AddClonedMessages adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *TeeStage) AddClonedMessages(amount uint) {
+// AddClonedMessages adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *TeeStage) AddClonedMessages(amount int) {
 	m.clonedMessages.Add(int64(amount))
 }
 
-// IncrementClonedMessages increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementClonedMessages increments the metric by 1.
 func (m *TeeStage) IncrementClonedMessages() {
 	m.clonedMessages.Add(1)
+}
+
+// DecrementClonedMessages decrements the metric by 1.
+func (m *TeeStage) DecrementClonedMessages() {
+	m.clonedMessages.Add(-1)
 }

@@ -26,20 +26,29 @@ func NewFileStage() *FileStage {
 func (m *FileStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
-	// Initialize written_bytes counter metric
-	err = tel.NewCounterMetric("written_bytes", func() int64 { return m.writtenBytes.Load() })
+	// Initialize written_bytes metric
+	err = tel.NewCounterMetric(
+		"written_bytes",
+		func() int64 { return m.writtenBytes.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize write_errors counter metric
-	err = tel.NewCounterMetric("write_errors", func() int64 { return m.writeErrors.Load() })
+	// Initialize write_errors metric
+	err = tel.NewCounterMetric(
+		"write_errors",
+		func() int64 { return m.writeErrors.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize flush_errors counter metric
-	err = tel.NewCounterMetric("flush_errors", func() int64 { return m.flushErrors.Load() })
+	// Initialize flush_errors metric
+	err = tel.NewCounterMetric(
+		"flush_errors",
+		func() int64 { return m.flushErrors.Load() },
+	)
 	if err != nil {
 		return err
 	}
@@ -47,47 +56,50 @@ func (m *FileStage) InitMetrics(tel *telemetry.Telemetry) error {
 	return nil
 }
 
-// AddWrittenBytes adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *FileStage) AddWrittenBytes(amount uint) {
+// AddWrittenBytes adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *FileStage) AddWrittenBytes(amount int) {
 	m.writtenBytes.Add(int64(amount))
 }
 
-// IncrementWrittenBytes increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementWrittenBytes increments the metric by 1.
 func (m *FileStage) IncrementWrittenBytes() {
 	m.writtenBytes.Add(1)
 }
 
-// AddWriteErrors adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *FileStage) AddWriteErrors(amount uint) {
+// DecrementWrittenBytes decrements the metric by 1.
+func (m *FileStage) DecrementWrittenBytes() {
+	m.writtenBytes.Add(-1)
+}
+
+// AddWriteErrors adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *FileStage) AddWriteErrors(amount int) {
 	m.writeErrors.Add(int64(amount))
 }
 
-// IncrementWriteErrors increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementWriteErrors increments the metric by 1.
 func (m *FileStage) IncrementWriteErrors() {
 	m.writeErrors.Add(1)
 }
 
-// AddFlushErrors adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *FileStage) AddFlushErrors(amount uint) {
+// DecrementWriteErrors decrements the metric by 1.
+func (m *FileStage) DecrementWriteErrors() {
+	m.writeErrors.Add(-1)
+}
+
+// AddFlushErrors adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *FileStage) AddFlushErrors(amount int) {
 	m.flushErrors.Add(int64(amount))
 }
 
-// IncrementFlushErrors increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementFlushErrors increments the metric by 1.
 func (m *FileStage) IncrementFlushErrors() {
 	m.flushErrors.Add(1)
+}
+
+// DecrementFlushErrors decrements the metric by 1.
+func (m *FileStage) DecrementFlushErrors() {
+	m.flushErrors.Add(-1)
 }

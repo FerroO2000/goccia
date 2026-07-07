@@ -3,7 +3,11 @@
 {{- end }}
 
 {{ define "upDownCounterInit" -}}
-err = tel.NewUpDownCounterMetric("{{ .Metric.Name }}", {{ template "integerGetter" . }}, {{ template "unitArg" .Metric }})
+err = tel.NewUpDownCounterMetric(
+    "{{ .Metric.Name }}",
+    {{ template "integerGetter" . }},
+    {{ template "unitArg" .Metric }}
+)
 {{- end }}
 
 {{ define "upDownCounterMethods" -}}

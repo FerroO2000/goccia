@@ -25,14 +25,20 @@ func NewUdpStage() *UdpStage {
 func (m *UdpStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
-	// Initialize received_messages counter metric
-	err = tel.NewCounterMetric("received_messages", func() int64 { return m.receivedMessages.Load() })
+	// Initialize received_messages metric
+	err = tel.NewCounterMetric(
+		"received_messages",
+		func() int64 { return m.receivedMessages.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize received_bytes counter metric
-	err = tel.NewCounterMetric("received_bytes", func() int64 { return m.receivedBytes.Load() })
+	// Initialize received_bytes metric
+	err = tel.NewCounterMetric(
+		"received_bytes",
+		func() int64 { return m.receivedBytes.Load() },
+	)
 	if err != nil {
 		return err
 	}
@@ -40,32 +46,34 @@ func (m *UdpStage) InitMetrics(tel *telemetry.Telemetry) error {
 	return nil
 }
 
-// AddReceivedMessages adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *UdpStage) AddReceivedMessages(amount uint) {
+// AddReceivedMessages adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *UdpStage) AddReceivedMessages(amount int) {
 	m.receivedMessages.Add(int64(amount))
 }
 
-// IncrementReceivedMessages increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementReceivedMessages increments the metric by 1.
 func (m *UdpStage) IncrementReceivedMessages() {
 	m.receivedMessages.Add(1)
 }
 
-// AddReceivedBytes adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *UdpStage) AddReceivedBytes(amount uint) {
+// DecrementReceivedMessages decrements the metric by 1.
+func (m *UdpStage) DecrementReceivedMessages() {
+	m.receivedMessages.Add(-1)
+}
+
+// AddReceivedBytes adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *UdpStage) AddReceivedBytes(amount int) {
 	m.receivedBytes.Add(int64(amount))
 }
 
-// IncrementReceivedBytes increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementReceivedBytes increments the metric by 1.
 func (m *UdpStage) IncrementReceivedBytes() {
 	m.receivedBytes.Add(1)
+}
+
+// DecrementReceivedBytes decrements the metric by 1.
+func (m *UdpStage) DecrementReceivedBytes() {
+	m.receivedBytes.Add(-1)
 }

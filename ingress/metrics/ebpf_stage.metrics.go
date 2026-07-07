@@ -26,20 +26,29 @@ func NewEbpfStage() *EbpfStage {
 func (m *EbpfStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
-	// Initialize received_records counter metric
-	err = tel.NewCounterMetric("received_records", func() int64 { return m.receivedRecords.Load() })
+	// Initialize received_records metric
+	err = tel.NewCounterMetric(
+		"received_records",
+		func() int64 { return m.receivedRecords.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize parsing_errors counter metric
-	err = tel.NewCounterMetric("parsing_errors", func() int64 { return m.parsingErrors.Load() })
+	// Initialize parsing_errors metric
+	err = tel.NewCounterMetric(
+		"parsing_errors",
+		func() int64 { return m.parsingErrors.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize received_bytes counter metric
-	err = tel.NewCounterMetric("received_bytes", func() int64 { return m.receivedBytes.Load() })
+	// Initialize received_bytes metric
+	err = tel.NewCounterMetric(
+		"received_bytes",
+		func() int64 { return m.receivedBytes.Load() },
+	)
 	if err != nil {
 		return err
 	}
@@ -47,47 +56,50 @@ func (m *EbpfStage) InitMetrics(tel *telemetry.Telemetry) error {
 	return nil
 }
 
-// AddReceivedRecords adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *EbpfStage) AddReceivedRecords(amount uint) {
+// AddReceivedRecords adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *EbpfStage) AddReceivedRecords(amount int) {
 	m.receivedRecords.Add(int64(amount))
 }
 
-// IncrementReceivedRecords increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementReceivedRecords increments the metric by 1.
 func (m *EbpfStage) IncrementReceivedRecords() {
 	m.receivedRecords.Add(1)
 }
 
-// AddParsingErrors adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *EbpfStage) AddParsingErrors(amount uint) {
+// DecrementReceivedRecords decrements the metric by 1.
+func (m *EbpfStage) DecrementReceivedRecords() {
+	m.receivedRecords.Add(-1)
+}
+
+// AddParsingErrors adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *EbpfStage) AddParsingErrors(amount int) {
 	m.parsingErrors.Add(int64(amount))
 }
 
-// IncrementParsingErrors increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementParsingErrors increments the metric by 1.
 func (m *EbpfStage) IncrementParsingErrors() {
 	m.parsingErrors.Add(1)
 }
 
-// AddReceivedBytes adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *EbpfStage) AddReceivedBytes(amount uint) {
+// DecrementParsingErrors decrements the metric by 1.
+func (m *EbpfStage) DecrementParsingErrors() {
+	m.parsingErrors.Add(-1)
+}
+
+// AddReceivedBytes adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *EbpfStage) AddReceivedBytes(amount int) {
 	m.receivedBytes.Add(int64(amount))
 }
 
-// IncrementReceivedBytes increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementReceivedBytes increments the metric by 1.
 func (m *EbpfStage) IncrementReceivedBytes() {
 	m.receivedBytes.Add(1)
+}
+
+// DecrementReceivedBytes decrements the metric by 1.
+func (m *EbpfStage) DecrementReceivedBytes() {
+	m.receivedBytes.Add(-1)
 }

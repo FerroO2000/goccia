@@ -25,14 +25,20 @@ func NewCanStage() *CanStage {
 func (m *CanStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
-	// Initialize can_messages counter metric
-	err = tel.NewCounterMetric("can_messages", func() int64 { return m.canMessages.Load() })
+	// Initialize can_messages metric
+	err = tel.NewCounterMetric(
+		"can_messages",
+		func() int64 { return m.canMessages.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize can_signals counter metric
-	err = tel.NewCounterMetric("can_signals", func() int64 { return m.canSignals.Load() })
+	// Initialize can_signals metric
+	err = tel.NewCounterMetric(
+		"can_signals",
+		func() int64 { return m.canSignals.Load() },
+	)
 	if err != nil {
 		return err
 	}
@@ -40,32 +46,34 @@ func (m *CanStage) InitMetrics(tel *telemetry.Telemetry) error {
 	return nil
 }
 
-// AddCanMessages adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *CanStage) AddCanMessages(amount uint) {
+// AddCanMessages adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *CanStage) AddCanMessages(amount int) {
 	m.canMessages.Add(int64(amount))
 }
 
-// IncrementCanMessages increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementCanMessages increments the metric by 1.
 func (m *CanStage) IncrementCanMessages() {
 	m.canMessages.Add(1)
 }
 
-// AddCanSignals adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *CanStage) AddCanSignals(amount uint) {
+// DecrementCanMessages decrements the metric by 1.
+func (m *CanStage) DecrementCanMessages() {
+	m.canMessages.Add(-1)
+}
+
+// AddCanSignals adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *CanStage) AddCanSignals(amount int) {
 	m.canSignals.Add(int64(amount))
 }
 
-// IncrementCanSignals increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementCanSignals increments the metric by 1.
 func (m *CanStage) IncrementCanSignals() {
 	m.canSignals.Add(1)
+}
+
+// DecrementCanSignals decrements the metric by 1.
+func (m *CanStage) DecrementCanSignals() {
+	m.canSignals.Add(-1)
 }

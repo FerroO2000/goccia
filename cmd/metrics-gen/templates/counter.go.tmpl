@@ -3,7 +3,11 @@
 {{- end }}
 
 {{ define "counterInit" -}}
-err = tel.NewCounterMetric("{{ .Metric.Name }}", {{ template "integerGetter" . }}, {{ template "unitArg" .Metric }})
+err = tel.NewCounterMetric(
+    "{{ .Metric.Name }}",
+    {{ template "integerGetter" . }},
+    {{ template "unitArg" .Metric }}
+)
 {{- end }}
 
 {{ define "counterMethods" -}}

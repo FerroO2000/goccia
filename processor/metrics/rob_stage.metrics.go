@@ -30,44 +30,65 @@ func NewRobStage() *RobStage {
 func (m *RobStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
-	// Initialize ordered_messages counter metric
-	err = tel.NewCounterMetric("ordered_messages", func() int64 { return m.orderedMessages.Load() })
+	// Initialize ordered_messages metric
+	err = tel.NewCounterMetric(
+		"ordered_messages",
+		func() int64 { return m.orderedMessages.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize primary_enqueued_messages counter metric
-	err = tel.NewCounterMetric("primary_enqueued_messages", func() int64 { return m.primaryEnqueuedMessages.Load() })
+	// Initialize primary_enqueued_messages metric
+	err = tel.NewCounterMetric(
+		"primary_enqueued_messages",
+		func() int64 { return m.primaryEnqueuedMessages.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize auxiliary_enqueued_messages counter metric
-	err = tel.NewCounterMetric("auxiliary_enqueued_messages", func() int64 { return m.auxiliaryEnqueuedMessages.Load() })
+	// Initialize auxiliary_enqueued_messages metric
+	err = tel.NewCounterMetric(
+		"auxiliary_enqueued_messages",
+		func() int64 { return m.auxiliaryEnqueuedMessages.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize out_of_order_sequence_number counter metric
-	err = tel.NewCounterMetric("out_of_order_sequence_number", func() int64 { return m.outOfOrderSequenceNumber.Load() })
+	// Initialize out_of_order_sequence_number metric
+	err = tel.NewCounterMetric(
+		"out_of_order_sequence_number",
+		func() int64 { return m.outOfOrderSequenceNumber.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize duplicated_sequence_number counter metric
-	err = tel.NewCounterMetric("duplicated_sequence_number", func() int64 { return m.duplicatedSequenceNumber.Load() })
+	// Initialize duplicated_sequence_number metric
+	err = tel.NewCounterMetric(
+		"duplicated_sequence_number",
+		func() int64 { return m.duplicatedSequenceNumber.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize invalid_sequence_number counter metric
-	err = tel.NewCounterMetric("invalid_sequence_number", func() int64 { return m.invalidSequenceNumber.Load() })
+	// Initialize invalid_sequence_number metric
+	err = tel.NewCounterMetric(
+		"invalid_sequence_number",
+		func() int64 { return m.invalidSequenceNumber.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize resets counter metric
-	err = tel.NewCounterMetric("resets", func() int64 { return m.resets.Load() })
+	// Initialize resets metric
+	err = tel.NewCounterMetric(
+		"resets",
+		func() int64 { return m.resets.Load() },
+	)
 	if err != nil {
 		return err
 	}
@@ -75,107 +96,114 @@ func (m *RobStage) InitMetrics(tel *telemetry.Telemetry) error {
 	return nil
 }
 
-// AddOrderedMessages adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *RobStage) AddOrderedMessages(amount uint) {
+// AddOrderedMessages adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *RobStage) AddOrderedMessages(amount int) {
 	m.orderedMessages.Add(int64(amount))
 }
 
-// IncrementOrderedMessages increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementOrderedMessages increments the metric by 1.
 func (m *RobStage) IncrementOrderedMessages() {
 	m.orderedMessages.Add(1)
 }
 
-// AddPrimaryEnqueuedMessages adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *RobStage) AddPrimaryEnqueuedMessages(amount uint) {
+// DecrementOrderedMessages decrements the metric by 1.
+func (m *RobStage) DecrementOrderedMessages() {
+	m.orderedMessages.Add(-1)
+}
+
+// AddPrimaryEnqueuedMessages adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *RobStage) AddPrimaryEnqueuedMessages(amount int) {
 	m.primaryEnqueuedMessages.Add(int64(amount))
 }
 
-// IncrementPrimaryEnqueuedMessages increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementPrimaryEnqueuedMessages increments the metric by 1.
 func (m *RobStage) IncrementPrimaryEnqueuedMessages() {
 	m.primaryEnqueuedMessages.Add(1)
 }
 
-// AddAuxiliaryEnqueuedMessages adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *RobStage) AddAuxiliaryEnqueuedMessages(amount uint) {
+// DecrementPrimaryEnqueuedMessages decrements the metric by 1.
+func (m *RobStage) DecrementPrimaryEnqueuedMessages() {
+	m.primaryEnqueuedMessages.Add(-1)
+}
+
+// AddAuxiliaryEnqueuedMessages adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *RobStage) AddAuxiliaryEnqueuedMessages(amount int) {
 	m.auxiliaryEnqueuedMessages.Add(int64(amount))
 }
 
-// IncrementAuxiliaryEnqueuedMessages increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementAuxiliaryEnqueuedMessages increments the metric by 1.
 func (m *RobStage) IncrementAuxiliaryEnqueuedMessages() {
 	m.auxiliaryEnqueuedMessages.Add(1)
 }
 
-// AddOutOfOrderSequenceNumber adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *RobStage) AddOutOfOrderSequenceNumber(amount uint) {
+// DecrementAuxiliaryEnqueuedMessages decrements the metric by 1.
+func (m *RobStage) DecrementAuxiliaryEnqueuedMessages() {
+	m.auxiliaryEnqueuedMessages.Add(-1)
+}
+
+// AddOutOfOrderSequenceNumber adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *RobStage) AddOutOfOrderSequenceNumber(amount int) {
 	m.outOfOrderSequenceNumber.Add(int64(amount))
 }
 
-// IncrementOutOfOrderSequenceNumber increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementOutOfOrderSequenceNumber increments the metric by 1.
 func (m *RobStage) IncrementOutOfOrderSequenceNumber() {
 	m.outOfOrderSequenceNumber.Add(1)
 }
 
-// AddDuplicatedSequenceNumber adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *RobStage) AddDuplicatedSequenceNumber(amount uint) {
+// DecrementOutOfOrderSequenceNumber decrements the metric by 1.
+func (m *RobStage) DecrementOutOfOrderSequenceNumber() {
+	m.outOfOrderSequenceNumber.Add(-1)
+}
+
+// AddDuplicatedSequenceNumber adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *RobStage) AddDuplicatedSequenceNumber(amount int) {
 	m.duplicatedSequenceNumber.Add(int64(amount))
 }
 
-// IncrementDuplicatedSequenceNumber increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementDuplicatedSequenceNumber increments the metric by 1.
 func (m *RobStage) IncrementDuplicatedSequenceNumber() {
 	m.duplicatedSequenceNumber.Add(1)
 }
 
-// AddInvalidSequenceNumber adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *RobStage) AddInvalidSequenceNumber(amount uint) {
+// DecrementDuplicatedSequenceNumber decrements the metric by 1.
+func (m *RobStage) DecrementDuplicatedSequenceNumber() {
+	m.duplicatedSequenceNumber.Add(-1)
+}
+
+// AddInvalidSequenceNumber adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *RobStage) AddInvalidSequenceNumber(amount int) {
 	m.invalidSequenceNumber.Add(int64(amount))
 }
 
-// IncrementInvalidSequenceNumber increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementInvalidSequenceNumber increments the metric by 1.
 func (m *RobStage) IncrementInvalidSequenceNumber() {
 	m.invalidSequenceNumber.Add(1)
 }
 
-// AddResets adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *RobStage) AddResets(amount uint) {
+// DecrementInvalidSequenceNumber decrements the metric by 1.
+func (m *RobStage) DecrementInvalidSequenceNumber() {
+	m.invalidSequenceNumber.Add(-1)
+}
+
+// AddResets adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *RobStage) AddResets(amount int) {
 	m.resets.Add(int64(amount))
 }
 
-// IncrementResets increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementResets increments the metric by 1.
 func (m *RobStage) IncrementResets() {
 	m.resets.Add(1)
+}
+
+// DecrementResets decrements the metric by 1.
+func (m *RobStage) DecrementResets() {
+	m.resets.Add(-1)
 }

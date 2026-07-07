@@ -24,8 +24,11 @@ func NewFilterStage() *FilterStage {
 func (m *FilterStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
-	// Initialize filtered_messages counter metric
-	err = tel.NewCounterMetric("filtered_messages", func() int64 { return m.filteredMessages.Load() })
+	// Initialize filtered_messages metric
+	err = tel.NewCounterMetric(
+		"filtered_messages",
+		func() int64 { return m.filteredMessages.Load() },
+	)
 	if err != nil {
 		return err
 	}
@@ -33,17 +36,18 @@ func (m *FilterStage) InitMetrics(tel *telemetry.Telemetry) error {
 	return nil
 }
 
-// AddFilteredMessages adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *FilterStage) AddFilteredMessages(amount uint) {
+// AddFilteredMessages adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *FilterStage) AddFilteredMessages(amount int) {
 	m.filteredMessages.Add(int64(amount))
 }
 
-// IncrementFilteredMessages increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementFilteredMessages increments the metric by 1.
 func (m *FilterStage) IncrementFilteredMessages() {
 	m.filteredMessages.Add(1)
+}
+
+// DecrementFilteredMessages decrements the metric by 1.
+func (m *FilterStage) DecrementFilteredMessages() {
+	m.filteredMessages.Add(-1)
 }

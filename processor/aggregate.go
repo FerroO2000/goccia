@@ -151,7 +151,7 @@ func (r *aggregateRunner[T]) Run(ctx context.Context) {
 		}
 
 	writeOutput:
-		r.GetProcessorMetrics().AddProcessedMessages(uint(len(accumulator)))
+		r.GetProcessorMetrics().AddProcessedMessages(len(accumulator))
 
 		msgOut := r.aggregate(ctx, accumulator)
 
