@@ -22,8 +22,13 @@ func newIntHistogram(histogram metric.Int64Histogram, measurementOpt metric.Meas
 }
 
 // Record records a value into the histogram.
-func (h *IntHistogram) Record(ctx context.Context, value int64) {
-	h.histogram.Record(ctx, value, h.measurementOpt)
+func (h *IntHistogram) Record(ctx context.Context, value int64, attrs ...attribute.KeyValue) {
+	if len(attrs) == 0 {
+		h.histogram.Record(ctx, value, h.measurementOpt)
+		return
+	}
+
+	h.histogram.Record(ctx, value, h.measurementOpt, metric.WithAttributes(attrs...))
 }
 
 // FloatHistogram represents a float histogram metric.
@@ -40,8 +45,13 @@ func newFloatHistogram(histogram metric.Float64Histogram, measurementOpt metric.
 }
 
 // Record records a value into the histogram.
-func (h *FloatHistogram) Record(ctx context.Context, value float64) {
-	h.histogram.Record(ctx, value, h.measurementOpt)
+func (h *FloatHistogram) Record(ctx context.Context, value float64, attrs ...attribute.KeyValue) {
+	if len(attrs) == 0 {
+		h.histogram.Record(ctx, value, h.measurementOpt)
+		return
+	}
+
+	h.histogram.Record(ctx, value, h.measurementOpt, metric.WithAttributes(attrs...))
 }
 
 // CounterMetricDataPoint defines a single observable counter data point.

@@ -22,7 +22,17 @@ groups:
       - name: int_histogram
         type: histogram
         data_type: integer
+        attributes:
+          - name: arg1
+            type: string
+          - name: arg2
+            type: bool
 
       - name: float_histogram
         type: histogram
         data_type: float
+        attributes:
+          - name: arg1
+            type: int
+          - name: arg2
+            type: float

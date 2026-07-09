@@ -27,19 +27,28 @@ func (m *ProcessorStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
 	// Initialize counted_items metric
-	err = tel.NewCounterMetric("counted_items", func() int64 { return m.countedItems.Load() })
+	err = tel.NewCounterMetric(
+		"counted_items",
+		func() int64 { return m.countedItems.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
 	// Initialize current_items metric
-	err = tel.NewUpDownCounterMetric("current_items", func() int64 { return m.currentItems.Load() })
+	err = tel.NewUpDownCounterMetric(
+		"current_items",
+		func() int64 { return m.currentItems.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
 	// Initialize my_gauge metric
-	err = tel.NewGaugeMetric("my_gauge", func() int64 { return m.myGauge.Load() })
+	err = tel.NewGaugeMetric(
+		"my_gauge",
+		func() int64 { return m.myGauge.Load() },
+	)
 	if err != nil {
 		return err
 	}

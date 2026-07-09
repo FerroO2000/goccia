@@ -41,3 +41,17 @@ func (m *{{ .StructType }}) Decrement{{ .TitleName }}() {
     m.{{ .MetricVar }}.Add(-1)
 }
 {{ end -}}
+
+{{ define "attributeArgs" -}}
+{{ range .Attributes -}}
+{{ $type := "string" -}}
+{{ if eq .Type "bool" -}}
+    {{ $type = "bool" -}}
+{{ else if eq .Type "int" -}}
+    {{ $type = "int" -}}
+{{ else if eq .Type "float" -}}
+    {{- $type = "float64" -}}
+{{ end -}}
+, {{ .Arg }} {{ $type -}}
+{{ end -}}
+{{ end -}}

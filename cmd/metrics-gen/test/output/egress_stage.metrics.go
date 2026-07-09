@@ -29,13 +29,19 @@ func (m *EgressStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
 	// Initialize counted_items metric
-	err = tel.NewCounterMetric("counted_items", func() int64 { return m.countedItems.Load() })
+	err = tel.NewCounterMetric(
+		"counted_items",
+		func() int64 { return m.countedItems.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
 	// Initialize current_items metric
-	err = tel.NewUpDownCounterMetric("current_items", func() int64 { return m.currentItems.Load() })
+	err = tel.NewUpDownCounterMetric(
+		"current_items",
+		func() int64 { return m.currentItems.Load() },
+	)
 	if err != nil {
 		return err
 	}
@@ -88,11 +94,11 @@ func (m *EgressStage) DecrementCurrentItems() {
 }
 
 // RecordIntHistogram records the given value into the histogram metric.
-func (m *EgressStage) RecordIntHistogram(ctx context.Context, value int64) {
+func (m *EgressStage) RecordIntHistogram(ctx context.Context, value int64, arg1 string, arg2 bool) {
 	m.intHistogram.Record(ctx, value)
 }
 
 // RecordFloatHistogram records the given value into the histogram metric.
-func (m *EgressStage) RecordFloatHistogram(ctx context.Context, value float64) {
+func (m *EgressStage) RecordFloatHistogram(ctx context.Context, value float64, arg1 int, arg2 float64) {
 	m.floatHistogram.Record(ctx, value)
 }
