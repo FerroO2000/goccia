@@ -47,6 +47,10 @@ This egress stage produces no downstream output message.
 | `Stage.Pool` | default pool when pool mode is selected | Worker counts, queue sizes, and auto-scaling. |
 | `Address` | `"localhost:9000"` | QuestDB endpoint address. |
 
+## Metrics
+
+--8<-- "egress/metrics/quest_db_stage.doc.md"
+
 ## Internals
 
 The stage uses `github.com/questdb/go-questdb-client/v3`. Initialization builds

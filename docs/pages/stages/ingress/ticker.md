@@ -30,6 +30,10 @@ Additional interfaces: none. `TickerMessage` only implements the standard
 | --- | --- | --- |
 | `Interval` | `100 * time.Millisecond` | Time between generated ticks. Must be positive. |
 
+## Metrics
+
+--8<-- "ingress/metrics/ticker_stage.doc.md"
+
 ## Internals
 
 The runner uses Go's standard `time.Ticker`. Each tick creates a new message,

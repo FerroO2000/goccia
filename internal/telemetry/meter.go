@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"slices"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -31,6 +32,11 @@ func (h *IntHistogram) Record(ctx context.Context, value int64, attrs ...attribu
 	h.histogram.Record(ctx, value, h.measurementOpt, metric.WithAttributes(attrs...))
 }
 
+// RecordWithAttributes records a value into the histogram with attributes.
+func (h *IntHistogram) RecordWithAttributes(ctx context.Context, value int64, attrs metric.MeasurementOption) {
+	h.histogram.Record(ctx, value, attrs)
+}
+
 // FloatHistogram represents a float histogram metric.
 type FloatHistogram struct {
 	histogram      metric.Float64Histogram
@@ -54,6 +60,11 @@ func (h *FloatHistogram) Record(ctx context.Context, value float64, attrs ...att
 	h.histogram.Record(ctx, value, h.measurementOpt, metric.WithAttributes(attrs...))
 }
 
+// RecordWithAttributes records a value into the histogram with attributes.
+func (h *FloatHistogram) RecordWithAttributes(ctx context.Context, value float64, attrs metric.MeasurementOption) {
+	h.histogram.Record(ctx, value, attrs)
+}
+
 // CounterMetricDataPoint defines a single observable counter data point.
 type CounterMetricDataPoint struct {
 	Getter     func() int64
@@ -64,6 +75,7 @@ type meter struct {
 	m metric.Meter
 
 	measurementOpt metric.MeasurementOption
+	baseAttributes []attribute.KeyValue
 }
 
 func newMeter(attributes []attribute.KeyValue) *meter {
@@ -78,8 +90,20 @@ func newMeter(attributes []attribute.KeyValue) *meter {
 	return &meter{
 		m: m,
 
+		baseAttributes: slices.Clone(attributes),
 		measurementOpt: metric.WithAttributes(attributes...),
 	}
+}
+
+func (m *meter) NewMetricAttributes(attrs ...attribute.KeyValue) metric.MeasurementOption {
+	combined := make([]attribute.KeyValue, 0, len(m.baseAttributes)+len(attrs))
+
+	combined = append(combined, m.baseAttributes...)
+	combined = append(combined, attrs...)
+
+	set := attribute.NewSet(combined...)
+
+	return metric.WithAttributeSet(set)
 }
 
 // NewCounterMetric creates a new counter metric.

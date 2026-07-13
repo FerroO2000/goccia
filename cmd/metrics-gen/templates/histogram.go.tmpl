@@ -3,13 +3,39 @@
 {{- end }}
 
 {{ define "histogramInit" -}}
-m.{{ .MetricVar }}, err = tel.New{{ if eq .Metric.DataType "float" }}Float{{ else }}Int{{ end }}HistogramMetric("{{ .Metric.Name }}")
+m.{{ .MetricVar }}, err = tel.New{{ if eq .Metric.DataType "float" }}Float{{ else }}Int{{ end }}HistogramMetric(
+    "{{ .Metric.Name }}",
+    {{ template "unitArg" .Metric }}
+)
 {{- end }}
 
 {{ define "histogramMethods" -}}
 // Record{{ .TitleName }} records the given value into the histogram metric.
 {{ template "methodDescComment" .Metric -}}
-func (m *{{ .StructType }}) Record{{ .TitleName }}(ctx context.Context, value {{ .Metric.DataType | getDataType}}{{ template "attributeArgs" .Metric }}) {
-    m.{{ .MetricVar }}.Record(ctx, value)
+func (m *{{ .StructType }}) Record{{ .TitleName }}(
+    ctx context.Context,
+    value {{ .Metric.DataType | getDataType}},
+    {{ template "attributeArgs" .Metric -}}
+) {
+    m.{{ .MetricVar }}.Record(
+        ctx,
+        value,
+        {{ template "attributeOptions" .Metric }}
+    )
+}
+
+// Record{{ .TitleName }}WithAttributes records the given value 
+// ans attributes into the histogram metric.
+{{ template "methodDescComment" .Metric -}}
+func (m *{{ .StructType }}) Record{{ .TitleName }}WithAttributes(
+    ctx context.Context,
+    value {{ .Metric.DataType | getDataType}},
+    attributes metric.MeasurementOption,
+) {
+    m.{{ .MetricVar }}.RecordWithAttributes(
+        ctx,
+        value,
+        attributes,
+    )
 }
 {{- end }}

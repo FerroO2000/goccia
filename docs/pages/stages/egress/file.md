@@ -49,6 +49,10 @@ cfg.RotationInterval = 24 * time.Hour
 When rotation is enabled, choose a `Path` layout that changes at the configured
 interval. For example, hourly rotation should include the hour in the path.
 
+## Metrics
+
+--8<-- "egress/metrics/file_stage.doc.md"
+
 ## Internals
 
 The stage uses `os.File` and `bufio.Writer` from the standard library. It opens

@@ -16,20 +16,26 @@ import (
 
 // ─── Config ─────────────────────────────────────────────────────────────────|
 
+// HTTPConfig contains the configuration for the HTTP egress stage.
 type HTTPConfig struct {
+	// Header contains headers added to every response before it is delivered to
+	// the corresponding HTTP ingress stage. A nil header adds nothing.
 	Header http.Header
 }
 
+// NewHTTPConfig returns the default configuration for the HTTP egress stage.
 func NewHTTPConfig() *HTTPConfig {
 	return &HTTPConfig{
 		Header: nil,
 	}
 }
 
+// Validate checks the configuration.
 func (*HTTPConfig) Validate(_ *config.AnomalyCollector) {}
 
 // ─── Message ────────────────────────────────────────────────────────────────|
 
+// HTTPMessage is the response message consumed by the HTTP egress stage.
 type HTTPMessage = message.HTTPResponse
 
 // ─── Environment ────────────────────────────────────────────────────────────|
@@ -85,7 +91,7 @@ func (r *httpRunner) Run(ctx context.Context) {
 			return
 		}
 
-		r.handleResponse(msgIn)
+		r.handleResponse(ctx, msgIn)
 	}
 }
 
@@ -125,7 +131,11 @@ func (r *httpRunner) handleHeader(httpResponse *HTTPMessage) {
 	}
 }
 
-func (r *httpRunner) handleResponse(msgIn *msg[*HTTPMessage]) {
+func (r *httpRunner) handleResponse(ctx context.Context, msgIn *msg[*HTTPMessage]) {
+	ctx = msgIn.LoadSpanContext(ctx)
+	ctx, span := r.Tel.StartTrace(ctx, "handle response")
+	defer span.End()
+
 	correlationID := msgIn.GetCorrelationID()
 	httpResponse := msgIn.GetBody()
 
@@ -153,10 +163,14 @@ func (r *httpRunner) Outputs() []uintptr {
 
 // ─── Stage ──────────────────────────────────────────────────────────────────|
 
+// HTTPStage is an egress stage that delivers correlated responses to the
+// corresponding HTTP ingress stage.
 type HTTPStage struct {
 	*stage.EgressStage[*HTTPMessage, *httpEnv]
 }
 
+// NewHTTPStage returns a new HTTP egress stage using link to resolve responses
+// for requests accepted by the corresponding HTTP ingress stage.
 func NewHTTPStage(link *link.HTTP, outConnector msgConn[*HTTPMessage], config *HTTPConfig) *HTTPStage {
 	return &HTTPStage{
 		EgressStage: stage.NewEgressStageFromRunner[*HTTPMessage](

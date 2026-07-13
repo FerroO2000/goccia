@@ -4,9 +4,9 @@ package metrics
 
 import (
 	"context"
-	"sync/atomic"
-
 	"github.com/FerroO2000/goccia/internal/telemetry"
+	"go.opentelemetry.io/otel/metric"
+	"sync/atomic"
 )
 
 // EgressStage structs contains the metrics for the egress_stage group.
@@ -47,7 +47,10 @@ func (m *EgressStage) InitMetrics(tel *telemetry.Telemetry) error {
 	}
 
 	// Initialize total_message_processing_time metric
-	m.totalMessageProcessingTime, err = tel.NewIntHistogramMetric("total_message_processing_time")
+	m.totalMessageProcessingTime, err = tel.NewIntHistogramMetric(
+		"total_message_processing_time",
+		metric.WithUnit("ms"),
+	)
 	if err != nil {
 		return err
 	}
@@ -88,6 +91,26 @@ func (m *EgressStage) DecrementDeliveringErrors() {
 }
 
 // RecordTotalMessageProcessingTime records the given value into the histogram metric.
-func (m *EgressStage) RecordTotalMessageProcessingTime(ctx context.Context, value int64) {
-	m.totalMessageProcessingTime.Record(ctx, value)
+func (m *EgressStage) RecordTotalMessageProcessingTime(
+	ctx context.Context,
+	value int64,
+) {
+	m.totalMessageProcessingTime.Record(
+		ctx,
+		value,
+	)
+}
+
+// RecordTotalMessageProcessingTimeWithAttributes records the given value
+// ans attributes into the histogram metric.
+func (m *EgressStage) RecordTotalMessageProcessingTimeWithAttributes(
+	ctx context.Context,
+	value int64,
+	attributes metric.MeasurementOption,
+) {
+	m.totalMessageProcessingTime.RecordWithAttributes(
+		ctx,
+		value,
+		attributes,
+	)
 }

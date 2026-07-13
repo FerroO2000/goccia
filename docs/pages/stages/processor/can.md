@@ -46,6 +46,10 @@ Additional interfaces: none. `CANMessage` only implements the standard
 | `Stage.Pool` | default pool when pool mode is selected | Worker counts, queue sizes, and auto-scaling. |
 | `Messages` | empty | CAN message definitions from `github.com/squadracorsepolito/acmelib`. |
 
+## Metrics
+
+--8<-- "processor/metrics/can_stage.doc.md"
+
 ## Internals
 
 The stage uses Goccia's generic worker-backed processor runner. Decoding is

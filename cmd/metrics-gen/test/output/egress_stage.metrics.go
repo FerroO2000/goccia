@@ -5,6 +5,7 @@ package output
 import (
 	"context"
 	"github.com/FerroO2000/goccia/internal/telemetry"
+	"go.opentelemetry.io/otel/attribute"
 	"sync/atomic"
 )
 
@@ -47,13 +48,17 @@ func (m *EgressStage) InitMetrics(tel *telemetry.Telemetry) error {
 	}
 
 	// Initialize int_histogram metric
-	m.intHistogram, err = tel.NewIntHistogramMetric("int_histogram")
+	m.intHistogram, err = tel.NewIntHistogramMetric(
+		"int_histogram",
+	)
 	if err != nil {
 		return err
 	}
 
 	// Initialize float_histogram metric
-	m.floatHistogram, err = tel.NewFloatHistogramMetric("float_histogram")
+	m.floatHistogram, err = tel.NewFloatHistogramMetric(
+		"float_histogram",
+	)
 	if err != nil {
 		return err
 	}
@@ -94,11 +99,59 @@ func (m *EgressStage) DecrementCurrentItems() {
 }
 
 // RecordIntHistogram records the given value into the histogram metric.
-func (m *EgressStage) RecordIntHistogram(ctx context.Context, value int64, arg1 string, arg2 bool) {
-	m.intHistogram.Record(ctx, value)
+func (m *EgressStage) RecordIntHistogram(
+	ctx context.Context,
+	value int64,
+	arg1 string,
+	arg2 bool,
+) {
+	m.intHistogram.Record(
+		ctx,
+		value,
+		attribute.String("arg1", arg1),
+		attribute.Bool("arg2", arg2),
+	)
+}
+
+// RecordIntHistogramWithAttributes records the given value
+// ans attributes into the histogram metric.
+func (m *EgressStage) RecordIntHistogramWithAttributes(
+	ctx context.Context,
+	value int64,
+	attributes []attribute.KeyValue,
+) {
+	m.intHistogram.Record(
+		ctx,
+		value,
+		attributes...,
+	)
 }
 
 // RecordFloatHistogram records the given value into the histogram metric.
-func (m *EgressStage) RecordFloatHistogram(ctx context.Context, value float64, arg1 int, arg2 float64) {
-	m.floatHistogram.Record(ctx, value)
+func (m *EgressStage) RecordFloatHistogram(
+	ctx context.Context,
+	value float64,
+	arg1 int,
+	arg2 float64,
+) {
+	m.floatHistogram.Record(
+		ctx,
+		value,
+		attribute.Int("arg1", arg1),
+		attribute.Float64("arg2", arg2),
+	)
+}
+
+// RecordFloatHistogramWithAttributes records the given value
+// ans attributes into the histogram metric.
+func (m *EgressStage) RecordFloatHistogramWithAttributes(
+	ctx context.Context,
+	value float64,
+	attributes []attribute.KeyValue,
+) {
+	m.floatHistogram.Record(
+		ctx,
+		value,
+		attributes...,
+	)
 }

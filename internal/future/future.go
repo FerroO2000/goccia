@@ -1,7 +1,10 @@
 // Package future provides types and functions for working with futures.
 package future
 
-import "context"
+import (
+	"context"
+	"errors"
+)
 
 // State represents the state of a future.
 type State = uint8
@@ -13,9 +16,29 @@ const (
 	StateResolved
 	// StateRejected represents a rejected future.
 	StateRejected
-	// StateTimedOut represents a timed out future.
-	StateTimedOut
+	// StateCanceled represents a canceled future.
+	StateCanceled
+	// StateTimeout represents a timed out future.
+	StateTimeout
 )
+
+// StateToString returns the string representation of a future state.
+func StateToString(state State) string {
+	switch state {
+	case StatePending:
+		return "pending"
+	case StateResolved:
+		return "resolved"
+	case StateRejected:
+		return "rejected"
+	case StateCanceled:
+		return "canceled"
+	case StateTimeout:
+		return "timeout"
+	default:
+		return "unknown"
+	}
+}
 
 // Future represents a future value that can be resolved or rejected.
 type Future[T any] struct {
@@ -53,7 +76,13 @@ func (f *Future[T]) Await(ctx context.Context) (T, State, error) {
 
 	case <-ctx.Done():
 		var zero T
-		return zero, StateTimedOut, ctx.Err()
+		state := StateCanceled
+
+		if errors.Is(context.Cause(ctx), context.DeadlineExceeded) {
+			state = StateTimeout
+		}
+
+		return zero, state, ctx.Err()
 	}
 }
 

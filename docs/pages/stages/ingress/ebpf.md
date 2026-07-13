@@ -35,6 +35,10 @@ Additional interfaces: none. `EBPFMessage[T]` only implements the standard
 | `UseUnsafe` | `false` | If true, decode records with an unsafe struct cast instead of `binary.Read`. |
 | `CollectionOptions` | `nil` | Optional Cilium eBPF collection load options. |
 
+## Metrics
+
+--8<-- "ingress/metrics/ebpf_stage.doc.md"
+
 ## Internals
 
 The stage uses `github.com/cilium/ebpf`, `link`, `ringbuf`, and `rlimit`.

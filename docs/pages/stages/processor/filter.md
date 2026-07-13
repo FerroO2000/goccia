@@ -43,6 +43,10 @@ input remains reorderable, and a filtered-out message is marked dropped.
 The predicate is configured through the `filterFn func(T) bool` constructor
 argument, not through the config object.
 
+## Metrics
+
+--8<-- "processor/metrics/filter_stage.doc.md"
+
 ## Internals
 
 The stage uses the generic worker-backed processor runner. The worker preserves

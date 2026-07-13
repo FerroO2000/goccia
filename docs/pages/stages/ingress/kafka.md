@@ -55,6 +55,10 @@ Additional interfaces: `message.Serializable`. `GetBytes()` returns `Value`.
 | `IsolationLevel` | `kafka.ReadUncommitted` | Transactional record visibility. |
 | `MaxAttempts` | `3` | Connection attempt limit. |
 
+## Metrics
+
+--8<-- "ingress/metrics/kafka_stage.doc.md"
+
 ## Internals
 
 The stage uses `github.com/segmentio/kafka-go`. It creates a `kafka.Reader`,

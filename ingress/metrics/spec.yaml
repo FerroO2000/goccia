@@ -21,32 +21,92 @@ groups:
   - name: http_stage
     metrics:
       - name: http.server.request.duration
+        description: Duration of HTTP server requests from handler entry until the response is written.
         type: histogram
         data_type: float
         unit: s
+        attributes:
+          - name: http.request.method
+            type: string
+            arg: requestMethod
+          - name: url.scheme
+            type: string
+            arg: urlScheme
+          - name: http.response.status_code
+            type: int
+            arg: statusCode
+          - name: network.protocol.version
+            type: string
+            arg: protocolVersion
+
       - name: http.server.active_requests
+        description: Number of HTTP server requests currently being handled.
         type: upDownCounter
         unit: "{request}"
+
       - name: http.server.request.body.size
+        description: Size of HTTP request bodies observed by the server, including partially read bodies.
         type: histogram
         unit: By
+        attributes:
+          - name: http.request.method
+            type: string
+            arg: requestMethod
+          - name: url.scheme
+            type: string
+            arg: urlScheme
+          - name: http.response.status_code
+            type: int
+            arg: statusCode
+          - name: network.protocol.version
+            type: string
+            arg: protocolVersion
+
       - name: http.server.response.body.size
+        description: Size of HTTP response bodies successfully written by the server.
         type: histogram
         unit: By
+        attributes:
+          - name: http.request.method
+            type: string
+            arg: requestMethod
+          - name: url.scheme
+            type: string
+            arg: urlScheme
+          - name: http.response.status_code
+            type: int
+            arg: statusCode
+          - name: network.protocol.version
+            type: string
+            arg: protocolVersion
+
       - name: goccia.http.ingress.queue.len
+        description: Number of HTTP request messages currently waiting in the ingress output queue.
         type: gauge
         unit: "{message}"
+
       - name: goccia.http.ingress.queue.wait.duration
+        description: Time spent waiting to enqueue an HTTP request message for downstream processing.
         type: histogram
         data_type: float
         unit: s
+        attributes:
+          - name: outcome
+            type: string
+
       - name: goccia.http.ingress.pending_responses
+        description: Number of HTTP requests currently awaiting a downstream response.
         type: upDownCounter
         unit: "{request}"
+
       - name: goccia.http.ingress.response.wait.duration
+        description: Time spent waiting for a downstream response after a successful queue handoff.
         type: histogram
         data_type: float
         unit: s
+        attributes:
+          - name: outcome
+            type: string
 
   - name: kafka_stage
     metrics:

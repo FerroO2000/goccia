@@ -17,6 +17,9 @@ import (
 	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/stage/env"
 	"github.com/FerroO2000/goccia/link"
+	"go.opentelemetry.io/otel/propagation"
+	semconv "go.opentelemetry.io/otel/semconv/v1.41.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // ─── Config ─────────────────────────────────────────────────────────────────|
@@ -35,21 +38,53 @@ const (
 	DefaultHTTPConfigOutputQueueSize    = 512
 )
 
+// HTTPConfig contains the configuration for the HTTP ingress stage.
 type HTTPConfig struct {
-	IPAddr             string
-	Port               uint16
-	ReadTimeout        time.Duration
-	ReadHeaderTimeout  time.Duration
-	ShutdownTimeout    time.Duration
-	IdleTimeout        time.Duration
+	// IPAddr is the local IP address on which the HTTP server listens.
+	IPAddr string
+
+	// Port is the local TCP port on which the HTTP server listens.
+	Port uint16
+
+	// ReadTimeout is the maximum duration for reading an entire request,
+	// including its body.
+	ReadTimeout time.Duration
+
+	// ReadHeaderTimeout is the maximum duration for reading request headers.
+	ReadHeaderTimeout time.Duration
+
+	// ShutdownTimeout is the grace period for shutting down the HTTP server.
+	ShutdownTimeout time.Duration
+
+	// IdleTimeout is the maximum time to wait for the next request on a
+	// keep-alive connection.
+	IdleTimeout time.Duration
+
+	// MaxRequestBodySize is the maximum request body size in bytes.
+	// Request bodies are read completely into memory.
 	MaxRequestBodySize int
-	ResponseTimeout    time.Duration
-	WriteTimeout       time.Duration
-	OutputQueueSize    int
-	TLSEnabled         bool
-	TLSConfig          *tls.Config
+
+	// ResponseTimeout is the maximum duration to wait for a correlated
+	// downstream response after the request enters the internal queue.
+	ResponseTimeout time.Duration
+
+	// WriteTimeout is the maximum duration for writing an HTTP response.
+	WriteTimeout time.Duration
+
+	// OutputQueueSize is the capacity of the internal queue between concurrent
+	// HTTP handlers and the output connector.
+	OutputQueueSize int
+
+	// TLSEnabled controls whether the server accepts HTTPS connections.
+	TLSEnabled bool
+
+	// TLSConfig configures HTTPS. When TLS is enabled, it must provide at least
+	// one certificate or a GetCertificate callback. The stage clones the value
+	// during initialization and defaults a zero MinVersion to TLS 1.2.
+	TLSConfig *tls.Config
 }
 
+// NewHTTPConfig returns the default configuration for the HTTP ingress stage.
 func NewHTTPConfig() *HTTPConfig {
 	return &HTTPConfig{
 		IPAddr:             DefaultHTTPConfigIPAddr,
@@ -91,6 +126,7 @@ func (c *HTTPConfig) Validate(ac *config.AnomalyCollector) {
 
 // ─── Message ────────────────────────────────────────────────────────────────|
 
+// HTTPMessage is the request message emitted by the HTTP ingress stage.
 type HTTPMessage = message.HTTPRequest
 
 // ─── Environment ────────────────────────────────────────────────────────────|
@@ -162,6 +198,41 @@ func (e *httpEnv) initServer() {
 		WriteTimeout:      e.Config.WriteTimeout,
 		IdleTimeout:       e.Config.IdleTimeout,
 	}
+}
+
+// ─── Response Writer ────────────────────────────────────────────────────────|
+
+type httpResponseWriter struct {
+	http.ResponseWriter
+	statusCode      int
+	timestamp       time.Time
+	requestBodySize int64
+	bytesWritten    int64
+	writeErr        error
+}
+
+func (r *httpResponseWriter) WriteHeader(statusCode int) {
+	if r.statusCode != 0 {
+		return
+	}
+
+	r.statusCode = statusCode
+	r.ResponseWriter.WriteHeader(statusCode)
+}
+
+func (r *httpResponseWriter) Write(b []byte) (int, error) {
+	if r.statusCode == 0 {
+		r.statusCode = http.StatusOK
+	}
+
+	n, err := r.ResponseWriter.Write(b)
+	r.bytesWritten += int64(n)
+
+	if err != nil && r.writeErr == nil {
+		r.writeErr = err
+	}
+
+	return n, err
 }
 
 // ─── Runner ─────────────────────────────────────────────────────────────────|
@@ -238,16 +309,20 @@ func (r *httpRunner) Run(ctx context.Context) {
 	}
 }
 
-func (r *httpRunner) readBody(resWriter http.ResponseWriter, bodyReader io.ReadCloser) ([]byte, bool) {
-	reader := http.MaxBytesReader(resWriter, bodyReader, r.env.maxRequestBodySize)
+func (r *httpRunner) readBody(
+	resWriter http.ResponseWriter, bodyReader io.ReadCloser,
+) ([]byte, int64, bool) {
+	limitedReader := http.MaxBytesReader(resWriter, bodyReader, r.env.maxRequestBodySize)
 
-	body, err := io.ReadAll(reader)
+	body, err := io.ReadAll(limitedReader)
+	bytesRead := int64(len(body))
+
 	if err != nil {
 		http.Error(resWriter, "request body too large", http.StatusRequestEntityTooLarge)
-		return nil, false
+		return nil, bytesRead, false
 	}
 
-	return body, true
+	return body, bytesRead, true
 }
 
 func (r *httpRunner) makeRequestMessage(req *http.Request, body []byte) *msg[*HTTPMessage] {
@@ -265,24 +340,27 @@ func (r *httpRunner) makeRequestMessage(req *http.Request, body []byte) *msg[*HT
 
 func (r *httpRunner) writeRequestMessage(
 	ctx context.Context, resWriter http.ResponseWriter, correlationID uint64, reqMessage *msg[*HTTPMessage],
-) (ok bool) {
+) bool {
 	queueWriteTime := time.Now()
+
+	ok := true
+	outcome := "enqueued"
 
 	err := r.fanIn.Write(reqMessage)
 	if err != nil {
-		ok = false
-
 		// If the shutdown sequence order is correct,
 		// this error should never happen
 		r.env.link.RejectFuture(correlationID, err)
 		reqMessage.Destroy()
 		http.Error(resWriter, "service unavailable", http.StatusServiceUnavailable)
-	} else {
-		ok = true
+
+		ok = false
+		outcome = "rejected"
 	}
 
 	r.env.Metrics.RecordGocciaHttpIngressQueueWaitDuration(
 		ctx, time.Since(queueWriteTime).Seconds(),
+		outcome,
 	)
 
 	return ok
@@ -300,29 +378,45 @@ func (r *httpRunner) writeResponse(resWriter http.ResponseWriter, res *message.H
 	resWriter.Write(res.Body)
 }
 
-type httpResponseWriter struct {
-	http.ResponseWriter
-	timestamp    time.Time
-	bytesWritten int64
-	writeErr     error
-}
-
-func (r *httpResponseWriter) Write(b []byte) (int, error) {
-	n, err := r.ResponseWriter.Write(b)
-	r.bytesWritten += int64(n)
-
-	if err != nil && r.writeErr == nil {
-		r.writeErr = err
+func (*httpRunner) getURLcheme(req *http.Request) string {
+	if req.TLS != nil {
+		return "https"
 	}
 
-	return n, err
+	return "http"
+}
+
+func (*httpRunner) getProtocolVersion(req *http.Request) string {
+	major := strconv.Itoa(req.ProtoMajor)
+	if req.ProtoMajor == 1 || req.ProtoMinor != 0 {
+		return major + "." + strconv.Itoa(req.ProtoMinor)
+	}
+
+	return major
 }
 
 func (r *httpRunner) handle(w http.ResponseWriter, req *http.Request) {
+	methodAttr := semconv.HTTPRequestMethodKey.String(req.Method)
+	urlSchemeAttr := semconv.URLScheme(r.getURLcheme(req))
+	protoVersionAttr := semconv.NetworkProtocolVersion(r.getProtocolVersion(req))
+
+	ctx := r.env.Tel.ExtractTraceContext(req.Context(), propagation.HeaderCarrier(req.Header))
+
+	ctx, span := r.env.Tel.StartTrace(
+		ctx, req.Method,
+		trace.WithSpanKind(trace.SpanKindServer),
+		trace.WithAttributes(
+			methodAttr,
+			semconv.URLPath(req.URL.Path),
+			urlSchemeAttr,
+			protoVersionAttr,
+		),
+	)
+	defer span.End()
+
 	r.env.Metrics.IncrementHttpServerActiveRequests()
 	defer r.env.Metrics.DecrementHttpServerActiveRequests()
 
-	ctx := req.Context()
 	rw := &httpResponseWriter{
 		ResponseWriter: w,
 		timestamp:      time.Now(),
@@ -330,19 +424,36 @@ func (r *httpRunner) handle(w http.ResponseWriter, req *http.Request) {
 
 	r.handleRequest(ctx, rw, req)
 
+	// Metrics recording
+
+	statusCodeAttr := semconv.HTTPResponseStatusCode(rw.statusCode)
+	span.SetAttributes(statusCodeAttr)
+
+	attributes := r.env.Tel.NewMetricAttributes(
+		methodAttr, urlSchemeAttr, statusCodeAttr, protoVersionAttr,
+	)
+
+	r.env.Metrics.RecordHttpServerRequestBodySizeWithAttributes(
+		ctx, rw.requestBodySize, attributes,
+	)
+
 	resBodySize := rw.bytesWritten
 	if req.Method == http.MethodHead {
 		resBodySize = 0
 	}
 
-	r.env.Metrics.RecordHttpServerResponseBodySize(ctx, resBodySize)
+	r.env.Metrics.RecordHttpServerResponseBodySizeWithAttributes(
+		ctx, resBodySize, attributes,
+	)
 
 	reqDuration := time.Since(rw.timestamp)
-	r.env.Metrics.RecordHttpServerRequestDuration(ctx, reqDuration.Seconds())
+	r.env.Metrics.RecordHttpServerRequestDurationWithAttributes(
+		ctx, reqDuration.Seconds(), attributes,
+	)
 }
 
 func (r *httpRunner) awaitResponse(
-	ctx context.Context, future *future.Future[*link.HTTPFuture],
+	ctx context.Context, fut *future.Future[*link.HTTPFuture],
 ) (*link.HTTPFuture, future.State, error) {
 	r.env.Metrics.IncrementGocciaHttpIngressPendingResponses()
 	defer r.env.Metrics.DecrementGocciaHttpIngressPendingResponses()
@@ -353,10 +464,11 @@ func (r *httpRunner) awaitResponse(
 
 	awaitStartTime := time.Now()
 
-	res, state, err := future.Await(futureCtx)
+	res, state, err := fut.Await(futureCtx)
 
 	r.env.Metrics.RecordGocciaHttpIngressResponseWaitDuration(
 		ctx, time.Since(awaitStartTime).Seconds(),
+		future.StateToString(state),
 	)
 
 	return res, state, err
@@ -365,7 +477,8 @@ func (r *httpRunner) awaitResponse(
 func (r *httpRunner) handleRequest(ctx context.Context, rw *httpResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
-	body, ok := r.readBody(rw, req.Body)
+	body, requestBodySize, ok := r.readBody(rw, req.Body)
+	rw.requestBodySize = requestBodySize
 	if !ok {
 		return
 	}
@@ -375,6 +488,9 @@ func (r *httpRunner) handleRequest(ctx context.Context, rw *httpResponseWriter, 
 	// Set the receive time and the timestamp
 	reqMessage.SetReceiveTime(rw.timestamp)
 	reqMessage.SetTimestamp(rw.timestamp)
+
+	// Set span context
+	reqMessage.SaveSpan(trace.SpanFromContext(ctx))
 
 	// Create the future
 	correlationID, fut := r.env.link.NewFuture()
@@ -401,7 +517,7 @@ func (r *httpRunner) handleRequest(ctx context.Context, rw *httpResponseWriter, 
 	case future.StateRejected:
 		http.Error(rw, "bad gateway", http.StatusBadGateway)
 
-	case future.StateTimedOut:
+	case future.StateTimeout, future.StateCanceled:
 		if errors.Is(err, context.DeadlineExceeded) {
 			http.Error(rw, "gateway timeout", http.StatusGatewayTimeout)
 		}
@@ -421,10 +537,14 @@ func (r *httpRunner) handleRequest(ctx context.Context, rw *httpResponseWriter, 
 
 // ─── Stage ──────────────────────────────────────────────────────────────────|
 
+// HTTPStage is an ingress stage that serves HTTP requests and forwards them
+// through a request-response pipeline.
 type HTTPStage struct {
 	*stage.IngressStage[*HTTPMessage, *httpEnv]
 }
 
+// NewHTTPStage returns a new HTTP ingress stage using link to correlate requests
+// with responses received by the corresponding HTTP egress stage.
 func NewHTTPStage(link *link.HTTP, outConnector msgConn[*HTTPMessage], config *HTTPConfig) *HTTPStage {
 	return &HTTPStage{
 		IngressStage: stage.NewIngressStageFromRunner[*HTTPMessage](

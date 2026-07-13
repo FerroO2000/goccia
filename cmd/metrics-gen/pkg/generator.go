@@ -57,8 +57,12 @@ func (g *Generator) getImportPackages(metricType *Metric) []string {
 
 	}
 
-	if metricType.Unit != "" {
+	if metricType.Unit != "" || len(metricType.Attributes) > 0 {
 		imports = append(imports, "go.opentelemetry.io/otel/metric")
+	}
+
+	if len(metricType.Attributes) > 0 {
+		imports = append(imports, "go.opentelemetry.io/otel/attribute")
 	}
 
 	return imports

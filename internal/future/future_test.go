@@ -46,7 +46,22 @@ func Test_Future_AwaitReturnsContextError(t *testing.T) {
 	value, state, err := f.Await(ctx)
 	assert.Zero(value)
 	assert.ErrorIs(err, context.Canceled)
-	assert.Equal(StateTimedOut, state)
+	assert.Equal(StateCanceled, state)
+}
+
+func Test_Future_AwaitReturnsContextTimeoutError(t *testing.T) {
+	assert := assert.New(t)
+
+	f := newFuture[int]()
+	ctx, cancel := context.WithTimeout(t.Context(), time.Millisecond)
+	defer cancel()
+
+	time.Sleep(10 * time.Millisecond)
+
+	value, state, err := f.Await(ctx)
+	assert.Zero(value)
+	assert.ErrorIs(err, context.DeadlineExceeded)
+	assert.Equal(StateTimeout, state)
 }
 
 func Test_Future_AwaitBlocksUntilResolved(t *testing.T) {

@@ -52,6 +52,20 @@ func (m *{{ .StructType }}) Decrement{{ .TitleName }}() {
 {{ else if eq .Type "float" -}}
     {{- $type = "float64" -}}
 {{ end -}}
-, {{ .Arg }} {{ $type -}}
+{{ .Arg }} {{ $type }},
+{{ end -}}
+{{ end -}}
+
+{{ define "attributeOptions" -}}
+{{ range .Attributes -}}
+{{ $method := "String" -}}
+{{ if eq .Type "bool" -}}
+    {{ $method = "Bool" -}}
+{{ else if eq .Type "int" -}}
+    {{ $method = "Int" -}}
+{{ else if eq .Type "float" -}}
+    {{- $method = "Float64" -}}
+{{ end -}}
+attribute.{{ $method }}("{{ .Name }}", {{ .Arg }}),
 {{ end -}}
 {{ end -}}
