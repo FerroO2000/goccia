@@ -5,7 +5,14 @@
 {{ define "histogramInit" -}}
 m.{{ .MetricVar }}, err = tel.New{{ if eq .Metric.DataType "float" }}Float{{ else }}Int{{ end }}HistogramMetric(
     "{{ .Metric.Name }}",
-    {{ template "unitArg" .Metric }}
+    {{ template "unitArg" .Metric -}}
+    {{ if .Metric.BucketBounds -}}
+    metric.WithExplicitBucketBoundaries(
+        {{ range .Metric.BucketBounds -}}
+        {{ . }},
+        {{- end }}
+    ),
+    {{- end}}
 )
 {{- end }}
 

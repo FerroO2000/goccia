@@ -62,6 +62,7 @@ type Metric struct {
 	Type         MetricType   `yaml:"type"`
 	DataType     DataType     `yaml:"data_type"`
 	Unit         string       `yaml:"unit"`
+	BucketBounds []float64    `yaml:"bucket_bounds"`
 	CustomGetter bool         `yaml:"custom_getter"`
 	Attributes   []*Attribute `yaml:"attributes"`
 }
