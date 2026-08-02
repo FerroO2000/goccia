@@ -1,41 +1,33 @@
 // Package pkg contains the implementation of the metrics-gen cli tool.
 package pkg
 
-import "fmt"
-
-type AttributeType string
+// AttributeType defines the type of an attribute.
+type AttributeType = string
 
 const (
+	// AttributeTypeString is a string attribute.
 	AttributeTypeString AttributeType = "string"
-	AttributeTypeBool   AttributeType = "bool"
-	AttributeTypeInt    AttributeType = "int"
-	AttributeTypeFloat  AttributeType = "float"
+	// AttributeTypeBool is a boolean attribute.
+	AttributeTypeBool AttributeType = "bool"
+	// AttributeTypeInt is an integer attribute.
+	AttributeTypeInt AttributeType = "int"
+	// AttributeTypeFloat is a float attribute.
+	AttributeTypeFloat AttributeType = "float"
 )
 
+// Attribute defines an attribute.
 type Attribute struct {
 	Name string        `yaml:"name"`
 	Type AttributeType `yaml:"type"`
 	Arg  string        `yaml:"arg"`
 }
 
-func (a *Attribute) validate() error {
-	if a.Name == "" {
-		return fmt.Errorf("yaml: 'name' field is required")
-	}
-
-	if a.Type == "" {
-		return fmt.Errorf("yaml: 'type' field is required")
-	}
-
-	if a.Arg == "" {
-		a.Arg = toLowerCamelCase(a.Name)
-	}
-
-	return nil
+func (a *Attribute) getName() string {
+	return a.Name
 }
 
 // MetricType defines the type of a metric.
-type MetricType string
+type MetricType = string
 
 const (
 	// MetricTypeCounter is a counter metric.
@@ -48,11 +40,14 @@ const (
 	MetricTypeHistogram MetricType = "histogram"
 )
 
-type DataType string
+// DataType defines the data type of a metric.
+type DataType = string
 
 const (
+	// DataTypeInteger is an integer data type.
 	DataTypeInteger DataType = "integer"
-	DataTypeFloat   DataType = "float"
+	// DataTypeFloat is a float data type.
+	DataTypeFloat DataType = "float"
 )
 
 // Metric defines a metric.
@@ -65,28 +60,11 @@ type Metric struct {
 	BucketBounds []float64    `yaml:"bucket_bounds"`
 	CustomGetter bool         `yaml:"custom_getter"`
 	Attributes   []*Attribute `yaml:"attributes"`
+	AttributeSet string       `yaml:"attribute_set"`
 }
 
-func (m *Metric) validate() error {
-	if m.Name == "" {
-		return fmt.Errorf("yaml: 'name' field is required")
-	}
-
-	if m.Type == "" {
-		return fmt.Errorf("yaml: 'type' field is required")
-	}
-
-	if m.DataType == "" {
-		m.DataType = DataTypeInteger
-	}
-
-	for _, attribute := range m.Attributes {
-		if err := attribute.validate(); err != nil {
-			return err
-		}
-	}
-
-	return nil
+func (m *Metric) getName() string {
+	return m.Name
 }
 
 // Group defines a group of metrics.
@@ -95,36 +73,20 @@ type Group struct {
 	Metrics []*Metric `yaml:"metrics"`
 }
 
-func (g *Group) validate() error {
-	if g.Name == "" {
-		return fmt.Errorf("yaml: 'name' field is required")
-	}
+func (g *Group) getName() string {
+	return g.Name
+}
 
-	for _, metric := range g.Metrics {
-		if err := metric.validate(); err != nil {
-			return err
-		}
-	}
-
-	return nil
+// AttributeSet defines a set of attributes to be referenced
+// by other metrics.
+type AttributeSet struct {
+	Name       string       `yaml:"name"`
+	Attributes []*Attribute `yaml:"attributes"`
 }
 
 // Spec defines a metrics file spec.
 type Spec struct {
-	Package string   `yaml:"package"`
-	Groups  []*Group `yaml:"groups"`
-}
-
-func (s *Spec) validate() error {
-	if s.Package == "" {
-		return fmt.Errorf("yaml: 'package' field is required")
-	}
-
-	for _, group := range s.Groups {
-		if err := group.validate(); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	Package       string          `yaml:"package"`
+	AttributeSets []*AttributeSet `yaml:"attribute_sets"`
+	Groups        []*Group        `yaml:"groups"`
 }

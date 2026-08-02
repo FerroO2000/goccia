@@ -205,28 +205,6 @@ An explicitly configured `MinVersion` is preserved. Certificate and key file
 loading is the caller's responsibility; the stage starts `ListenAndServeTLS`
 with the certificates already present in the cloned configuration.
 
-## Request Lifecycle
-
-For each accepted request, the server runs the following sequence:
-
-1. Record the handler start time and increment the active-request metric.
-2. Wrap the body with `http.MaxBytesReader` and read it completely.
-3. Clone the request metadata into a new `HTTPMessage`.
-4. Set its receive time, timestamp, and a newly allocated correlation ID.
-5. Write it into the internal multi-producer queue. This write applies
-   backpressure when the queue is full.
-6. Bridge the request from the internal queue to the stage output connector.
-7. Wait for HTTP egress to resolve or reject the correlation future.
-8. Copy response headers, write the status, and write the response body.
-9. Record request duration and body-size metrics, then decrement the active
-   request count.
-
-The whole body is available to processors, but this also means request bodies
-are not streamed. Concurrent requests can retain up to roughly
-`MaxRequestBodySize` each, in addition to headers, envelope data, and queued
-responses. Choose the body limit and queue capacity with expected concurrency
-and memory usage in mind.
-
 ## Response and Error Behavior
 
 | Condition | Client Result | Pipeline Result |

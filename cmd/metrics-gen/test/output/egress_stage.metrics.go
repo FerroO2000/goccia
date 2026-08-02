@@ -6,6 +6,7 @@ import (
 	"context"
 	"github.com/FerroO2000/goccia/internal/telemetry"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"sync/atomic"
 )
 
@@ -118,12 +119,12 @@ func (m *EgressStage) RecordIntHistogram(
 func (m *EgressStage) RecordIntHistogramWithAttributes(
 	ctx context.Context,
 	value int64,
-	attributes []attribute.KeyValue,
+	attributes metric.MeasurementOption,
 ) {
-	m.intHistogram.Record(
+	m.intHistogram.RecordWithAttributes(
 		ctx,
 		value,
-		attributes...,
+		attributes,
 	)
 }
 
@@ -147,11 +148,11 @@ func (m *EgressStage) RecordFloatHistogram(
 func (m *EgressStage) RecordFloatHistogramWithAttributes(
 	ctx context.Context,
 	value float64,
-	attributes []attribute.KeyValue,
+	attributes metric.MeasurementOption,
 ) {
-	m.floatHistogram.Record(
+	m.floatHistogram.RecordWithAttributes(
 		ctx,
 		value,
-		attributes...,
+		attributes,
 	)
 }
