@@ -35,6 +35,10 @@ Additional interfaces: `message.Serializable`. `GetBytes()` returns
 | `Port` | `20000` | Local UDP port. |
 | `BufferSize` | `1472` | Receive buffer size and default payload capacity. |
 
+## Metrics
+
+--8<-- "ingress/metrics/udp_stage.doc.md"
+
 ## Internals
 
 The stage uses Go's standard `net` package with `net.ListenUDP`. The runner

@@ -63,7 +63,7 @@ func (sr *sinkRunner[T]) Run(ctx context.Context) {
 		metricsCtx := msgIn.LoadSpanContext(ctx)
 		sr.GetEgressMetrics().IncrementDeliveredMessages()
 		sr.GetEgressMetrics().RecordTotalMessageProcessingTime(
-			metricsCtx, int(time.Since(msgIn.GetReceiveTime()).Milliseconds()),
+			metricsCtx, time.Since(msgIn.GetReceiveTime()).Milliseconds(),
 		)
 
 		msgIn.Destroy()

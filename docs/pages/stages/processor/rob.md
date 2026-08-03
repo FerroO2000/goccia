@@ -45,6 +45,10 @@ for input. Any other interfaces implemented by `T`, such as
 
 The stage is intentionally single-threaded and does not accept a running mode.
 
+## Metrics
+
+--8<-- "processor/metrics/rob_stage.doc.md"
+
 ## Internals
 
 `ROBStage` uses a custom runner and the internal `rob.ROB` implementation. It

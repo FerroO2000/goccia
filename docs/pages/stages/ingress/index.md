@@ -11,6 +11,7 @@ not accept a running mode because each source owns its own runner.
 | --- | --- | --- |
 | [Generic Loop](generic-loop.md) | `ingress.NewGenericLoopStage` | User-defined producer loop |
 | [Generic Fan-In](generic-fan-in.md) | `ingress.NewGenericFanInStage` | User-defined source fan-in |
+| [HTTP](http.md) | `ingress.NewHTTPStage` | Correlated HTTP request-response server |
 | [Ticker](ticker.md) | `ingress.NewTickerStage` | Periodic timer |
 | [TCP](tcp.md) | `ingress.NewTCPStage` | TCP listener |
 | [UDP](udp.md) | `ingress.NewUDPStage` | UDP socket |

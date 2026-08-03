@@ -41,6 +41,10 @@ Additional interfaces: `message.Serializable`. `GetBytes()` returns `Chunk`.
 | `ForceReRead` | `false` | If true, restart from offset `0` when a reader reopens a file. |
 | `CloseDebounce` | `time.Second` | Delay before closing an idle reader after EOF. |
 
+## Metrics
+
+--8<-- "ingress/metrics/file_stage.doc.md"
+
 ## Internals
 
 The stage uses `github.com/fsnotify/fsnotify` to watch directories. It reads

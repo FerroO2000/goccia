@@ -356,7 +356,7 @@ func (qw *questDBWorker) Deliver(ctx context.Context, msgIn *msg[*QuestDBMessage
 	span.SetAttributes(attribute.Int64("inserted_rows", int64(tmpInsRows)))
 
 	// Update metrics
-	qw.Env.Metrics.AddInsertedRows(uint(tmpInsRows))
+	qw.Env.Metrics.AddInsertedRows(tmpInsRows)
 
 	return nil
 }

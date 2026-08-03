@@ -127,7 +127,7 @@ func (tw *tcpWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
 	span.SetAttributes(attribute.Int("message_size", len(tcpMsgRaw)))
 
 	// Update metrics
-	tw.Env.Metrics.AddDeliveredBytes(uint(deliveredBytes))
+	tw.Env.Metrics.AddDeliveredBytes(deliveredBytes)
 
 	return nil
 }

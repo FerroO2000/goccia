@@ -1,0 +1,17 @@
+{{ define "upDownCounterType" -}}
+{{ template "integerVar" . -}}
+{{- end }}
+
+{{ define "upDownCounterInit" -}}
+err = tel.NewUpDownCounterMetric(
+    "{{ .Metric.Name }}",
+    {{ template "integerGetter" . }},
+    {{ template "unitArg" .Metric }}
+)
+{{- end }}
+
+{{ define "upDownCounterMethods" -}}
+{{ template "addMethod" . }}
+{{ template "incrementMethod" . }}
+{{ template "decrementMethod" . -}}
+{{- end }}

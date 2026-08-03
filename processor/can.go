@@ -228,8 +228,8 @@ func (cw *canWorker[T]) Handle(ctx context.Context, msgIn *msg[T]) (*msg[*CANMes
 	msgOut.SaveSpan(span)
 
 	// Update metrics
-	cw.Env.Metrics.AddCanMessages(uint(rawMsgCount))
-	cw.Env.Metrics.AddCanSignals(uint(canMsg.SignalCount))
+	cw.Env.Metrics.AddCanMessages(rawMsgCount)
+	cw.Env.Metrics.AddCanSignals(canMsg.SignalCount)
 
 	return msgOut, nil
 }

@@ -4,20 +4,23 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
-	"html/template"
 	"os"
 	"path"
+	"text/template"
 
 	"github.com/FerroO2000/goccia/cmd/metrics-gen/templates"
+	md "github.com/nao1215/markdown"
 )
 
 var metricFileTmpl = template.Must(
-	template.New("codegen").
+	template.New("metric_file.go.tmpl").
 		Funcs(template.FuncMap{
+			"dict":             dict,
 			"toUpperCamelCase": toUpperCamelCase,
 			"toLowerCamelCase": toLowerCamelCase,
+			"getDataType":      getDataType,
 		}).
-		Parse(templates.MetricFileTmplSource),
+		ParseFS(templates.Templates, "*.tmpl"),
 )
 
 var defaultImports = []string{"github.com/FerroO2000/goccia/internal/telemetry"}
@@ -54,8 +57,12 @@ func (g *Generator) getImportPackages(metricType *Metric) []string {
 
 	}
 
-	if metricType.Unit != "" {
+	if metricType.Unit != "" || len(metricType.Attributes) > 0 {
 		imports = append(imports, "go.opentelemetry.io/otel/metric")
+	}
+
+	if len(metricType.Attributes) > 0 {
+		imports = append(imports, "go.opentelemetry.io/otel/attribute")
 	}
 
 	return imports
@@ -98,6 +105,10 @@ func (g *Generator) Generate(spec *Spec) error {
 		if err := g.generateMetricsFile(metricFile); err != nil {
 			return err
 		}
+
+		if err := g.generateMarkdownFile(metricFile); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -106,7 +117,7 @@ func (g *Generator) Generate(spec *Spec) error {
 func (g *Generator) generateMetricsFile(mf *metricsFile) error {
 	var buf bytes.Buffer
 
-	if err := metricFileTmpl.Execute(&buf, mf); err != nil {
+	if err := metricFileTmpl.ExecuteTemplate(&buf, "metric_file.go.tmpl", mf); err != nil {
 		return fmt.Errorf("execute template: %w", err)
 	}
 
@@ -128,4 +139,41 @@ func (g *Generator) generateMetricsFile(mf *metricsFile) error {
 	}
 
 	return nil
+}
+
+func (g *Generator) getMarkdownFileName(name string) string {
+	fileName := toLowerSnakeCase(name) + ".doc.md"
+	return path.Join(g.basePath, fileName)
+}
+
+func (g *Generator) generateMarkdownFile(mf *metricsFile) error {
+	file, err := os.Create(g.getMarkdownFileName(mf.Name))
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	rows := make([][]string, 0, len(mf.Metrics))
+	for _, metric := range mf.Metrics {
+		typ := md.Code(string(metric.Type))
+		dataType := md.Code(string(metric.DataType))
+		desc := "-"
+		if metric.Description != "" {
+			desc = metric.Description
+		}
+
+		rows = append(rows, []string{
+			metric.Name,
+			typ,
+			dataType,
+			desc,
+		})
+	}
+
+	mdFile := md.NewMarkdown(file).Table(md.TableSet{
+		Header: []string{"Name", "Type", "Data Type", "Description"},
+		Rows:   rows,
+	})
+
+	return mdFile.Build()
 }

@@ -26,20 +26,29 @@ func NewProcessorStage() *ProcessorStage {
 func (m *ProcessorStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
-	// Initialize processed_messages counter metric
-	err = tel.NewCounterMetric("processed_messages", func() int64 { return m.processedMessages.Load() })
+	// Initialize processed_messages metric
+	err = tel.NewCounterMetric(
+		"processed_messages",
+		func() int64 { return m.processedMessages.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize dropped_messages counter metric
-	err = tel.NewCounterMetric("dropped_messages", func() int64 { return m.droppedMessages.Load() })
+	// Initialize dropped_messages metric
+	err = tel.NewCounterMetric(
+		"dropped_messages",
+		func() int64 { return m.droppedMessages.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize processing_errors counter metric
-	err = tel.NewCounterMetric("processing_errors", func() int64 { return m.processingErrors.Load() })
+	// Initialize processing_errors metric
+	err = tel.NewCounterMetric(
+		"processing_errors",
+		func() int64 { return m.processingErrors.Load() },
+	)
 	if err != nil {
 		return err
 	}
@@ -47,47 +56,50 @@ func (m *ProcessorStage) InitMetrics(tel *telemetry.Telemetry) error {
 	return nil
 }
 
-// AddProcessedMessages adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *ProcessorStage) AddProcessedMessages(amount uint) {
+// AddProcessedMessages adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *ProcessorStage) AddProcessedMessages(amount int) {
 	m.processedMessages.Add(int64(amount))
 }
 
-// IncrementProcessedMessages increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementProcessedMessages increments the metric by 1.
 func (m *ProcessorStage) IncrementProcessedMessages() {
 	m.processedMessages.Add(1)
 }
 
-// AddDroppedMessages adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *ProcessorStage) AddDroppedMessages(amount uint) {
+// DecrementProcessedMessages decrements the metric by 1.
+func (m *ProcessorStage) DecrementProcessedMessages() {
+	m.processedMessages.Add(-1)
+}
+
+// AddDroppedMessages adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *ProcessorStage) AddDroppedMessages(amount int) {
 	m.droppedMessages.Add(int64(amount))
 }
 
-// IncrementDroppedMessages increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementDroppedMessages increments the metric by 1.
 func (m *ProcessorStage) IncrementDroppedMessages() {
 	m.droppedMessages.Add(1)
 }
 
-// AddProcessingErrors adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *ProcessorStage) AddProcessingErrors(amount uint) {
+// DecrementDroppedMessages decrements the metric by 1.
+func (m *ProcessorStage) DecrementDroppedMessages() {
+	m.droppedMessages.Add(-1)
+}
+
+// AddProcessingErrors adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *ProcessorStage) AddProcessingErrors(amount int) {
 	m.processingErrors.Add(int64(amount))
 }
 
-// IncrementProcessingErrors increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementProcessingErrors increments the metric by 1.
 func (m *ProcessorStage) IncrementProcessingErrors() {
 	m.processingErrors.Add(1)
+}
+
+// DecrementProcessingErrors decrements the metric by 1.
+func (m *ProcessorStage) DecrementProcessingErrors() {
+	m.processingErrors.Add(-1)
 }

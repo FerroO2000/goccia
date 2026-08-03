@@ -34,6 +34,10 @@ This egress stage produces no downstream output message.
 TCP egress always runs in single mode and does not expose the generic
 worker-pool config.
 
+## Metrics
+
+--8<-- "egress/metrics/tcp_stage.doc.md"
+
 ## Internals
 
 The stage uses Go's standard `net` package. Initialization dials a

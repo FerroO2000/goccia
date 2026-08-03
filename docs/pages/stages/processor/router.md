@@ -60,12 +60,10 @@ the processor error and dropped-message metrics are incremented.
 
 ## Metrics
 
-`RouterStage` records:
+--8<-- "processor/metrics/router_stage.doc.md"
 
-| Metric | Description |
-| --- | --- |
-| `total_routed_messages` | Total number of messages successfully routed. |
-| `routed_messages_per_route` | Per-route routed message count, with `route_id` and `route_name` attributes. |
+`RouterStage` also records `routed_messages_per_route`, a per-route message
+count with `route_id` and `route_name` attributes.
 
 ## Internals
 

@@ -20,7 +20,9 @@ func LoadSpec(specFilePath string) (*Spec, error) {
 		return nil, fmt.Errorf("decode: %w", err)
 	}
 
-	if err := spec.validate(); err != nil {
+	validator := newSpecValidator(spec)
+
+	if err := validator.validate(); err != nil {
 		return nil, err
 	}
 

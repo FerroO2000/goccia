@@ -26,20 +26,29 @@ func NewFileStage() *FileStage {
 func (m *FileStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
-	// Initialize readers up/down counter metric
-	err = tel.NewUpDownCounterMetric("readers", func() int64 { return m.readers.Load() })
+	// Initialize readers metric
+	err = tel.NewUpDownCounterMetric(
+		"readers",
+		func() int64 { return m.readers.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize active_readers up/down counter metric
-	err = tel.NewUpDownCounterMetric("active_readers", func() int64 { return m.activeReaders.Load() })
+	// Initialize active_readers metric
+	err = tel.NewUpDownCounterMetric(
+		"active_readers",
+		func() int64 { return m.activeReaders.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize read_bytes counter metric
-	err = tel.NewCounterMetric("read_bytes", func() int64 { return m.readBytes.Load() })
+	// Initialize read_bytes metric
+	err = tel.NewCounterMetric(
+		"read_bytes",
+		func() int64 { return m.readBytes.Load() },
+	)
 	if err != nil {
 		return err
 	}
@@ -47,61 +56,50 @@ func (m *FileStage) InitMetrics(tel *telemetry.Telemetry) error {
 	return nil
 }
 
-// AddReaders adds the given amount to the up/down counter metric.
-// The amount to be added must be an integer.
-//
-// This function is thread-safe.
+// AddReaders adds the given amount to the metric.
+// The amount can be either positive or negative.
 func (m *FileStage) AddReaders(amount int) {
 	m.readers.Add(int64(amount))
 }
 
-// IncrementReaders increments the up/down counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementReaders increments the metric by 1.
 func (m *FileStage) IncrementReaders() {
 	m.readers.Add(1)
 }
 
-// DecrementReaders decrements the up/down counter metric by 1.
-//
-// This function is thread-safe.
+// DecrementReaders decrements the metric by 1.
 func (m *FileStage) DecrementReaders() {
 	m.readers.Add(-1)
 }
 
-// AddActiveReaders adds the given amount to the up/down counter metric.
-// The amount to be added must be an integer.
-//
-// This function is thread-safe.
+// AddActiveReaders adds the given amount to the metric.
+// The amount can be either positive or negative.
 func (m *FileStage) AddActiveReaders(amount int) {
 	m.activeReaders.Add(int64(amount))
 }
 
-// IncrementActiveReaders increments the up/down counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementActiveReaders increments the metric by 1.
 func (m *FileStage) IncrementActiveReaders() {
 	m.activeReaders.Add(1)
 }
 
-// DecrementActiveReaders decrements the up/down counter metric by 1.
-//
-// This function is thread-safe.
+// DecrementActiveReaders decrements the metric by 1.
 func (m *FileStage) DecrementActiveReaders() {
 	m.activeReaders.Add(-1)
 }
 
-// AddReadBytes adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *FileStage) AddReadBytes(amount uint) {
+// AddReadBytes adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *FileStage) AddReadBytes(amount int) {
 	m.readBytes.Add(int64(amount))
 }
 
-// IncrementReadBytes increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementReadBytes increments the metric by 1.
 func (m *FileStage) IncrementReadBytes() {
 	m.readBytes.Add(1)
+}
+
+// DecrementReadBytes decrements the metric by 1.
+func (m *FileStage) DecrementReadBytes() {
+	m.readBytes.Add(-1)
 }

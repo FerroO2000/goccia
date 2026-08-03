@@ -151,7 +151,7 @@ func (r *aggregateRunner[T]) Run(ctx context.Context) {
 		}
 
 	writeOutput:
-		r.GetProcessorMetrics().AddProcessedMessages(uint(len(accumulator)))
+		r.GetProcessorMetrics().AddProcessedMessages(len(accumulator))
 
 		msgOut := r.aggregate(ctx, accumulator)
 
@@ -193,6 +193,9 @@ func (r *aggregateRunner[T]) aggregate(ctx context.Context, accumulator []*msg[T
 
 	// Set the timestamp of the last message
 	msgOut.SetTimestamp(accumulator[batchSize-1].GetTimestamp())
+
+	// Set the correlation ID of the first message
+	msgOut.SetCorrelationID(accumulator[0].GetCorrelationID())
 
 	// Telemetry
 	span.SetAttributes(attribute.Int("batch_size", batchSize))

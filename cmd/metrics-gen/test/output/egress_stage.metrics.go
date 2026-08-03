@@ -5,14 +5,22 @@ package output
 import (
 	"context"
 	"github.com/FerroO2000/goccia/internal/telemetry"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"sync/atomic"
 )
 
-// EgressStage structs contains the metrics for the egress_stage object.
+// EgressStage structs contains the metrics for the egress_stage group.
 type EgressStage struct {
-	countedItems atomic.Int64
-	currentItems atomic.Int64
-	myHistogram  *telemetry.Histogram
+	countedItems   atomic.Int64
+	currentItems   atomic.Int64
+	intHistogram   *telemetry.IntHistogram
+	floatHistogram *telemetry.FloatHistogram
+}
+
+// NewEgressStage returns a new instance of the EgressStage struct.
+func NewEgressStage() *EgressStage {
+	return &EgressStage{}
 }
 
 // InitMetrics initializes the metrics for the EgressStage.
@@ -22,20 +30,36 @@ type EgressStage struct {
 func (m *EgressStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
-	// Initialize counted_items counter metric
-	err = tel.NewCounterMetric("counted_items", func() int64 { return m.countedItems.Load() })
+	// Initialize counted_items metric
+	err = tel.NewCounterMetric(
+		"counted_items",
+		func() int64 { return m.countedItems.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize current_items up/down counter metric
-	err = tel.NewUpDownCounterMetric("current_items", func() int64 { return m.currentItems.Load() })
+	// Initialize current_items metric
+	err = tel.NewUpDownCounterMetric(
+		"current_items",
+		func() int64 { return m.currentItems.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize my_histogram histogram metric
-	m.myHistogram, err = tel.NewHistogramMetric("my_histogram")
+	// Initialize int_histogram metric
+	m.intHistogram, err = tel.NewIntHistogramMetric(
+		"int_histogram",
+	)
+	if err != nil {
+		return err
+	}
+
+	// Initialize float_histogram metric
+	m.floatHistogram, err = tel.NewFloatHistogramMetric(
+		"float_histogram",
+	)
 	if err != nil {
 		return err
 	}
@@ -43,46 +67,92 @@ func (m *EgressStage) InitMetrics(tel *telemetry.Telemetry) error {
 	return nil
 }
 
-// AddCountedItems adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *EgressStage) AddCountedItems(amount uint) {
+// AddCountedItems adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *EgressStage) AddCountedItems(amount int) {
 	m.countedItems.Add(int64(amount))
 }
 
-// IncrementCountedItems increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementCountedItems increments the metric by 1.
 func (m *EgressStage) IncrementCountedItems() {
 	m.countedItems.Add(1)
 }
 
-// AddCurrentItems adds the given amount to the up/down counter metric.
-// The amount to be added must be an integer.
-//
-// This function is thread-safe.
+// DecrementCountedItems decrements the metric by 1.
+func (m *EgressStage) DecrementCountedItems() {
+	m.countedItems.Add(-1)
+}
+
+// AddCurrentItems adds the given amount to the metric.
+// The amount can be either positive or negative.
 func (m *EgressStage) AddCurrentItems(amount int) {
 	m.currentItems.Add(int64(amount))
 }
 
-// IncrementCurrentItems increments the up/down counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementCurrentItems increments the metric by 1.
 func (m *EgressStage) IncrementCurrentItems() {
 	m.currentItems.Add(1)
 }
 
-// DecrementCurrentItems decrements the up/down counter metric by 1.
-//
-// This function is thread-safe.
+// DecrementCurrentItems decrements the metric by 1.
 func (m *EgressStage) DecrementCurrentItems() {
 	m.currentItems.Add(-1)
 }
 
-// RecordMyHistogram records the given value into the histogram metric.
-//
-// This function is thread-safe.
-func (m *EgressStage) RecordMyHistogram(ctx context.Context, value int) {
-	m.myHistogram.Record(ctx, int64(value))
+// RecordIntHistogram records the given value into the histogram metric.
+func (m *EgressStage) RecordIntHistogram(
+	ctx context.Context,
+	value int64,
+	arg1 string,
+	arg2 bool,
+) {
+	m.intHistogram.Record(
+		ctx,
+		value,
+		attribute.String("arg1", arg1),
+		attribute.Bool("arg2", arg2),
+	)
+}
+
+// RecordIntHistogramWithAttributes records the given value
+// ans attributes into the histogram metric.
+func (m *EgressStage) RecordIntHistogramWithAttributes(
+	ctx context.Context,
+	value int64,
+	attributes metric.MeasurementOption,
+) {
+	m.intHistogram.RecordWithAttributes(
+		ctx,
+		value,
+		attributes,
+	)
+}
+
+// RecordFloatHistogram records the given value into the histogram metric.
+func (m *EgressStage) RecordFloatHistogram(
+	ctx context.Context,
+	value float64,
+	arg1 int,
+	arg2 float64,
+) {
+	m.floatHistogram.Record(
+		ctx,
+		value,
+		attribute.Int("arg1", arg1),
+		attribute.Float64("arg2", arg2),
+	)
+}
+
+// RecordFloatHistogramWithAttributes records the given value
+// ans attributes into the histogram metric.
+func (m *EgressStage) RecordFloatHistogramWithAttributes(
+	ctx context.Context,
+	value float64,
+	attributes metric.MeasurementOption,
+) {
+	m.floatHistogram.RecordWithAttributes(
+		ctx,
+		value,
+		attributes,
+	)
 }

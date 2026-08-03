@@ -559,7 +559,7 @@ func (tr *tcpRunner) handleMessage(ctx context.Context, rawMsg []byte) *msg[*TCP
 	msg.SaveSpan(span)
 
 	// Update metrics
-	tr.env.Metrics.AddReceivedBytes(uint(msgSize))
+	tr.env.Metrics.AddReceivedBytes(msgSize)
 	tr.env.Metrics.IncrementReceivedMessages()
 
 	return msg

@@ -24,8 +24,11 @@ func NewTcpStage() *TcpStage {
 func (m *TcpStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
-	// Initialize delivered_bytes counter metric
-	err = tel.NewCounterMetric("delivered_bytes", func() int64 { return m.deliveredBytes.Load() })
+	// Initialize delivered_bytes metric
+	err = tel.NewCounterMetric(
+		"delivered_bytes",
+		func() int64 { return m.deliveredBytes.Load() },
+	)
 	if err != nil {
 		return err
 	}
@@ -33,17 +36,18 @@ func (m *TcpStage) InitMetrics(tel *telemetry.Telemetry) error {
 	return nil
 }
 
-// AddDeliveredBytes adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *TcpStage) AddDeliveredBytes(amount uint) {
+// AddDeliveredBytes adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *TcpStage) AddDeliveredBytes(amount int) {
 	m.deliveredBytes.Add(int64(amount))
 }
 
-// IncrementDeliveredBytes increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementDeliveredBytes increments the metric by 1.
 func (m *TcpStage) IncrementDeliveredBytes() {
 	m.deliveredBytes.Add(1)
+}
+
+// DecrementDeliveredBytes decrements the metric by 1.
+func (m *TcpStage) DecrementDeliveredBytes() {
+	m.deliveredBytes.Add(-1)
 }

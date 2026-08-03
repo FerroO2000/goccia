@@ -24,8 +24,11 @@ func NewTickerStage() *TickerStage {
 func (m *TickerStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
-	// Initialize triggered_messages counter metric
-	err = tel.NewCounterMetric("triggered_messages", func() int64 { return m.triggeredMessages.Load() })
+	// Initialize triggered_messages metric
+	err = tel.NewCounterMetric(
+		"triggered_messages",
+		func() int64 { return m.triggeredMessages.Load() },
+	)
 	if err != nil {
 		return err
 	}
@@ -33,17 +36,18 @@ func (m *TickerStage) InitMetrics(tel *telemetry.Telemetry) error {
 	return nil
 }
 
-// AddTriggeredMessages adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *TickerStage) AddTriggeredMessages(amount uint) {
+// AddTriggeredMessages adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *TickerStage) AddTriggeredMessages(amount int) {
 	m.triggeredMessages.Add(int64(amount))
 }
 
-// IncrementTriggeredMessages increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementTriggeredMessages increments the metric by 1.
 func (m *TickerStage) IncrementTriggeredMessages() {
 	m.triggeredMessages.Add(1)
+}
+
+// DecrementTriggeredMessages decrements the metric by 1.
+func (m *TickerStage) DecrementTriggeredMessages() {
+	m.triggeredMessages.Add(-1)
 }

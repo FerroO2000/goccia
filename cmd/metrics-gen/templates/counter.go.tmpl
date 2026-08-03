@@ -1,0 +1,17 @@
+{{ define "counterType" -}}
+{{ template "integerVar" . -}}
+{{- end }}
+
+{{ define "counterInit" -}}
+err = tel.NewCounterMetric(
+    "{{ .Metric.Name }}",
+    {{ template "integerGetter" . }},
+    {{ template "unitArg" .Metric }}
+)
+{{- end }}
+
+{{ define "counterMethods" -}}
+{{ template "addMethod" . }}
+{{ template "incrementMethod" . }}
+{{ template "decrementMethod" . -}}
+{{- end }}

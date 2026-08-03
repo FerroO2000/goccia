@@ -75,6 +75,9 @@ func (pwh *processorWorkerHandler[Env, In, Out, W]) handle(ctx context.Context) 
 	msgOut.SetReceiveTime(msgIn.GetReceiveTime())
 	msgOut.SetTimestamp(msgIn.GetTimestamp())
 
+	// Set correlation ID
+	msgOut.SetCorrelationID(msgIn.GetCorrelationID())
+
 	// Check if the output message has to be dropped
 	if msgOut.IsDropped() {
 		msgOut.Destroy()
@@ -137,7 +140,7 @@ func (ewh *egressWorkerHandler[Env, In, W]) handle(ctx context.Context) error {
 	}
 
 	ewh.stageMetrics.IncrementDeliveredMessages()
-	ewh.stageMetrics.RecordTotalMessageProcessingTime(ctx, int(time.Since(msg.GetReceiveTime()).Milliseconds()))
+	ewh.stageMetrics.RecordTotalMessageProcessingTime(ctx, time.Since(msg.GetReceiveTime()).Milliseconds())
 
 	return nil
 }

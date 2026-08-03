@@ -249,7 +249,7 @@ func (ur *udpRunner) handleBuf(ctx context.Context, buf []byte) *msg[*UDPMessage
 	msg.SaveSpan(span)
 
 	// Update metrics
-	ur.env.Metrics.AddReceivedBytes(uint(payloadSize))
+	ur.env.Metrics.AddReceivedBytes(payloadSize)
 	ur.env.Metrics.IncrementReceivedMessages()
 
 	return msg

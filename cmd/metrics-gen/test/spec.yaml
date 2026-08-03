@@ -8,6 +8,9 @@ groups:
       - name: current_items
         type: upDownCounter
 
+      - name: my_gauge
+        type: gauge
+
   - name: egress_stage
     metrics:
       - name: counted_items
@@ -16,5 +19,20 @@ groups:
       - name: current_items
         type: upDownCounter
 
-      - name: my_histogram
+      - name: int_histogram
         type: histogram
+        data_type: integer
+        attributes:
+          - name: arg1
+            type: string
+          - name: arg2
+            type: bool
+
+      - name: float_histogram
+        type: histogram
+        data_type: float
+        attributes:
+          - name: arg1
+            type: int
+          - name: arg2
+            type: float

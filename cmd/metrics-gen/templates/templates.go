@@ -2,10 +2,10 @@
 package templates
 
 import (
-	_ "embed"
+	"embed"
 )
 
-// MetricFileTmplSource contains the template for the metrics file.
+// Templates contains all the templates.
 //
-//go:embed metric_file.go.tmpl
-var MetricFileTmplSource string
+//go:embed *.tmpl
+var Templates embed.FS

@@ -33,6 +33,10 @@ the envelopes are destroyed.
 
 `TeeStage` has no config object. At least one output connector is required.
 
+## Metrics
+
+--8<-- "processor/metrics/tee_stage.doc.md"
+
 ## Internals
 
 `TeeStage` uses a custom single runner instead of the generic worker pool. The

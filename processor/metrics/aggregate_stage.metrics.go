@@ -24,8 +24,11 @@ func NewAggregateStage() *AggregateStage {
 func (m *AggregateStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
-	// Initialize aggregate_messages counter metric
-	err = tel.NewCounterMetric("aggregate_messages", func() int64 { return m.aggregateMessages.Load() })
+	// Initialize aggregate_messages metric
+	err = tel.NewCounterMetric(
+		"aggregate_messages",
+		func() int64 { return m.aggregateMessages.Load() },
+	)
 	if err != nil {
 		return err
 	}
@@ -33,17 +36,18 @@ func (m *AggregateStage) InitMetrics(tel *telemetry.Telemetry) error {
 	return nil
 }
 
-// AddAggregateMessages adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *AggregateStage) AddAggregateMessages(amount uint) {
+// AddAggregateMessages adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *AggregateStage) AddAggregateMessages(amount int) {
 	m.aggregateMessages.Add(int64(amount))
 }
 
-// IncrementAggregateMessages increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementAggregateMessages increments the metric by 1.
 func (m *AggregateStage) IncrementAggregateMessages() {
 	m.aggregateMessages.Add(1)
+}
+
+// DecrementAggregateMessages decrements the metric by 1.
+func (m *AggregateStage) DecrementAggregateMessages() {
+	m.aggregateMessages.Add(-1)
 }

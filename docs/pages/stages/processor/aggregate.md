@@ -81,11 +81,10 @@ The stage is intentionally single-threaded and does not accept a running mode.
 
 ## Metrics
 
-`AggregateStage` records:
+--8<-- "processor/metrics/aggregate_stage.doc.md"
 
-- `aggregate_messages`: successfully written aggregate output messages.
-- The common processor processed-message counter, incremented by the number of
-  input messages placed into emitted batches.
+The common processor processed-message counter is incremented by the number of
+input messages placed into emitted batches.
 
 ## Internals
 

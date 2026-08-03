@@ -1,4 +1,4 @@
-.PHONY: help _telemetry-up _telemetry-down can csv ebpf file kafka routing
+.PHONY: help _telemetry-up _telemetry-down can csv ebpf file http kafka routing
 
 help:
 	@echo "Available commands:"
@@ -6,6 +6,7 @@ help:
 	@echo "  make csv [up|down|run] - Runs CSV example"
 	@echo "  make ebpf [up|down|build|run] - Runs eBPF example"
 	@echo "  make file [up|down|gen|run] - Runs file example"
+	@echo "  make http [up|down|server|client [period]] - Runs HTTP echo example"
 	@echo "  make kafka [up|down|producer|consumer] - Runs Kafka example"
 	@echo "  make routing [up|down|run] - Runs routing example"
 
@@ -81,6 +82,25 @@ file:
 		cd file && go run .; \
 	else \
 		echo "Usage: make file [up|down|run]"; \
+		exit 1; \
+	fi
+
+# HTTP
+http:
+	@if [ "$(filter-out $@,$(MAKECMDGOALS))" = "up" ]; then \
+		$(MAKE) _telemetry-up; \
+	elif [ "$(filter-out $@,$(MAKECMDGOALS))" = "down" ]; then \
+		$(MAKE) _telemetry-down; \
+	elif [ "$(filter-out $@,$(MAKECMDGOALS))" = "server" ]; then \
+		cd http && go run .; \
+	elif echo "$(filter-out $@,$(MAKECMDGOALS))" | grep -q "^client"; then \
+		PERIOD=$$(echo "$(filter-out $@,$(MAKECMDGOALS))" | awk '{print $$2}'); \
+		if [ -z "$$PERIOD" ]; then \
+			PERIOD="1"; \
+		fi; \
+		cd http && ./client.sh "$$PERIOD"; \
+	else \
+		echo "Usage: make http [up|down|server|client [period]]"; \
 		exit 1; \
 	fi
 

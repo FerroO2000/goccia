@@ -56,6 +56,10 @@ local g = import 'g.libsonnet';
       + custom.withLineInterpolation('smooth')
       + custom.withFillOpacity(50),
 
+    withUnit(title, targets, unit, w=12, h=18):
+      self.base(title, targets, w, h)
+      + ts.standardOptions.withUnit(unit),
+
     latency(title, targets, w=12, h=18):
       self.base(title, targets, w, h)
       + ts.standardOptions.withUnit('ms'),
@@ -64,6 +68,10 @@ local g = import 'g.libsonnet';
       self.base(title, targets, w, h)
       + custom.withLineInterpolation('stepAfter')
       + custom.withFillOpacity(0),
+
+    requestRate(title, targets, w=12, h=18):
+      self.base(title, targets, w, h)
+      + ts.standardOptions.withUnit('reqps'),
   },
 
   table: {
@@ -75,4 +83,19 @@ local g = import 'g.libsonnet';
       + t.gridPos.withW(w)
       + t.gridPos.withH(h),
   },
+
+  heatmap:{
+    local hm = g.panel.heatmap,
+
+    base(title, targets, w=24, h=8, unit=''):
+      hm.new(title)
+      + hm.queryOptions.withTargets(targets)
+      + hm.gridPos.withW(w)
+      + hm.gridPos.withH(h)
+      + hm.options.withCalculate(false)
+      + hm.options.yAxis.scaleDistribution.withType("log")
+      + (
+        if std.isEmpty(unit) then {} else hm.options.yAxis.withUnit(unit)
+      ),
+  }
 }

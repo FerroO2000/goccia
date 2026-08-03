@@ -338,7 +338,7 @@ func (kr *kafkaRunner) handleMessage(ctx context.Context, msg *kafka.Message) *m
 	span.SetAttributes(attribute.Int("value_size", valueSize))
 	msgRes.SaveSpan(span)
 
-	kr.env.Metrics.AddReceivedBytes(uint(valueSize))
+	kr.env.Metrics.AddReceivedBytes(valueSize)
 
 	return msgRes
 }

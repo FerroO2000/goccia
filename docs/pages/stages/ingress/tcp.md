@@ -53,6 +53,10 @@ Use `TCPFramingModeDelimited` for delimiter-separated messages. Use
 For length-prefixed mode, set `HeaderLen`, `MessageLengthFieldLen`,
 `MessageLengthFieldOffset`, and `MessageLengthFieldEndianess`.
 
+## Metrics
+
+--8<-- "ingress/metrics/tcp_stage.doc.md"
+
 ## Internals
 
 The stage uses Go's standard `net` package. It owns a `net.TCPListener`, starts

@@ -34,6 +34,10 @@ This egress stage produces no downstream output message.
 | `IPAddr` | `"127.0.0.1"` | Destination address. |
 | `Port` | `20000` | Destination UDP port. |
 
+## Metrics
+
+--8<-- "egress/metrics/udp_stage.doc.md"
+
 ## Internals
 
 The stage uses Go's standard `net` package. Initialization creates a connected

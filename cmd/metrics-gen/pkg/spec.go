@@ -1,25 +1,70 @@
 // Package pkg contains the implementation of the metrics-gen cli tool.
 package pkg
 
-import "fmt"
+// AttributeType defines the type of an attribute.
+type AttributeType = string
+
+const (
+	// AttributeTypeString is a string attribute.
+	AttributeTypeString AttributeType = "string"
+	// AttributeTypeBool is a boolean attribute.
+	AttributeTypeBool AttributeType = "bool"
+	// AttributeTypeInt is an integer attribute.
+	AttributeTypeInt AttributeType = "int"
+	// AttributeTypeFloat is a float attribute.
+	AttributeTypeFloat AttributeType = "float"
+)
+
+// Attribute defines an attribute.
+type Attribute struct {
+	Name string        `yaml:"name"`
+	Type AttributeType `yaml:"type"`
+	Arg  string        `yaml:"arg"`
+}
+
+func (a *Attribute) getName() string {
+	return a.Name
+}
 
 // MetricType defines the type of a metric.
-type MetricType string
+type MetricType = string
 
 const (
 	// MetricTypeCounter is a counter metric.
 	MetricTypeCounter MetricType = "counter"
 	// MetricTypeUpDownCounter is an up/down counter metric.
 	MetricTypeUpDownCounter MetricType = "upDownCounter"
+	// MetricTypeGauge is a gauge metric.
+	MetricTypeGauge MetricType = "gauge"
 	// MetricTypeHistogram is a histogram metric.
 	MetricTypeHistogram MetricType = "histogram"
 )
 
+// DataType defines the data type of a metric.
+type DataType = string
+
+const (
+	// DataTypeInteger is an integer data type.
+	DataTypeInteger DataType = "integer"
+	// DataTypeFloat is a float data type.
+	DataTypeFloat DataType = "float"
+)
+
 // Metric defines a metric.
 type Metric struct {
-	Name string     `yaml:"name"`
-	Type MetricType `yaml:"type"`
-	Unit string     `yaml:"unit"`
+	Name         string       `yaml:"name"`
+	Description  string       `yaml:"description"`
+	Type         MetricType   `yaml:"type"`
+	DataType     DataType     `yaml:"data_type"`
+	Unit         string       `yaml:"unit"`
+	BucketBounds []float64    `yaml:"bucket_bounds"`
+	CustomGetter bool         `yaml:"custom_getter"`
+	Attributes   []*Attribute `yaml:"attributes"`
+	AttributeSet string       `yaml:"attribute_set"`
+}
+
+func (m *Metric) getName() string {
+	return m.Name
 }
 
 // Group defines a group of metrics.
@@ -28,16 +73,20 @@ type Group struct {
 	Metrics []*Metric `yaml:"metrics"`
 }
 
-// Spec defines a metrics file spec.
-type Spec struct {
-	Package string   `yaml:"package"`
-	Groups  []*Group `yaml:"groups"`
+func (g *Group) getName() string {
+	return g.Name
 }
 
-func (s *Spec) validate() error {
-	if s.Package == "" {
-		return fmt.Errorf("yaml: 'package' field is required")
-	}
+// AttributeSet defines a set of attributes to be referenced
+// by other metrics.
+type AttributeSet struct {
+	Name       string       `yaml:"name"`
+	Attributes []*Attribute `yaml:"attributes"`
+}
 
-	return nil
+// Spec defines a metrics file spec.
+type Spec struct {
+	Package       string          `yaml:"package"`
+	AttributeSets []*AttributeSet `yaml:"attribute_sets"`
+	Groups        []*Group        `yaml:"groups"`
 }

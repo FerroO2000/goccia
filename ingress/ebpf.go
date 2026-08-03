@@ -270,7 +270,7 @@ func (er *ebpfRunner[T, O, OPtr]) parseData(data []byte) (T, error) {
 	var res T
 
 	dataLen := len(data)
-	er.env.Metrics.AddReceivedBytes(uint(dataLen))
+	er.env.Metrics.AddReceivedBytes(dataLen)
 
 	if er.env.Config.UseUnsafe {
 		// Use unsafe struct casting

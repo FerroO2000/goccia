@@ -7,7 +7,7 @@ type ordered interface {
 }
 
 // CheckNotNegative checks that the value is not negative.
-// If it is, an anomaly is added to the anomaly collector and the value is set to the fallback.
+// If the condition is not met, an anomaly is added to the anomaly collector and the value is set to the fallback.
 func CheckNotNegative[T ordered](ac *AnomalyCollector, field string, actual *T, fallback T) {
 	val := *actual
 	if val < 0 {
@@ -17,13 +17,20 @@ func CheckNotNegative[T ordered](ac *AnomalyCollector, field string, actual *T, 
 }
 
 // CheckNotZero checks that the value is not zero.
-// If it is, an anomaly is added to the anomaly collector and the value is set to the fallback.
+// If the condition is not met, an anomaly is added to the anomaly collector and the value is set to the fallback.
 func CheckNotZero[T ordered](ac *AnomalyCollector, field string, actual *T, fallback T) {
 	val := *actual
 	if val == 0 {
 		ac.add(field, "cannot be zero", val, fallback)
 		*actual = fallback
 	}
+}
+
+// CheckGreaterThanZero checks that the value is greater than zero.
+// If the condition is not met, an anomaly is added to the anomaly collector and the value is set to the fallback.
+func CheckGreaterThanZero[T ordered](ac *AnomalyCollector, field string, actual *T, fallback T) {
+	CheckNotNegative(ac, field, actual, fallback)
+	CheckNotZero(ac, field, actual, fallback)
 }
 
 // CheckNotLower checks that the value is not lower than the target.
@@ -37,7 +44,7 @@ func CheckNotLower[T ordered](ac *AnomalyCollector, field string, actual *T, tar
 }
 
 // CheckNotLowerThan checks that the value is not lower than the target.
-// If it is, an anomaly is added to the anomaly collector and the value is set to the target.
+// If the condition is not met, an anomaly is added to the anomaly collector and the value is set to the target.
 func CheckNotLowerThan[T ordered](ac *AnomalyCollector, field, targetField string, actual *T, target T) {
 	val := *actual
 	if val < target {
@@ -47,7 +54,7 @@ func CheckNotLowerThan[T ordered](ac *AnomalyCollector, field, targetField strin
 }
 
 // CheckNotGreaterThan checks that the value is not greater than the target.
-// If it is, an anomaly is added to the anomaly collector and the value is set to the target.
+// If the condition is not met, an anomaly is added to the anomaly collector and the value is set to the target.
 func CheckNotGreaterThan[T ordered](ac *AnomalyCollector, field, targetField string, actual *T, target T) {
 	val := *actual
 	if val > target {
@@ -57,7 +64,7 @@ func CheckNotGreaterThan[T ordered](ac *AnomalyCollector, field, targetField str
 }
 
 // CheckNotEmpty checks that the value is not empty.
-// If it is, an anomaly is added to the anomaly collector and the value is set to the fallback.
+// If the condition is not met, an anomaly is added to the anomaly collector and the value is set to the fallback.
 func CheckNotEmpty(ac *AnomalyCollector, field string, actual *string, fallback string) {
 	val := *actual
 	if val == "" {
@@ -67,7 +74,7 @@ func CheckNotEmpty(ac *AnomalyCollector, field string, actual *string, fallback 
 }
 
 // CheckLen checks that the value is not empty.
-// If it is, an anomaly is added to the anomaly collector and the value is set to the fallback.
+// If the condition is not met, an anomaly is added to the anomaly collector and the value is set to the fallback.
 func CheckLen[T any](ac *AnomalyCollector, field string, actual *[]T, fallback []T) {
 	val := *actual
 	if len(val) == 0 {

@@ -24,8 +24,11 @@ func NewQuestDbStage() *QuestDbStage {
 func (m *QuestDbStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
-	// Initialize inserted_rows counter metric
-	err = tel.NewCounterMetric("inserted_rows", func() int64 { return m.insertedRows.Load() })
+	// Initialize inserted_rows metric
+	err = tel.NewCounterMetric(
+		"inserted_rows",
+		func() int64 { return m.insertedRows.Load() },
+	)
 	if err != nil {
 		return err
 	}
@@ -33,17 +36,18 @@ func (m *QuestDbStage) InitMetrics(tel *telemetry.Telemetry) error {
 	return nil
 }
 
-// AddInsertedRows adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *QuestDbStage) AddInsertedRows(amount uint) {
+// AddInsertedRows adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *QuestDbStage) AddInsertedRows(amount int) {
 	m.insertedRows.Add(int64(amount))
 }
 
-// IncrementInsertedRows increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementInsertedRows increments the metric by 1.
 func (m *QuestDbStage) IncrementInsertedRows() {
 	m.insertedRows.Add(1)
+}
+
+// DecrementInsertedRows decrements the metric by 1.
+func (m *QuestDbStage) DecrementInsertedRows() {
+	m.insertedRows.Add(-1)
 }

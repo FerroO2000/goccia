@@ -24,8 +24,11 @@ func NewRouterStage() *RouterStage {
 func (m *RouterStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
-	// Initialize total_routed_messages counter metric
-	err = tel.NewCounterMetric("total_routed_messages", func() int64 { return m.totalRoutedMessages.Load() })
+	// Initialize total_routed_messages metric
+	err = tel.NewCounterMetric(
+		"total_routed_messages",
+		func() int64 { return m.totalRoutedMessages.Load() },
+	)
 	if err != nil {
 		return err
 	}
@@ -33,17 +36,18 @@ func (m *RouterStage) InitMetrics(tel *telemetry.Telemetry) error {
 	return nil
 }
 
-// AddTotalRoutedMessages adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *RouterStage) AddTotalRoutedMessages(amount uint) {
+// AddTotalRoutedMessages adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *RouterStage) AddTotalRoutedMessages(amount int) {
 	m.totalRoutedMessages.Add(int64(amount))
 }
 
-// IncrementTotalRoutedMessages increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementTotalRoutedMessages increments the metric by 1.
 func (m *RouterStage) IncrementTotalRoutedMessages() {
 	m.totalRoutedMessages.Add(1)
+}
+
+// DecrementTotalRoutedMessages decrements the metric by 1.
+func (m *RouterStage) DecrementTotalRoutedMessages() {
+	m.totalRoutedMessages.Add(-1)
 }

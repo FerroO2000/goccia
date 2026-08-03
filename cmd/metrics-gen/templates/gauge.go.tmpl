@@ -1,0 +1,17 @@
+{{ define "gaugeType" -}}
+{{ template "integerVar" . -}}
+{{- end }}
+
+{{ define "gaugeInit" -}}
+err = tel.NewGaugeMetric(
+    "{{ .Metric.Name }}",
+    {{ template "integerGetter" . }},
+    {{ template "unitArg" .Metric }}
+)
+{{- end }}
+
+{{ define "gaugeMethods" -}}
+{{ template "addMethod" . }}
+{{ template "incrementMethod" . }}
+{{ template "decrementMethod" . -}}
+{{- end }}

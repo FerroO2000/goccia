@@ -120,7 +120,7 @@ func (uw *udpWorker[T]) Deliver(ctx context.Context, msgIn *msg[T]) error {
 	span.SetAttributes(attribute.Int("payload_size", payloadSize))
 
 	// Update metrics
-	uw.Env.Metrics.AddDeliveredBytes(uint(deliveredBytes))
+	uw.Env.Metrics.AddDeliveredBytes(deliveredBytes)
 
 	return nil
 }

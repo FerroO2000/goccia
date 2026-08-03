@@ -12,8 +12,19 @@ import (
 // {{ $structType }} structs contains the metrics for the {{ .Name }} group.
 type {{ $structType }} struct {
 {{- range .Metrics }}
-    {{ .Name | toLowerCamelCase }} {{ if eq .Type "histogram" }}*telemetry.Histogram{{ else }}atomic.Int64{{ end }}
-{{- end }}
+{{ $entry := ( dict
+    "MetricVar" ( .Name | toLowerCamelCase )
+    "Metric" .
+) }}
+{{- if eq .Type "counter" }}
+    {{- template "counterType" $entry -}}
+{{- else if eq .Type "upDownCounter" }}
+    {{- template "upDownCounterType" $entry -}}
+{{- else if eq .Type "gauge" }}
+    {{- template "gaugeType" $entry -}}
+{{- else if eq .Type "histogram" }}
+    {{- template "histogramType" $entry -}}
+{{ end }}{{ end -}}
 }
 
 // New{{ $structType }} returns a new instance of the {{ $structType }} struct.
@@ -28,16 +39,20 @@ func New{{ $structType }}() *{{ $structType }} {
 func (m *{{ $structType }}) InitMetrics(tel *telemetry.Telemetry) error {
     var err error 
 {{ range .Metrics }}
+{{ $entry := ( dict
+    "MetricVar" ( .Name | toLowerCamelCase )
+    "Metric" . 
+) }}
 {{ $metricField := .Name | toLowerCamelCase }}
+    // Initialize {{ .Name }} metric
 {{- if eq .Type "counter" }}
-    // Initialize {{ .Name }} counter metric
-    err = tel.NewCounterMetric("{{ .Name }}", func() int64 { return m.{{ $metricField }}.Load() }{{ if .Unit }}, metric.WithUnit("{{ .Unit }}"){{ end }})
+    {{ template "counterInit" $entry -}}
 {{- else if eq .Type "upDownCounter" }}
-    // Initialize {{ .Name }} up/down counter metric
-    err = tel.NewUpDownCounterMetric("{{ .Name }}", func() int64 { return m.{{ $metricField }}.Load() }{{ if .Unit }}, metric.WithUnit("{{ .Unit }}"){{ end }})
+    {{ template "upDownCounterInit" $entry -}}
+{{- else if eq .Type "gauge" }}
+    {{ template "gaugeInit" $entry -}}
 {{- else if eq .Type "histogram" }}
-    // Initialize {{ .Name }} histogram metric
-    m.{{ $metricField }}, err = tel.NewHistogramMetric("{{ .Name }}"{{ if .Unit }}, metric.WithUnit("{{ .Unit }}"){{ end }})
+    {{ template "histogramInit" $entry -}}
 {{- end }}
     if err != nil {
         return err
@@ -47,51 +62,19 @@ func (m *{{ $structType }}) InitMetrics(tel *telemetry.Telemetry) error {
 }
 
 {{- range .Metrics }}
-{{ $metricName := .Name | toLowerCamelCase }}
-{{ $methodSuffix := .Name | toUpperCamelCase }}
+{{ $entry := ( dict
+    "StructType" $structType
+    "TitleName" ( .Name | toUpperCamelCase )
+    "MetricVar" ( .Name | toLowerCamelCase )
+    "Metric" .
+) }}
 {{- if eq .Type "counter" }}
-// Add{{ $methodSuffix }} adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *{{ $structType }}) Add{{ $methodSuffix }}(amount uint) {
-    m.{{ $metricName }}.Add(int64(amount))
-}
-
-// Increment{{ $methodSuffix }} increments the counter metric by 1.
-//
-// This function is thread-safe.
-func (m *{{ $structType }}) Increment{{ $methodSuffix }}() {
-    m.{{ $metricName }}.Add(1)
-}
+{{ template "counterMethods" $entry -}}
 {{- else if eq .Type "upDownCounter" }}
-// Add{{ $methodSuffix }} adds the given amount to the up/down counter metric.
-// The amount to be added must be an integer.
-//
-// This function is thread-safe.
-func (m *{{ $structType }}) Add{{ $methodSuffix }}(amount int) {
-    m.{{ $metricName }}.Add(int64(amount))
-}
-
-// Increment{{ $methodSuffix }} increments the up/down counter metric by 1.
-//
-// This function is thread-safe.
-func (m *{{ $structType }}) Increment{{ $methodSuffix }}() {
-    m.{{ $metricName }}.Add(1)
-}
-
-// Decrement{{ $methodSuffix }} decrements the up/down counter metric by 1.
-//
-// This function is thread-safe.
-func (m *{{ $structType }}) Decrement{{ $methodSuffix }}() {
-    m.{{ $metricName }}.Add(-1)
-}
+{{ template "upDownCounterMethods" $entry -}}
+{{- else if eq .Type "gauge" }}
+{{ template "gaugeMethods" $entry -}}
 {{- else if eq .Type "histogram" }}
-// Record{{ $methodSuffix }} records the given value into the histogram metric.
-//
-// This function is thread-safe.
-func (m *{{ $structType }}) Record{{ $methodSuffix }}(ctx context.Context, value int) {
-    m.{{ $metricName }}.Record(ctx, int64(value))
-}
+{{ template "histogramMethods" $entry -}}
 {{- end }}
 {{- end }}

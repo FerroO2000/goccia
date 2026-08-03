@@ -13,7 +13,7 @@ import (
 type EgressStage struct {
 	deliveredMessages          atomic.Int64
 	deliveringErrors           atomic.Int64
-	totalMessageProcessingTime *telemetry.Histogram
+	totalMessageProcessingTime *telemetry.IntHistogram
 }
 
 // NewEgressStage returns a new instance of the EgressStage struct.
@@ -28,20 +28,29 @@ func NewEgressStage() *EgressStage {
 func (m *EgressStage) InitMetrics(tel *telemetry.Telemetry) error {
 	var err error
 
-	// Initialize delivered_messages counter metric
-	err = tel.NewCounterMetric("delivered_messages", func() int64 { return m.deliveredMessages.Load() })
+	// Initialize delivered_messages metric
+	err = tel.NewCounterMetric(
+		"delivered_messages",
+		func() int64 { return m.deliveredMessages.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize delivering_errors counter metric
-	err = tel.NewCounterMetric("delivering_errors", func() int64 { return m.deliveringErrors.Load() })
+	// Initialize delivering_errors metric
+	err = tel.NewCounterMetric(
+		"delivering_errors",
+		func() int64 { return m.deliveringErrors.Load() },
+	)
 	if err != nil {
 		return err
 	}
 
-	// Initialize total_message_processing_time histogram metric
-	m.totalMessageProcessingTime, err = tel.NewHistogramMetric("total_message_processing_time", metric.WithUnit("ms"))
+	// Initialize total_message_processing_time metric
+	m.totalMessageProcessingTime, err = tel.NewIntHistogramMetric(
+		"total_message_processing_time",
+		metric.WithUnit("ms"),
+	)
 	if err != nil {
 		return err
 	}
@@ -49,39 +58,59 @@ func (m *EgressStage) InitMetrics(tel *telemetry.Telemetry) error {
 	return nil
 }
 
-// AddDeliveredMessages adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *EgressStage) AddDeliveredMessages(amount uint) {
+// AddDeliveredMessages adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *EgressStage) AddDeliveredMessages(amount int) {
 	m.deliveredMessages.Add(int64(amount))
 }
 
-// IncrementDeliveredMessages increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementDeliveredMessages increments the metric by 1.
 func (m *EgressStage) IncrementDeliveredMessages() {
 	m.deliveredMessages.Add(1)
 }
 
-// AddDeliveringErrors adds the given amount to the counter metric.
-// The amount to be added must be a positive integer.
-//
-// This function is thread-safe.
-func (m *EgressStage) AddDeliveringErrors(amount uint) {
+// DecrementDeliveredMessages decrements the metric by 1.
+func (m *EgressStage) DecrementDeliveredMessages() {
+	m.deliveredMessages.Add(-1)
+}
+
+// AddDeliveringErrors adds the given amount to the metric.
+// The amount can be either positive or negative.
+func (m *EgressStage) AddDeliveringErrors(amount int) {
 	m.deliveringErrors.Add(int64(amount))
 }
 
-// IncrementDeliveringErrors increments the counter metric by 1.
-//
-// This function is thread-safe.
+// IncrementDeliveringErrors increments the metric by 1.
 func (m *EgressStage) IncrementDeliveringErrors() {
 	m.deliveringErrors.Add(1)
 }
 
+// DecrementDeliveringErrors decrements the metric by 1.
+func (m *EgressStage) DecrementDeliveringErrors() {
+	m.deliveringErrors.Add(-1)
+}
+
 // RecordTotalMessageProcessingTime records the given value into the histogram metric.
-//
-// This function is thread-safe.
-func (m *EgressStage) RecordTotalMessageProcessingTime(ctx context.Context, value int) {
-	m.totalMessageProcessingTime.Record(ctx, int64(value))
+func (m *EgressStage) RecordTotalMessageProcessingTime(
+	ctx context.Context,
+	value int64,
+) {
+	m.totalMessageProcessingTime.Record(
+		ctx,
+		value,
+	)
+}
+
+// RecordTotalMessageProcessingTimeWithAttributes records the given value
+// ans attributes into the histogram metric.
+func (m *EgressStage) RecordTotalMessageProcessingTimeWithAttributes(
+	ctx context.Context,
+	value int64,
+	attributes metric.MeasurementOption,
+) {
+	m.totalMessageProcessingTime.RecordWithAttributes(
+		ctx,
+		value,
+		attributes,
+	)
 }
