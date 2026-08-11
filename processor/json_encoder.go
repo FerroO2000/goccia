@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
-	"github.com/FerroO2000/goccia/internal/metrics"
 	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/stage/env"
 	"github.com/FerroO2000/goccia/internal/stage/worker"
+	"github.com/FerroO2000/goccia/processor/metrics"
 )
 
 // ─── Config ─────────────────────────────────────────────────────────────────|
@@ -163,14 +164,14 @@ func (e *jsonEncoder[T]) encodeWithBuffer(dataIn T) ([]byte, error) {
 // ─── Environment ────────────────────────────────────────────────────────────|
 
 type jsonEncoderEnv[T any] struct {
-	*env.BaseEnv[*JSONEncoderConfig, *metrics.EmptyMetrics]
+	*env.BaseEnv[*JSONEncoderConfig, *metrics.JsonEncoder]
 
 	encoder *jsonEncoder[T]
 }
 
 func newJSONEncoderEnv[T any](config *JSONEncoderConfig) *jsonEncoderEnv[T] {
 	return &jsonEncoderEnv[T]{
-		BaseEnv: env.NewProcessorEnv(config, metrics.NewEmptyMetrics()),
+		BaseEnv: env.NewProcessorEnv(config, metrics.NewJsonEncoder()),
 	}
 }
 
@@ -204,11 +205,22 @@ func (w *jsonEncoderWorker[T]) Handle(ctx context.Context, msgIn *msg[*JSONMessa
 	_, span := w.Tel.StartTrace(ctx, "encode json data")
 	defer span.End()
 
-	msgBody := msgIn.GetBody()
-	data, err := w.Env.encoder.encode(msgBody.Data)
+	encStartTime := time.Now()
+
+	inputData := msgIn.GetBody().Data
+	data, err := w.Env.encoder.encode(inputData)
+
+	encDuration := time.Since(encStartTime).Seconds()
+	errType := getJSONErrorType(err)
+
+	// TODO! fix error type to not be included on success
+	w.Env.Metrics.RecordGocciaJsonEncoderOperationDuration(ctx, encDuration, errType)
+
 	if err != nil {
 		return nil, err
 	}
+
+	w.Env.Metrics.RecordGocciaJsonEncoderOutputSize(ctx, int64(len(data)))
 
 	jsonEncMsg := newJSONEncodedMessage(data)
 	msgOut := message.NewMessage(jsonEncMsg)

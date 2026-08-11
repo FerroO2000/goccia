@@ -1,4 +1,16 @@
 package: metrics
+attribute_sets:
+  - name: error_type
+    attributes:
+      - name: error.type
+        type: string
+        arg: errType
+
+bucket_bounds_sets:
+  - name: micro_to_10_second
+    lower_bound: 0.000001
+    upper_bound: 10
+
 groups:
   - name: aggregate_stage
     metrics:
@@ -16,6 +28,33 @@ groups:
     metrics:
       - name: filtered_messages
         type: counter
+
+  - name: json_encoder
+    metrics:
+      - name: goccia.json.encoder.operation.duration
+        type: histogram
+        data_type: float
+        unit: s
+        attribute_set: error_type
+        bucket_bounds_set: micro_to_10_second
+
+      - name: goccia.json.encoder.output.size
+        type: histogram
+        unit: By
+
+  - name: json_decoder
+    metrics:
+      - name: goccia.json.decoder.operation.duration
+        type: histogram
+        data_type: float
+        unit: s
+        attribute_set: error_type
+        bucket_bounds_set: micro_to_10_second
+
+      - name: goccia.json.decoder.input.size
+        type: histogram
+        unit: By
+        attribute_set: error_type
 
   - name: tee_stage
     metrics:

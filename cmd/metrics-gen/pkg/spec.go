@@ -52,15 +52,16 @@ const (
 
 // Metric defines a metric.
 type Metric struct {
-	Name         string       `yaml:"name"`
-	Description  string       `yaml:"description"`
-	Type         MetricType   `yaml:"type"`
-	DataType     DataType     `yaml:"data_type"`
-	Unit         string       `yaml:"unit"`
-	BucketBounds []float64    `yaml:"bucket_bounds"`
-	CustomGetter bool         `yaml:"custom_getter"`
-	Attributes   []*Attribute `yaml:"attributes"`
-	AttributeSet string       `yaml:"attribute_set"`
+	Name            string       `yaml:"name"`
+	Description     string       `yaml:"description"`
+	Type            MetricType   `yaml:"type"`
+	DataType        DataType     `yaml:"data_type"`
+	Unit            string       `yaml:"unit"`
+	CustomGetter    bool         `yaml:"custom_getter"`
+	Attributes      []*Attribute `yaml:"attributes"`
+	AttributeSet    string       `yaml:"attribute_set"`
+	BucketBounds    []float64    `yaml:"bucket_bounds"`
+	BucketBoundsSet string       `yaml:"bucket_bounds_set"`
 }
 
 func (m *Metric) getName() string {
@@ -84,9 +85,19 @@ type AttributeSet struct {
 	Attributes []*Attribute `yaml:"attributes"`
 }
 
+// BucketBoundsSet defines a set of bucket bounds to be referenced
+// by other metrics.
+type BucketBoundsSet struct {
+	Name       string    `yaml:"name"`
+	LowerBound float64   `yaml:"lower_bound"`
+	UpperBound float64   `yaml:"upper_bound"`
+	Bounds     []float64 `yaml:"bounds"`
+}
+
 // Spec defines a metrics file spec.
 type Spec struct {
-	Package       string          `yaml:"package"`
-	AttributeSets []*AttributeSet `yaml:"attribute_sets"`
-	Groups        []*Group        `yaml:"groups"`
+	Package          string             `yaml:"package"`
+	AttributeSets    []*AttributeSet    `yaml:"attribute_sets"`
+	BucketBoundsSets []*BucketBoundsSet `yaml:"bucket_bounds_sets"`
+	Groups           []*Group           `yaml:"groups"`
 }

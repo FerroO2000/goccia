@@ -4,16 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/FerroO2000/goccia/internal/config"
 	"github.com/FerroO2000/goccia/internal/message"
-	"github.com/FerroO2000/goccia/internal/metrics"
 	"github.com/FerroO2000/goccia/internal/stage"
 	"github.com/FerroO2000/goccia/internal/stage/env"
 	"github.com/FerroO2000/goccia/internal/stage/worker"
+	"github.com/FerroO2000/goccia/processor/metrics"
 )
 
 // ─── Config ─────────────────────────────────────────────────────────────────|
@@ -82,12 +82,6 @@ func (c *JSONDecoderConfig) Validate(ac *config.AnomalyCollector) {
 }
 
 // ─── Decoder ────────────────────────────────────────────────────────────────|
-
-var (
-	errJSONInputTooLarge = errors.New("JSON input exceeds maximum size")
-	errJSONNullRejected  = errors.New("top-level JSON null is not allowed")
-	errJSONTrailingValue = errors.New("JSON input contains multiple top-level values")
-)
 
 type jsonDecoderConfig struct {
 	disallowUnknownFields bool
@@ -198,14 +192,14 @@ func (d *jsonDecoder[T]) isJSONNull(data []byte) bool {
 // ─── Environment ────────────────────────────────────────────────────────────|
 
 type jsonDecoderEnv[T any] struct {
-	*env.BaseEnv[*JSONDecoderConfig, *metrics.EmptyMetrics]
+	*env.BaseEnv[*JSONDecoderConfig, *metrics.JsonDecoder]
 
 	decoder *jsonDecoder[T]
 }
 
 func newJSONDecoderEnv[T any](config *JSONDecoderConfig) *jsonDecoderEnv[T] {
 	return &jsonDecoderEnv[T]{
-		BaseEnv: env.NewProcessorEnv(config, metrics.NewEmptyMetrics()),
+		BaseEnv: env.NewProcessorEnv(config, metrics.NewJsonDecoder()),
 	}
 }
 
@@ -240,8 +234,20 @@ func (w *jsonDecoderWorker[In, Out]) Handle(ctx context.Context, msgIn *msg[In])
 	_, span := w.Tel.StartTrace(ctx, "decode json data")
 	defer span.End()
 
-	msgBody := msgIn.GetBody()
-	decodedData, err := w.Env.decoder.decode(msgBody.GetBytes())
+	decStartTime := time.Now()
+
+	inputData := msgIn.GetBody().GetBytes()
+	inputSize := len(inputData)
+
+	decodedData, err := w.Env.decoder.decode(inputData)
+
+	decDuration := time.Since(decStartTime).Seconds()
+	errType := getJSONErrorType(err)
+
+	// TODO! fix error type to not be included on success
+	w.Env.Metrics.RecordGocciaJsonDecoderOperationDuration(ctx, decDuration, errType)
+	w.Env.Metrics.RecordGocciaJsonDecoderInputSize(ctx, int64(inputSize), errType)
+
 	if err != nil {
 		return nil, err
 	}
