@@ -23,14 +23,29 @@ var metricFileTmpl = template.Must(
 		ParseFS(templates.Templates, "*.tmpl"),
 )
 
+var errorTypesFileTmpl = template.Must(
+	template.New("error_types_file.go.tmpl").
+		Funcs(template.FuncMap{
+			"dict":             dict,
+			"toUpperCamelCase": toUpperCamelCase,
+			"toLowerCamelCase": toLowerCamelCase,
+			"getDataType":      getDataType,
+		}).
+		ParseFS(templates.Templates, "*.tmpl"),
+)
+
 var defaultImports = []string{"github.com/FerroO2000/goccia/internal/telemetry"}
 
 type metricsFile struct {
-	Name          string
-	Package       string
-	Imports       []string
-	ErrorTypeSets []*ErrorTypeSet
-	Metrics       []*Metric
+	Name    string
+	Package string
+	Imports []string
+	Metrics []*Metric
+}
+
+type errorTypesFile struct {
+	Package    string
+	ErrorTypes []*ErrorType
 }
 
 // Generator struct defines a metrics generator.
@@ -97,11 +112,10 @@ func (g *Generator) getMetricsFileName(name string) string {
 func (g *Generator) Generate(spec *Spec) error {
 	for _, group := range spec.Groups {
 		metricFile := &metricsFile{
-			Name:          group.Name,
-			Package:       spec.Package,
-			Imports:       g.getImports(group.Metrics),
-			ErrorTypeSets: spec.ErrorTypeSets,
-			Metrics:       group.Metrics,
+			Name:    group.Name,
+			Package: spec.Package,
+			Imports: g.getImports(group.Metrics),
+			Metrics: group.Metrics,
 		}
 
 		if err := g.generateMetricsFile(metricFile); err != nil {
@@ -109,6 +123,17 @@ func (g *Generator) Generate(spec *Spec) error {
 		}
 
 		if err := g.generateMarkdownFile(metricFile); err != nil {
+			return err
+		}
+	}
+
+	if len(spec.ErrorTypes) > 0 {
+		errorFile := &errorTypesFile{
+			Package:    spec.Package,
+			ErrorTypes: spec.ErrorTypes,
+		}
+
+		if err := g.generateErrorTypesFile(errorFile); err != nil {
 			return err
 		}
 	}
@@ -130,6 +155,33 @@ func (g *Generator) generateMetricsFile(mf *metricsFile) error {
 	}
 
 	file, err := os.Create(g.getMetricsFileName(mf.Name))
+	if err != nil {
+		return fmt.Errorf("create file: %w", err)
+	}
+	defer file.Close()
+
+	_, err = file.Write(formatted)
+	if err != nil {
+		return fmt.Errorf("write file: %w", err)
+	}
+
+	return nil
+}
+
+func (g *Generator) generateErrorTypesFile(ef *errorTypesFile) error {
+	var buf bytes.Buffer
+
+	if err := errorTypesFileTmpl.ExecuteTemplate(&buf, "error_types_file.go.tmpl", ef); err != nil {
+		return fmt.Errorf("execute template: %w", err)
+	}
+
+	// Format as valid Go source
+	formatted, err := format.Source(buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("format source (raw output: %s): %w", buf.String(), err)
+	}
+
+	file, err := os.Create("error_types.metrics.go")
 	if err != nil {
 		return fmt.Errorf("create file: %w", err)
 	}

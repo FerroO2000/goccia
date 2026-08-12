@@ -76,7 +76,7 @@ type specValidator struct {
 
 	attributeSets    map[string]*AttributeSet
 	bucketBoundsSets map[string]*BucketBoundsSet
-	errorTypeSets    map[string]*ErrorTypeSet
+	errorTypes       map[string]*ErrorType
 }
 
 func newSpecValidator(spec *Spec) *specValidator {
@@ -85,7 +85,7 @@ func newSpecValidator(spec *Spec) *specValidator {
 
 		attributeSets:    make(map[string]*AttributeSet, len(spec.AttributeSets)),
 		bucketBoundsSets: make(map[string]*BucketBoundsSet, len(spec.BucketBoundsSets)),
-		errorTypeSets:    make(map[string]*ErrorTypeSet, len(spec.ErrorTypeSets)),
+		errorTypes:       make(map[string]*ErrorType, len(spec.ErrorTypes)),
 	}
 }
 
@@ -106,8 +106,8 @@ func (v *specValidator) validate() error {
 		}
 	}
 
-	for _, errorSet := range v.spec.ErrorTypeSets {
-		if err := v.validateErrorTypeSet(errorSet); err != nil {
+	for _, errType := range v.spec.ErrorTypes {
+		if err := v.validateErrorType(errType); err != nil {
 			return err
 		}
 	}
@@ -186,32 +186,32 @@ func (v *specValidator) validateBucketBoundsSet(bucketBoundsSet *BucketBoundsSet
 	return nil
 }
 
-func (v *specValidator) validateErrorType(errType *ErrorType) error {
-	if isEmpty(errType.Name) {
-		return requiredFieldErr("error_type", "name")
+func (v *specValidator) validateError(err *Error) error {
+	if isEmpty(err.Name) {
+		return requiredFieldErr("error", "name")
 	}
 
-	if isEmpty(errType.Value) {
-		return requiredFieldErr("error_type", "value")
+	if isEmpty(err.Value) {
+		return requiredFieldErr("error", "value")
 	}
 
 	return nil
 }
 
-func (v *specValidator) validateErrorTypeSet(errorTypeSet *ErrorTypeSet) error {
-	if isEmpty(errorTypeSet.Name) {
-		return requiredFieldErr("error_type_set", "name")
+func (v *specValidator) validateErrorType(errType *ErrorType) error {
+	if isEmpty(errType.Name) {
+		return requiredFieldErr("error_type", "name")
 	}
 
-	if _, ok := v.errorTypeSets[errorTypeSet.Name]; ok {
-		return fmt.Errorf("duplicated error type set name '%s'", errorTypeSet.Name)
+	if _, ok := v.errorTypes[errType.Name]; ok {
+		return fmt.Errorf("duplicated error type name '%s'", errType.Name)
 	}
 
-	if err := validateNamedList("error_type", errorTypeSet.ErrorTypes, v.validateErrorType); err != nil {
+	if err := validateNamedList("error", errType.Errors, v.validateError); err != nil {
 		return err
 	}
 
-	v.errorTypeSets[errorTypeSet.Name] = errorTypeSet
+	v.errorTypes[errType.Name] = errType
 
 	return nil
 }
@@ -251,17 +251,13 @@ func (v *specValidator) validateMetric(metric *Metric) error {
 		metric.BucketBounds = set.Bounds
 	}
 
-	if !isEmpty(metric.ErrorTypeSet) {
-		set, ok := v.errorTypeSets[metric.ErrorTypeSet]
+	if !isEmpty(metric.ErrorType) {
+		errType, ok := v.errorTypes[metric.ErrorType]
 		if !ok {
-			return fmt.Errorf("unknown error type set '%s'", metric.ErrorTypeSet)
+			return fmt.Errorf("unknown error type '%s'", metric.ErrorType)
 		}
 
-		metric.ErrorTypes = append(metric.ErrorTypes, set.ErrorTypes...)
-	}
-
-	if err := validateNamedList("error_type", metric.ErrorTypes, v.validateErrorType); err != nil {
-		return err
+		metric.ErrorTypeRef = errType
 	}
 
 	return nil
