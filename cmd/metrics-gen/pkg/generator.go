@@ -26,10 +26,11 @@ var metricFileTmpl = template.Must(
 var defaultImports = []string{"github.com/FerroO2000/goccia/internal/telemetry"}
 
 type metricsFile struct {
-	Name    string
-	Package string
-	Imports []string
-	Metrics []*Metric
+	Name          string
+	Package       string
+	Imports       []string
+	ErrorTypeSets []*ErrorTypeSet
+	Metrics       []*Metric
 }
 
 // Generator struct defines a metrics generator.
@@ -96,10 +97,11 @@ func (g *Generator) getMetricsFileName(name string) string {
 func (g *Generator) Generate(spec *Spec) error {
 	for _, group := range spec.Groups {
 		metricFile := &metricsFile{
-			Name:    group.Name,
-			Package: spec.Package,
-			Imports: g.getImports(group.Metrics),
-			Metrics: group.Metrics,
+			Name:          group.Name,
+			Package:       spec.Package,
+			Imports:       g.getImports(group.Metrics),
+			ErrorTypeSets: spec.ErrorTypeSets,
+			Metrics:       group.Metrics,
 		}
 
 		if err := g.generateMetricsFile(metricFile); err != nil {

@@ -62,6 +62,8 @@ type Metric struct {
 	AttributeSet    string       `yaml:"attribute_set"`
 	BucketBounds    []float64    `yaml:"bucket_bounds"`
 	BucketBoundsSet string       `yaml:"bucket_bounds_set"`
+	ErrorTypes      []*ErrorType `yaml:"error_types"`
+	ErrorTypeSet    string       `yaml:"error_type_set"`
 }
 
 func (m *Metric) getName() string {
@@ -94,10 +96,30 @@ type BucketBoundsSet struct {
 	Bounds     []float64 `yaml:"bounds"`
 }
 
+// ErrorType defines the value the error.type attribute
+// of a metric can have.
+type ErrorType struct {
+	Name        string `yaml:"name"`
+	Value       string `yaml:"value"`
+	Description string `yaml:"description"`
+}
+
+func (e *ErrorType) getName() string {
+	return e.Name
+}
+
+// ErrorTypeSet defines a set of errors to be referenced
+// by other metrics.
+type ErrorTypeSet struct {
+	Name       string       `yaml:"name"`
+	ErrorTypes []*ErrorType `yaml:"error_types"`
+}
+
 // Spec defines a metrics file spec.
 type Spec struct {
 	Package          string             `yaml:"package"`
 	AttributeSets    []*AttributeSet    `yaml:"attribute_sets"`
 	BucketBoundsSets []*BucketBoundsSet `yaml:"bucket_bounds_sets"`
+	ErrorTypeSets    []*ErrorTypeSet    `yaml:"error_type_sets"`
 	Groups           []*Group           `yaml:"groups"`
 }

@@ -76,6 +76,7 @@ type specValidator struct {
 
 	attributeSets    map[string]*AttributeSet
 	bucketBoundsSets map[string]*BucketBoundsSet
+	errorTypeSets    map[string]*ErrorTypeSet
 }
 
 func newSpecValidator(spec *Spec) *specValidator {
@@ -84,6 +85,7 @@ func newSpecValidator(spec *Spec) *specValidator {
 
 		attributeSets:    make(map[string]*AttributeSet, len(spec.AttributeSets)),
 		bucketBoundsSets: make(map[string]*BucketBoundsSet, len(spec.BucketBoundsSets)),
+		errorTypeSets:    make(map[string]*ErrorTypeSet, len(spec.ErrorTypeSets)),
 	}
 }
 
@@ -100,6 +102,12 @@ func (v *specValidator) validate() error {
 
 	for _, bucketBoundsSet := range v.spec.BucketBoundsSets {
 		if err := v.validateBucketBoundsSet(bucketBoundsSet); err != nil {
+			return err
+		}
+	}
+
+	for _, errorSet := range v.spec.ErrorTypeSets {
+		if err := v.validateErrorTypeSet(errorSet); err != nil {
 			return err
 		}
 	}
@@ -178,6 +186,36 @@ func (v *specValidator) validateBucketBoundsSet(bucketBoundsSet *BucketBoundsSet
 	return nil
 }
 
+func (v *specValidator) validateErrorType(errType *ErrorType) error {
+	if isEmpty(errType.Name) {
+		return requiredFieldErr("error_type", "name")
+	}
+
+	if isEmpty(errType.Value) {
+		return requiredFieldErr("error_type", "value")
+	}
+
+	return nil
+}
+
+func (v *specValidator) validateErrorTypeSet(errorTypeSet *ErrorTypeSet) error {
+	if isEmpty(errorTypeSet.Name) {
+		return requiredFieldErr("error_type_set", "name")
+	}
+
+	if _, ok := v.errorTypeSets[errorTypeSet.Name]; ok {
+		return fmt.Errorf("duplicated error type set name '%s'", errorTypeSet.Name)
+	}
+
+	if err := validateNamedList("error_type", errorTypeSet.ErrorTypes, v.validateErrorType); err != nil {
+		return err
+	}
+
+	v.errorTypeSets[errorTypeSet.Name] = errorTypeSet
+
+	return nil
+}
+
 func (v *specValidator) validateMetric(metric *Metric) error {
 	if isEmpty(metric.Name) {
 		return requiredFieldErr("metric", "name")
@@ -200,6 +238,10 @@ func (v *specValidator) validateMetric(metric *Metric) error {
 		metric.Attributes = append(metric.Attributes, set.Attributes...)
 	}
 
+	if err := validateNamedList("attribute", metric.Attributes, v.validateAttribute); err != nil {
+		return err
+	}
+
 	if len(metric.BucketBounds) == 0 && !isEmpty(metric.BucketBoundsSet) {
 		set, ok := v.bucketBoundsSets[metric.BucketBoundsSet]
 		if !ok {
@@ -209,7 +251,16 @@ func (v *specValidator) validateMetric(metric *Metric) error {
 		metric.BucketBounds = set.Bounds
 	}
 
-	if err := validateNamedList("attribute", metric.Attributes, v.validateAttribute); err != nil {
+	if !isEmpty(metric.ErrorTypeSet) {
+		set, ok := v.errorTypeSets[metric.ErrorTypeSet]
+		if !ok {
+			return fmt.Errorf("unknown error type set '%s'", metric.ErrorTypeSet)
+		}
+
+		metric.ErrorTypes = append(metric.ErrorTypes, set.ErrorTypes...)
+	}
+
+	if err := validateNamedList("error_type", metric.ErrorTypes, v.validateErrorType); err != nil {
 		return err
 	}
 
