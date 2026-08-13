@@ -25,6 +25,10 @@ type {{ $structType }} struct {
 {{- else if eq .Type "histogram" }}
     {{- template "histogramType" $entry -}}
 {{ end }}{{ end -}}
+
+{{ range .ErrorTypes }}
+    {{ .Name | toLowerCamelCase }}ErrorTypes map[{{ print ( .Name | toUpperCamelCase ) "ErrorType" }}]metric.MeasurementOption
+{{ end }}
 }
 
 // New{{ $structType }} returns a new instance of the {{ $structType }} struct.
@@ -58,6 +62,19 @@ func (m *{{ $structType }}) InitMetrics(tel *telemetry.Telemetry) error {
         return err
     }
 {{ end }}
+
+{{ range .ErrorTypes -}}
+{{ $errType := print ( .Name | toUpperCamelCase ) "ErrorType" -}}
+{{ $errTypeMap := print ( .Name | toLowerCamelCase ) "ErrorTypes" -}}
+    m.{{ $errTypeMap }} = map[{{ $errType }}]metric.MeasurementOption{
+{{ range .Errors -}}
+{{ $err := print $errType ( .Name | toUpperCamelCase) -}}
+        {{ $err }}: metric.WithAttributes(
+            attribute.String("error.type", string({{ $err }})),
+        ),
+{{ end -}}
+    }
+{{ end -}}
     return nil
 }
 

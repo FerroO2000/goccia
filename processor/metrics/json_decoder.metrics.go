@@ -65,7 +65,7 @@ func (m *JsonDecoder) RecordGocciaJsonDecoderOperationDuration(
 }
 
 // RecordGocciaJsonDecoderOperationDurationWithAttributes records the given value
-// ans attributes into the histogram metric.
+// and attributes into the histogram metric.
 func (m *JsonDecoder) RecordGocciaJsonDecoderOperationDurationWithAttributes(
 	ctx context.Context,
 	value float64,
@@ -92,7 +92,7 @@ func (m *JsonDecoder) RecordGocciaJsonDecoderInputSize(
 }
 
 // RecordGocciaJsonDecoderInputSizeWithAttributes records the given value
-// ans attributes into the histogram metric.
+// and attributes into the histogram metric.
 func (m *JsonDecoder) RecordGocciaJsonDecoderInputSizeWithAttributes(
 	ctx context.Context,
 	value int64,

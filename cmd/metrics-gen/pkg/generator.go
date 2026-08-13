@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
+	"maps"
 	"os"
 	"path"
+	"slices"
 	"text/template"
 
 	"github.com/FerroO2000/goccia/cmd/metrics-gen/templates"
@@ -37,10 +39,11 @@ var errorTypesFileTmpl = template.Must(
 var defaultImports = []string{"github.com/FerroO2000/goccia/internal/telemetry"}
 
 type metricsFile struct {
-	Name    string
-	Package string
-	Imports []string
-	Metrics []*Metric
+	Name       string
+	Package    string
+	Imports    []string
+	Metrics    []*Metric
+	ErrorTypes []*ErrorType
 }
 
 type errorTypesFile struct {
@@ -111,11 +114,19 @@ func (g *Generator) getMetricsFileName(name string) string {
 // Generate generates metrics files from the given spec.
 func (g *Generator) Generate(spec *Spec) error {
 	for _, group := range spec.Groups {
+		errTypes := make(map[string]*ErrorType)
+		for _, metric := range group.Metrics {
+			if metric.ErrorTypeRef != nil {
+				errTypes[metric.ErrorTypeRef.Name] = metric.ErrorTypeRef
+			}
+		}
+
 		metricFile := &metricsFile{
-			Name:    group.Name,
-			Package: spec.Package,
-			Imports: g.getImports(group.Metrics),
-			Metrics: group.Metrics,
+			Name:       group.Name,
+			Package:    spec.Package,
+			Imports:    g.getImports(group.Metrics),
+			Metrics:    group.Metrics,
+			ErrorTypes: slices.Collect(maps.Values(errTypes)),
 		}
 
 		if err := g.generateMetricsFile(metricFile); err != nil {

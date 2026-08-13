@@ -13,6 +13,7 @@ import (
 type JsonEncoder struct {
 	gocciaJsonEncoderOperationDuration *telemetry.FloatHistogram
 	gocciaJsonEncoderOutputSize        *telemetry.IntHistogram
+	jsonEncoderErrorTypes              map[JsonEncoderErrorType]metric.MeasurementOption
 }
 
 // NewJsonEncoder returns a new instance of the JsonEncoder struct.
@@ -48,6 +49,17 @@ func (m *JsonEncoder) InitMetrics(tel *telemetry.Telemetry) error {
 		return err
 	}
 
+	m.jsonEncoderErrorTypes = map[JsonEncoderErrorType]metric.MeasurementOption{
+		JsonEncoderErrorTypeUnsupportedType: metric.WithAttributes(
+			attribute.String("error.type", string(JsonEncoderErrorTypeUnsupportedType)),
+		),
+		JsonEncoderErrorTypeUnsupportedValue: metric.WithAttributes(
+			attribute.String("error.type", string(JsonEncoderErrorTypeUnsupportedValue)),
+		),
+		JsonEncoderErrorTypeMarshalerError: metric.WithAttributes(
+			attribute.String("error.type", string(JsonEncoderErrorTypeMarshalerError)),
+		),
+	}
 	return nil
 }
 
@@ -65,7 +77,7 @@ func (m *JsonEncoder) RecordGocciaJsonEncoderOperationDuration(
 }
 
 // RecordGocciaJsonEncoderOperationDurationWithAttributes records the given value
-// ans attributes into the histogram metric.
+// and attributes into the histogram metric.
 func (m *JsonEncoder) RecordGocciaJsonEncoderOperationDurationWithAttributes(
 	ctx context.Context,
 	value float64,
@@ -75,6 +87,20 @@ func (m *JsonEncoder) RecordGocciaJsonEncoderOperationDurationWithAttributes(
 		ctx,
 		value,
 		attributes,
+	)
+}
+
+// RecordGocciaJsonEncoderOperationDurationWithErrorType records the given value
+// and the error type into the histogram metric.
+func (m *JsonEncoder) RecordGocciaJsonEncoderOperationDurationWithErrorType(
+	ctx context.Context,
+	value float64,
+	errorType JsonEncoderErrorType,
+) {
+	m.gocciaJsonEncoderOperationDuration.RecordWithAttributes(
+		ctx,
+		value,
+		m.jsonEncoderErrorTypes[errorType],
 	)
 }
 
@@ -90,7 +116,7 @@ func (m *JsonEncoder) RecordGocciaJsonEncoderOutputSize(
 }
 
 // RecordGocciaJsonEncoderOutputSizeWithAttributes records the given value
-// ans attributes into the histogram metric.
+// and attributes into the histogram metric.
 func (m *JsonEncoder) RecordGocciaJsonEncoderOutputSizeWithAttributes(
 	ctx context.Context,
 	value int64,
@@ -100,5 +126,19 @@ func (m *JsonEncoder) RecordGocciaJsonEncoderOutputSizeWithAttributes(
 		ctx,
 		value,
 		attributes,
+	)
+}
+
+// RecordGocciaJsonEncoderOutputSizeWithErrorType records the given value
+// and the error type into the histogram metric.
+func (m *JsonEncoder) RecordGocciaJsonEncoderOutputSizeWithErrorType(
+	ctx context.Context,
+	value int64,
+	errorType JsonEncoderErrorType,
+) {
+	m.gocciaJsonEncoderOutputSize.RecordWithAttributes(
+		ctx,
+		value,
+		m.jsonEncoderErrorTypes[errorType],
 	)
 }
