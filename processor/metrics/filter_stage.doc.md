@@ -1,3 +1,6 @@
-| Name | Type | Data Type | Description |
-|---------|---------|---------|---------|
-| filtered_messages | `counter` | `integer` | - |
+| Name | Type | Data Type | Attributes | Description |
+|---------|---------|---------|---------|---------|
+| filtered_messages | `counter` | `integer` | - | - |
+
+| Name | Type |
+|---------|---------|

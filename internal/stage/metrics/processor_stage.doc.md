@@ -1,5 +1,8 @@
-| Name | Type | Data Type | Description |
-|---------|---------|---------|---------|
-| processed_messages | `counter` | `integer` | - |
-| dropped_messages | `counter` | `integer` | - |
-| processing_errors | `counter` | `integer` | - |
+| Name | Type | Data Type | Attributes | Description |
+|---------|---------|---------|---------|---------|
+| processed_messages | `counter` | `integer` | - | - |
+| dropped_messages | `counter` | `integer` | - | - |
+| processing_errors | `counter` | `integer` | - | - |
+
+| Name | Type |
+|---------|---------|

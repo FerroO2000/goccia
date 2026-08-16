@@ -102,7 +102,7 @@ func (m *EgressStage) RecordTotalMessageProcessingTime(
 }
 
 // RecordTotalMessageProcessingTimeWithAttributes records the given value
-// ans attributes into the histogram metric.
+// and attributes into the histogram metric.
 func (m *EgressStage) RecordTotalMessageProcessingTimeWithAttributes(
 	ctx context.Context,
 	value int64,
