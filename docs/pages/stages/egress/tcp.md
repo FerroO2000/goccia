@@ -36,7 +36,7 @@ worker-pool config.
 
 ## Metrics
 
---8<-- "egress/metrics/tcp_stage.doc.md"
+--8<-- "egress/metrics/docs/tcp_stage.metrics.doc.md"
 
 ## Internals
 

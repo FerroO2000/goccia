@@ -35,7 +35,7 @@ the envelopes are destroyed.
 
 ## Metrics
 
---8<-- "processor/metrics/tee_stage.doc.md"
+--8<-- "processor/metrics/docs/tee_stage.metrics.doc.md"
 
 ## Internals
 

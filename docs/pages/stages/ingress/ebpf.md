@@ -37,7 +37,7 @@ Additional interfaces: none. `EBPFMessage[T]` only implements the standard
 
 ## Metrics
 
---8<-- "ingress/metrics/ebpf_stage.doc.md"
+--8<-- "ingress/metrics/docs/ebpf_stage.metrics.doc.md"
 
 ## Internals
 

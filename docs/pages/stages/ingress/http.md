@@ -263,16 +263,11 @@ errors, including an address already in use, occur when the server starts in
 
 ## Metrics
 
---8<-- "ingress/metrics/http_stage.doc.md"
+--8<-- "ingress/metrics/docs/http_stage.metrics.doc.md"
 
-The HTTP semantic-convention histograms use these attributes:
+### Attributes
 
-| Attribute | Value |
-| --- | --- |
-| `http.request.method` | Request method. |
-| `url.scheme` | `http` or `https`, inferred from the request's TLS state. |
-| `http.response.status_code` | Status recorded by the response writer. |
-| `network.protocol.version` | `1.0`, `1.1`, `2`, or another major/minor version reported by `net/http`. |
+--8<-- "ingress/metrics/docs/http_stage.attributes.doc.md"
 
 `goccia.http.ingress.queue.wait.duration` has an `outcome` of `enqueued` or
 `rejected`. `goccia.http.ingress.response.wait.duration` uses the future state:

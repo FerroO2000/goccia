@@ -36,7 +36,7 @@ This egress stage produces no downstream output message.
 
 ## Metrics
 
---8<-- "egress/metrics/udp_stage.doc.md"
+--8<-- "egress/metrics/docs/udp_stage.metrics.doc.md"
 
 ## Internals
 

@@ -5,15 +5,19 @@ attribute_sets:
     attributes:
       - name: http.request.method
         type: string
+        description: Request method.
         arg: requestMethod
       - name: url.scheme
         type: string
+        description: "`http` or `https`, inferred from the request's TLS state."
         arg: urlScheme
       - name: http.response.status_code
         type: int
+        description: Status recorded by the response writer.
         arg: statusCode
       - name: network.protocol.version
         type: string
+        description: "`1.0`, `1.1`, `2`, or another major/minor version reported by `net/http`."
         arg: protocolVersion
 
 groups:

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/FerroO2000/goccia/internal/config"
@@ -201,6 +202,38 @@ func newJSONEncoderWorkerMaker[T any]() func() *jsonEncoderWorker[T] {
 	}
 }
 
+func (w *jsonEncoderWorker[T]) getErrorType(err error) metrics.JsonEncoderErrorType {
+	var unsupportedTypeErr *json.UnsupportedTypeError
+	if errors.As(err, &unsupportedTypeErr) {
+		return metrics.JsonEncoderErrorTypeUnsupportedType
+	}
+
+	var unsupportedValueErr *json.UnsupportedValueError
+	if errors.As(err, &unsupportedValueErr) {
+		return metrics.JsonEncoderErrorTypeUnsupportedValue
+	}
+
+	var marshalerErr *json.MarshalerError
+	if errors.As(err, &marshalerErr) {
+		return metrics.JsonEncoderErrorTypeMarshalerError
+	}
+
+	return metrics.JsonEncoderErrorTypeOther
+}
+
+func (w *jsonEncoderWorker[T]) handleMetrics(
+	ctx context.Context, encDuration float64, outputSize int64, err error) {
+
+	if err != nil {
+		errType := w.getErrorType(err)
+		w.Env.Metrics.RecordGocciaJsonEncoderOperationDurationWithErrorType(ctx, encDuration, errType)
+		return
+	}
+
+	w.Env.Metrics.RecordGocciaJsonEncoderOperationDuration(ctx, encDuration)
+	w.Env.Metrics.RecordGocciaJsonEncoderOutputSize(ctx, outputSize)
+}
+
 func (w *jsonEncoderWorker[T]) Handle(ctx context.Context, msgIn *msg[*JSONMessage[T]]) (*msg[*JSONEncodedMessage], error) {
 	_, span := w.Tel.StartTrace(ctx, "encode json data")
 	defer span.End()
@@ -211,16 +244,11 @@ func (w *jsonEncoderWorker[T]) Handle(ctx context.Context, msgIn *msg[*JSONMessa
 	data, err := w.Env.encoder.encode(inputData)
 
 	encDuration := time.Since(encStartTime).Seconds()
-	errType := getJSONErrorType(err)
-
-	// TODO! fix error type to not be included on success
-	w.Env.Metrics.RecordGocciaJsonEncoderOperationDuration(ctx, encDuration, errType)
+	w.handleMetrics(ctx, encDuration, int64(len(data)), err)
 
 	if err != nil {
 		return nil, err
 	}
-
-	w.Env.Metrics.RecordGocciaJsonEncoderOutputSize(ctx, int64(len(data)))
 
 	jsonEncMsg := newJSONEncodedMessage(data)
 	msgOut := message.NewMessage(jsonEncMsg)

@@ -18,6 +18,12 @@ import (
 
 const connectorSize = 512
 
+type responseBody struct {
+	EchoCount int `json:"echo_count"`
+}
+
+type jsonMessage = processor.JSONMessage[responseBody]
+
 func main() {
 	ctx, cancelCtx := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancelCtx()
@@ -26,7 +32,9 @@ func main() {
 	defer telemetry.Close()
 
 	httpIngressToEcho := connector.NewRingBuffer[*ingress.HTTPMessage](connectorSize)
-	echoToHTTPEgress := connector.NewRingBuffer[*egress.HTTPMessage](connectorSize)
+	echoToJSON := connector.NewRingBuffer[*jsonMessage](connectorSize)
+	jsonToHTTPResponse := connector.NewRingBuffer[*processor.JSONEncodedMessage](connectorSize)
+	httpResponseToEgress := connector.NewRingBuffer[*egress.HTTPMessage](connectorSize)
 
 	httpLink := link.NewHTTP()
 
@@ -34,15 +42,25 @@ func main() {
 	httpIngressStage := ingress.NewHTTPStage(httpLink, httpIngressToEcho, httpIngressCfg)
 
 	echoCfg := processor.NewGenericConfig(goccia.StageRunningModeSingle)
-	echoCfg.Name = "http_echo"
-	echoStage := processor.NewGenericStage(newEchoHandler(), httpIngressToEcho, echoToHTTPEgress, echoCfg)
+	echoCfg.Name = "echo"
+	echoStage := processor.NewGenericStage(newEchoHandler(), httpIngressToEcho, echoToJSON, echoCfg)
+
+	jsonEncCfg := processor.NewJSONEncoderConfig(goccia.StageRunningModePool)
+	jsonEncStage := processor.NewJSONEncoderStage(echoToJSON, jsonToHTTPResponse, jsonEncCfg)
+
+	httpResponseCfg := processor.NewGenericConfig(goccia.StageRunningModeSingle)
+	httpResponseCfg.Name = "http_response"
+	httpResponseStage := processor.NewGenericStage(newHTTPResponseHandler(), jsonToHTTPResponse, httpResponseToEgress, httpResponseCfg)
 
 	httpEgressCfg := egress.NewHTTPConfig()
-	httpEgressStage := egress.NewHTTPStage(httpLink, echoToHTTPEgress, httpEgressCfg)
+	httpEgressStage := egress.NewHTTPStage(httpLink, httpResponseToEgress, httpEgressCfg)
 
 	pipeline := goccia.NewPipeline()
+
 	pipeline.AddStage(httpIngressStage)
 	pipeline.AddStage(echoStage)
+	pipeline.AddStage(jsonEncStage)
+	pipeline.AddStage(httpResponseStage)
 	pipeline.AddStage(httpEgressStage)
 
 	if err := pipeline.Init(ctx); err != nil {

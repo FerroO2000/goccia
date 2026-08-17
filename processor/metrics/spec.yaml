@@ -1,10 +1,4 @@
 package: metrics
-attribute_sets:
-  - name: error_type
-    attributes:
-      - name: error.type
-        type: string
-        arg: errType
 
 bucket_bounds_sets:
   - name: micro_to_10_second
@@ -60,14 +54,12 @@ groups:
         type: histogram
         data_type: float
         unit: s
-        attribute_set: error_type
         bucket_bounds_set: micro_to_10_second
         error_type: json_encoder
 
       - name: goccia.json.encoder.output.size
         type: histogram
         unit: By
-        error_type: json_encoder
 
   - name: json_decoder
     metrics:
@@ -75,13 +67,13 @@ groups:
         type: histogram
         data_type: float
         unit: s
-        attribute_set: error_type
         bucket_bounds_set: micro_to_10_second
+        error_type: json_decoder
 
       - name: goccia.json.decoder.input.size
         type: histogram
         unit: By
-        attribute_set: error_type
+        error_type: json_decoder
 
   - name: tee_stage
     metrics:

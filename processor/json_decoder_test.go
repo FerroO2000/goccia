@@ -135,7 +135,7 @@ func testJSONDecoderNull(t *testing.T) {
 
 			for _, input := range [][]byte{[]byte("null"), []byte(" \nnull\t\r")} {
 				_, err := decoder.decode(input)
-				assert.ErrorIs(err, errJSONNullRejected)
+				assert.ErrorIs(err, ErrJSONNullRejected)
 			}
 		})
 	}
@@ -253,7 +253,7 @@ func testJSONDecoderInputSize(t *testing.T) {
 
 			got, err := decoder.decode(data)
 			if tt.expectsSize {
-				assert.ErrorIs(err, errJSONInputTooLarge)
+				assert.ErrorIs(err, ErrJSONInputTooLarge)
 				assert.Nil(got)
 				return
 			}

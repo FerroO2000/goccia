@@ -55,7 +55,7 @@ For length-prefixed mode, set `HeaderLen`, `MessageLengthFieldLen`,
 
 ## Metrics
 
---8<-- "ingress/metrics/tcp_stage.doc.md"
+--8<-- "ingress/metrics/docs/tcp_stage.metrics.doc.md"
 
 ## Internals
 

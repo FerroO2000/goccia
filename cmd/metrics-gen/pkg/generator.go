@@ -7,12 +7,11 @@ import (
 	"maps"
 	"os"
 	"path"
+	"path/filepath"
 	"slices"
-	"strings"
 	"text/template"
 
 	"github.com/FerroO2000/goccia/cmd/metrics-gen/templates"
-	md "github.com/nao1215/markdown"
 )
 
 var metricFileTmpl = template.Must(
@@ -55,13 +54,22 @@ type errorTypesFile struct {
 // Generator struct defines a metrics generator.
 type Generator struct {
 	basePath string
+
+	markdown *markdownGenerator
 }
 
 // NewGenerator returns a new metrics generator instance
 // that writes files to the given base path.
 func NewGenerator(basePath string) *Generator {
+	mdBasePath := filepath.Join(basePath, "docs")
+	if err := os.MkdirAll(mdBasePath, os.ModePerm); err != nil {
+		panic(err)
+	}
+
 	return &Generator{
 		basePath: basePath,
+
+		markdown: newMarkdownGenerator(mdBasePath),
 	}
 }
 
@@ -81,7 +89,7 @@ func (g *Generator) getImportPackages(metricType *Metric) []string {
 		imports = append(imports, "go.opentelemetry.io/otel/metric")
 	}
 
-	if len(metricType.Attributes) > 0 {
+	if len(metricType.Attributes) > 0 || metricType.ErrorTypeRef != nil {
 		imports = append(imports, "go.opentelemetry.io/otel/attribute")
 	}
 
@@ -133,10 +141,6 @@ func (g *Generator) Generate(spec *Spec) error {
 		if err := g.generateMetricsFile(metricFile); err != nil {
 			return err
 		}
-
-		if err := g.generateMarkdownFile(metricFile); err != nil {
-			return err
-		}
 	}
 
 	if len(spec.ErrorTypes) > 0 {
@@ -148,6 +152,10 @@ func (g *Generator) Generate(spec *Spec) error {
 		if err := g.generateErrorTypesFile(errorFile); err != nil {
 			return err
 		}
+	}
+
+	if err := g.markdown.generate(spec.Groups); err != nil {
+		return err
 	}
 
 	return nil
@@ -205,75 +213,4 @@ func (g *Generator) generateErrorTypesFile(ef *errorTypesFile) error {
 	}
 
 	return nil
-}
-
-func (g *Generator) getMarkdownFileName(name string) string {
-	fileName := toLowerSnakeCase(name) + ".doc.md"
-	return path.Join(g.basePath, fileName)
-}
-
-func (g *Generator) getMarkdownAttributeURL(attr *Attribute) string {
-	return fmt.Sprintf("#%s", toLowerSnakeCase(attr.Name))
-}
-
-func (g *Generator) generateMarkdownFile(mf *metricsFile) error {
-	file, err := os.Create(g.getMarkdownFileName(mf.Name))
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	attAccumulator := make(map[string]*Attribute)
-
-	rows := make([][]string, 0, len(mf.Metrics))
-	for _, metric := range mf.Metrics {
-		desc := "-"
-		if metric.Description != "" {
-			desc = metric.Description
-		}
-		typ := md.Code(string(metric.Type))
-		dataType := md.Code(string(metric.DataType))
-
-		attributes := make([]string, 0, len(metric.Attributes))
-		for _, attr := range metric.Attributes {
-			attAccumulator[attr.Name] = attr
-			attributes = append(attributes, md.Link(attr.Name, g.getMarkdownAttributeURL(attr)))
-		}
-
-		attrStr := "-"
-		if len(attributes) > 0 {
-			attrStr = strings.Join(attributes, ", ")
-		}
-
-		rows = append(rows, []string{
-			metric.Name,
-			typ,
-			dataType,
-			attrStr,
-			desc,
-		})
-	}
-
-	metricsTable := md.TableSet{
-		Header: []string{"Name", "Type", "Data Type", "Attributes", "Description"},
-		Rows:   rows,
-	}
-
-	attributesRows := make([][]string, 0, len(attAccumulator))
-	for _, attr := range attAccumulator {
-		attrName := fmt.Sprintf("`%s` {%s}", attr.Name, g.getMarkdownAttributeURL(attr))
-
-		attributesRows = append(attributesRows, []string{
-			attrName,
-			attr.Type,
-		})
-	}
-	attributesTable := md.TableSet{
-		Header: []string{"Name", "Type"},
-		Rows:   attributesRows,
-	}
-
-	mdFile := md.NewMarkdown(file).Table(metricsTable).Table(attributesTable)
-
-	return mdFile.Build()
 }

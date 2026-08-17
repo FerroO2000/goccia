@@ -51,7 +51,7 @@ interval. For example, hourly rotation should include the hour in the path.
 
 ## Metrics
 
---8<-- "egress/metrics/file_stage.doc.md"
+--8<-- "egress/metrics/docs/file_stage.metrics.doc.md"
 
 ## Internals
 

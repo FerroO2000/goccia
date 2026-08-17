@@ -17,9 +17,10 @@ const (
 
 // Attribute defines an attribute.
 type Attribute struct {
-	Name string        `yaml:"name"`
-	Type AttributeType `yaml:"type"`
-	Arg  string        `yaml:"arg"`
+	Name        string        `yaml:"name"`
+	Type        AttributeType `yaml:"type"`
+	Description string        `yaml:"description"`
+	Arg         string        `yaml:"arg"`
 }
 
 func (a *Attribute) getName() string {

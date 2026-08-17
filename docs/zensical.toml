@@ -42,6 +42,10 @@ nav = [
         { "Decoder" = "stages/processor/csv-decoder.md" },
         { "Encoder" = "stages/processor/csv-encoder.md" },
       ] },
+      { "JSON" = [
+        { "Decoder" = "stages/processor/json-decoder.md" },
+        { "Encoder" = "stages/processor/json-encoder.md" },
+      ] },
       { "CAN" = "stages/processor/can.md" },
       { "Cannelloni" = [
         { "Decoder" = "stages/processor/cannelloni-decoder.md" },

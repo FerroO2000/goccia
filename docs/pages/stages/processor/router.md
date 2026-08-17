@@ -60,7 +60,7 @@ the processor error and dropped-message metrics are incremented.
 
 ## Metrics
 
---8<-- "processor/metrics/router_stage.doc.md"
+--8<-- "processor/metrics/docs/router_stage.metrics.doc.md"
 
 `RouterStage` also records `routed_messages_per_route`, a per-route message
 count with `route_id` and `route_name` attributes.

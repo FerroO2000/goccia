@@ -13,6 +13,7 @@ import (
 type JsonDecoder struct {
 	gocciaJsonDecoderOperationDuration *telemetry.FloatHistogram
 	gocciaJsonDecoderInputSize         *telemetry.IntHistogram
+	jsonDecoderErrorTypes              map[JsonDecoderErrorType]metric.MeasurementOption
 }
 
 // NewJsonDecoder returns a new instance of the JsonDecoder struct.
@@ -48,6 +49,29 @@ func (m *JsonDecoder) InitMetrics(tel *telemetry.Telemetry) error {
 		return err
 	}
 
+	m.jsonDecoderErrorTypes = map[JsonDecoderErrorType]metric.MeasurementOption{
+		JsonDecoderErrorTypeInputTooLarge: metric.WithAttributes(
+			attribute.String("error.type", string(JsonDecoderErrorTypeInputTooLarge)),
+		),
+		JsonDecoderErrorTypeNullRejected: metric.WithAttributes(
+			attribute.String("error.type", string(JsonDecoderErrorTypeNullRejected)),
+		),
+		JsonDecoderErrorTypeTrailingValue: metric.WithAttributes(
+			attribute.String("error.type", string(JsonDecoderErrorTypeTrailingValue)),
+		),
+		JsonDecoderErrorTypeSyntaxError: metric.WithAttributes(
+			attribute.String("error.type", string(JsonDecoderErrorTypeSyntaxError)),
+		),
+		JsonDecoderErrorTypeTypeError: metric.WithAttributes(
+			attribute.String("error.type", string(JsonDecoderErrorTypeTypeError)),
+		),
+		JsonDecoderErrorTypeUnknownField: metric.WithAttributes(
+			attribute.String("error.type", string(JsonDecoderErrorTypeUnknownField)),
+		),
+		JsonDecoderErrorTypeOther: metric.WithAttributes(
+			attribute.String("error.type", "_OTHER"),
+		),
+	}
 	return nil
 }
 
@@ -55,12 +79,10 @@ func (m *JsonDecoder) InitMetrics(tel *telemetry.Telemetry) error {
 func (m *JsonDecoder) RecordGocciaJsonDecoderOperationDuration(
 	ctx context.Context,
 	value float64,
-	errType string,
 ) {
 	m.gocciaJsonDecoderOperationDuration.Record(
 		ctx,
 		value,
-		attribute.String("error.type", errType),
 	)
 }
 
@@ -78,16 +100,28 @@ func (m *JsonDecoder) RecordGocciaJsonDecoderOperationDurationWithAttributes(
 	)
 }
 
+// RecordGocciaJsonDecoderOperationDurationWithErrorType records the given value
+// and the error type into the histogram metric.
+func (m *JsonDecoder) RecordGocciaJsonDecoderOperationDurationWithErrorType(
+	ctx context.Context,
+	value float64,
+	errorType JsonDecoderErrorType,
+) {
+	m.gocciaJsonDecoderOperationDuration.RecordWithAttributes(
+		ctx,
+		value,
+		m.jsonDecoderErrorTypes[errorType],
+	)
+}
+
 // RecordGocciaJsonDecoderInputSize records the given value into the histogram metric.
 func (m *JsonDecoder) RecordGocciaJsonDecoderInputSize(
 	ctx context.Context,
 	value int64,
-	errType string,
 ) {
 	m.gocciaJsonDecoderInputSize.Record(
 		ctx,
 		value,
-		attribute.String("error.type", errType),
 	)
 }
 
@@ -102,5 +136,19 @@ func (m *JsonDecoder) RecordGocciaJsonDecoderInputSizeWithAttributes(
 		ctx,
 		value,
 		attributes,
+	)
+}
+
+// RecordGocciaJsonDecoderInputSizeWithErrorType records the given value
+// and the error type into the histogram metric.
+func (m *JsonDecoder) RecordGocciaJsonDecoderInputSizeWithErrorType(
+	ctx context.Context,
+	value int64,
+	errorType JsonDecoderErrorType,
+) {
+	m.gocciaJsonDecoderInputSize.RecordWithAttributes(
+		ctx,
+		value,
+		m.jsonDecoderErrorTypes[errorType],
 	)
 }

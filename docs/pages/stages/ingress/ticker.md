@@ -32,7 +32,7 @@ Additional interfaces: none. `TickerMessage` only implements the standard
 
 ## Metrics
 
---8<-- "ingress/metrics/ticker_stage.doc.md"
+--8<-- "ingress/metrics/docs/ticker_stage.metrics.doc.md"
 
 ## Internals
 

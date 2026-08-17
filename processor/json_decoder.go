@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/FerroO2000/goccia/internal/config"
@@ -14,6 +16,22 @@ import (
 	"github.com/FerroO2000/goccia/internal/stage/env"
 	"github.com/FerroO2000/goccia/internal/stage/worker"
 	"github.com/FerroO2000/goccia/processor/metrics"
+)
+
+// ─── Errors ─────────────────────────────────────────────────────────────────|
+
+var (
+	// ErrJSONInputTooLarge is returned when the input size exceeds the maximum
+	// allowed size.
+	ErrJSONInputTooLarge = errors.New("JSON input exceeds maximum size")
+
+	// ErrJSONNullRejected is returned when a top-level JSON null value is
+	// rejected.
+	ErrJSONNullRejected = errors.New("top-level JSON null is not allowed")
+
+	// ErrJSONTrailingValue is returned when the input contains multiple top-level
+	// values.
+	ErrJSONTrailingValue = errors.New("JSON input contains multiple top-level values")
 )
 
 // ─── Config ─────────────────────────────────────────────────────────────────|
@@ -123,7 +141,7 @@ func (d *jsonDecoder[T]) checkDataSize(data []byte) error {
 	if len(data) > d.config.maxInputBytes {
 		return fmt.Errorf(
 			"%w: got %d bytes, maximum is %d bytes",
-			errJSONInputTooLarge, len(data), d.config.maxInputBytes,
+			ErrJSONInputTooLarge, len(data), d.config.maxInputBytes,
 		)
 	}
 
@@ -152,7 +170,7 @@ func (d *jsonDecoder[T]) decode(data []byte) (T, error) {
 	}
 
 	if d.config.rejectNull && d.isJSONNull(data) {
-		return res, errJSONNullRejected
+		return res, ErrJSONNullRejected
 	}
 
 	return res, nil
@@ -179,7 +197,7 @@ func (d *jsonDecoder[T]) decodeConfigured(data []byte, res *T) error {
 			return err
 		}
 
-		return errJSONTrailingValue
+		return ErrJSONTrailingValue
 	}
 
 	return nil
@@ -230,6 +248,49 @@ func newJSONDecoderWorkerMaker[In msgSer, Out any]() func() *jsonDecoderWorker[I
 	}
 }
 
+func (w *jsonDecoderWorker[In, Out]) getErrorType(err error) metrics.JsonDecoderErrorType {
+	switch {
+	case errors.Is(err, ErrJSONInputTooLarge):
+		return metrics.JsonDecoderErrorTypeInputTooLarge
+	case errors.Is(err, ErrJSONNullRejected):
+		return metrics.JsonDecoderErrorTypeNullRejected
+	case errors.Is(err, ErrJSONTrailingValue):
+		return metrics.JsonDecoderErrorTypeTrailingValue
+	}
+
+	var syntaxErr *json.SyntaxError
+	if errors.As(err, &syntaxErr) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return metrics.JsonDecoderErrorTypeSyntaxError
+	}
+
+	var unmarshalTypeErr *json.UnmarshalTypeError
+	if errors.As(err, &unmarshalTypeErr) {
+		return metrics.JsonDecoderErrorTypeTypeError
+	}
+
+	// DisallowUnknownFields returns a formatted error without an exported,
+	// distinguishable error type in encoding/json.
+	if strings.HasPrefix(err.Error(), "json: unknown field ") {
+		return metrics.JsonDecoderErrorTypeUnknownField
+	}
+
+	return metrics.JsonDecoderErrorTypeOther
+}
+
+func (w *jsonDecoderWorker[In, Out]) handleMetrics(
+	ctx context.Context, decDuration float64, inputSize int64, err error) {
+
+	if err != nil {
+		errType := w.getErrorType(err)
+		w.Env.Metrics.RecordGocciaJsonDecoderOperationDurationWithErrorType(ctx, decDuration, errType)
+		w.Env.Metrics.RecordGocciaJsonDecoderInputSizeWithErrorType(ctx, inputSize, errType)
+		return
+	}
+
+	w.Env.Metrics.RecordGocciaJsonDecoderOperationDuration(ctx, decDuration)
+	w.Env.Metrics.RecordGocciaJsonDecoderInputSize(ctx, inputSize)
+}
+
 func (w *jsonDecoderWorker[In, Out]) Handle(ctx context.Context, msgIn *msg[In]) (*msg[*JSONMessage[Out]], error) {
 	_, span := w.Tel.StartTrace(ctx, "decode json data")
 	defer span.End()
@@ -242,17 +303,13 @@ func (w *jsonDecoderWorker[In, Out]) Handle(ctx context.Context, msgIn *msg[In])
 	decodedData, err := w.Env.decoder.decode(inputData)
 
 	decDuration := time.Since(decStartTime).Seconds()
-	errType := getJSONErrorType(err)
-
-	// TODO! fix error type to not be included on success
-	w.Env.Metrics.RecordGocciaJsonDecoderOperationDuration(ctx, decDuration, errType)
-	w.Env.Metrics.RecordGocciaJsonDecoderInputSize(ctx, int64(inputSize), errType)
+	w.handleMetrics(ctx, decDuration, int64(inputSize), err)
 
 	if err != nil {
 		return nil, err
 	}
 
-	jsonMsg := newJSONMessage(decodedData)
+	jsonMsg := NewJSONMessage(decodedData)
 	msgOut := message.NewMessage(jsonMsg)
 
 	msgOut.SaveSpan(span)
@@ -264,9 +321,9 @@ func (w *jsonDecoderWorker[In, Out]) Handle(ctx context.Context, msgIn *msg[In])
 
 var _ stage.Stage = (*JSONDecoderStage[msgSer, *any])(nil)
 
-// JSONDecoderStage decodes serialized JSON into pointer values of type Out.
-// Out must be a pointer type. Unless RejectNull is enabled, a top-level JSON
-// null value produces a nil Out value.
+// JSONDecoderStage decodes serialized JSON into values of type Out. Out can be
+// any type supported by encoding/json. When Out is a pointer type and RejectNull
+// is disabled, a top-level JSON null value produces a nil Out value.
 type JSONDecoderStage[In msgSer, Out any] struct {
 	*stage.ProcessorStage[In, *JSONMessage[Out], *jsonDecoderEnv[Out]]
 }

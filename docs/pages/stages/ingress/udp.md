@@ -37,7 +37,7 @@ Additional interfaces: `message.Serializable`. `GetBytes()` returns
 
 ## Metrics
 
---8<-- "ingress/metrics/udp_stage.doc.md"
+--8<-- "ingress/metrics/docs/udp_stage.metrics.doc.md"
 
 ## Internals
 

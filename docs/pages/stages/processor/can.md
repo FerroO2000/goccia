@@ -48,7 +48,7 @@ Additional interfaces: none. `CANMessage` only implements the standard
 
 ## Metrics
 
---8<-- "processor/metrics/can_stage.doc.md"
+--8<-- "processor/metrics/docs/can_stage.metrics.doc.md"
 
 ## Internals
 

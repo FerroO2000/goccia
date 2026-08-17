@@ -59,6 +59,9 @@ func (m *JsonEncoder) InitMetrics(tel *telemetry.Telemetry) error {
 		JsonEncoderErrorTypeMarshalerError: metric.WithAttributes(
 			attribute.String("error.type", string(JsonEncoderErrorTypeMarshalerError)),
 		),
+		JsonEncoderErrorTypeOther: metric.WithAttributes(
+			attribute.String("error.type", "_OTHER"),
+		),
 	}
 	return nil
 }
@@ -67,12 +70,10 @@ func (m *JsonEncoder) InitMetrics(tel *telemetry.Telemetry) error {
 func (m *JsonEncoder) RecordGocciaJsonEncoderOperationDuration(
 	ctx context.Context,
 	value float64,
-	errType string,
 ) {
 	m.gocciaJsonEncoderOperationDuration.Record(
 		ctx,
 		value,
-		attribute.String("error.type", errType),
 	)
 }
 
@@ -126,19 +127,5 @@ func (m *JsonEncoder) RecordGocciaJsonEncoderOutputSizeWithAttributes(
 		ctx,
 		value,
 		attributes,
-	)
-}
-
-// RecordGocciaJsonEncoderOutputSizeWithErrorType records the given value
-// and the error type into the histogram metric.
-func (m *JsonEncoder) RecordGocciaJsonEncoderOutputSizeWithErrorType(
-	ctx context.Context,
-	value int64,
-	errorType JsonEncoderErrorType,
-) {
-	m.gocciaJsonEncoderOutputSize.RecordWithAttributes(
-		ctx,
-		value,
-		m.jsonEncoderErrorTypes[errorType],
 	)
 }

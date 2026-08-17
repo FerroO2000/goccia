@@ -47,7 +47,7 @@ The stage is intentionally single-threaded and does not accept a running mode.
 
 ## Metrics
 
---8<-- "processor/metrics/rob_stage.doc.md"
+--8<-- "processor/metrics/docs/rob_stage.metrics.doc.md"
 
 ## Internals
 

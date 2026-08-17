@@ -73,6 +73,9 @@ func (m *{{ $structType }}) InitMetrics(tel *telemetry.Telemetry) error {
             attribute.String("error.type", string({{ $err }})),
         ),
 {{ end -}}
+        {{ $errType}}Other: metric.WithAttributes(
+            attribute.String("error.type", "_OTHER"),
+        ),
     }
 {{ end -}}
     return nil

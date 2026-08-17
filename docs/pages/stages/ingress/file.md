@@ -43,7 +43,7 @@ Additional interfaces: `message.Serializable`. `GetBytes()` returns `Chunk`.
 
 ## Metrics
 
---8<-- "ingress/metrics/file_stage.doc.md"
+--8<-- "ingress/metrics/docs/file_stage.metrics.doc.md"
 
 ## Internals
 

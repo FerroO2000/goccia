@@ -81,7 +81,7 @@ The stage is intentionally single-threaded and does not accept a running mode.
 
 ## Metrics
 
---8<-- "processor/metrics/aggregate_stage.doc.md"
+--8<-- "processor/metrics/docs/aggregate_stage.metrics.doc.md"
 
 The common processor processed-message counter is incremented by the number of
 input messages placed into emitted batches.

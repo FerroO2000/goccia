@@ -57,7 +57,7 @@ Additional interfaces: `message.Serializable`. `GetBytes()` returns `Value`.
 
 ## Metrics
 
---8<-- "ingress/metrics/kafka_stage.doc.md"
+--8<-- "ingress/metrics/docs/kafka_stage.metrics.doc.md"
 
 ## Internals
 
