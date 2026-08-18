@@ -143,7 +143,7 @@ func (m *HttpStage) RecordHttpServerRequestDuration(
 }
 
 // RecordHttpServerRequestDurationWithAttributes records the given value
-// ans attributes into the histogram metric.
+// and attributes into the histogram metric.
 //
 // HttpServerRequestDuration: Duration of HTTP server requests from handler entry until the response is written.
 func (m *HttpStage) RecordHttpServerRequestDurationWithAttributes(
@@ -202,7 +202,7 @@ func (m *HttpStage) RecordHttpServerRequestBodySize(
 }
 
 // RecordHttpServerRequestBodySizeWithAttributes records the given value
-// ans attributes into the histogram metric.
+// and attributes into the histogram metric.
 //
 // HttpServerRequestBodySize: Size of HTTP request bodies observed by the server, including partially read bodies.
 func (m *HttpStage) RecordHttpServerRequestBodySizeWithAttributes(
@@ -239,7 +239,7 @@ func (m *HttpStage) RecordHttpServerResponseBodySize(
 }
 
 // RecordHttpServerResponseBodySizeWithAttributes records the given value
-// ans attributes into the histogram metric.
+// and attributes into the histogram metric.
 //
 // HttpServerResponseBodySize: Size of HTTP response bodies successfully written by the server.
 func (m *HttpStage) RecordHttpServerResponseBodySizeWithAttributes(
@@ -292,7 +292,7 @@ func (m *HttpStage) RecordGocciaHttpIngressQueueWaitDuration(
 }
 
 // RecordGocciaHttpIngressQueueWaitDurationWithAttributes records the given value
-// ans attributes into the histogram metric.
+// and attributes into the histogram metric.
 //
 // GocciaHttpIngressQueueWaitDuration: Time spent waiting to enqueue an HTTP request message for downstream processing.
 func (m *HttpStage) RecordGocciaHttpIngressQueueWaitDurationWithAttributes(
@@ -345,7 +345,7 @@ func (m *HttpStage) RecordGocciaHttpIngressResponseWaitDuration(
 }
 
 // RecordGocciaHttpIngressResponseWaitDurationWithAttributes records the given value
-// ans attributes into the histogram metric.
+// and attributes into the histogram metric.
 //
 // GocciaHttpIngressResponseWaitDuration: Time spent waiting for a downstream response after a successful queue handoff.
 func (m *HttpStage) RecordGocciaHttpIngressResponseWaitDurationWithAttributes(

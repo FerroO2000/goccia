@@ -1,6 +1,10 @@
 package pkg
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+	"strconv"
+)
 
 func isEmpty(field string) bool {
 	return field == ""
@@ -8,6 +12,35 @@ func isEmpty(field string) bool {
 
 func requiredFieldErr(kind, fieldName string) error {
 	return fmt.Errorf("%s: field '%s' is required", kind, fieldName)
+}
+
+func calculateBucketBounds(lower, upper float64) []float64 {
+	mantissas := [...]float64{1, 2.5, 5}
+
+	exponent := int(math.Floor(math.Log10(lower)))
+	var bounds []float64
+
+	for {
+		for _, mantissa := range mantissas {
+			// Construct the decimal value directly. Multiplying a mantissa by
+			// math.Pow can land one ULP away from the intended decimal value
+			// (for example, 2.4999999999999998e-06 instead of 2.5e-06).
+			literal := strconv.FormatFloat(mantissa, 'f', -1, 64) + "e" + strconv.Itoa(exponent)
+			bound, _ := strconv.ParseFloat(literal, 64)
+
+			if bound < lower {
+				continue
+			}
+
+			if bound > upper {
+				return bounds
+			}
+
+			bounds = append(bounds, bound)
+		}
+
+		exponent++
+	}
 }
 
 type namedListItem interface {
@@ -41,14 +74,18 @@ func validateNamedList[T namedListItem](kind string, items []T, validateFn func(
 type specValidator struct {
 	spec *Spec
 
-	attributeSets map[string]*AttributeSet
+	attributeSets    map[string]*AttributeSet
+	bucketBoundsSets map[string]*BucketBoundsSet
+	errorTypes       map[string]*ErrorType
 }
 
 func newSpecValidator(spec *Spec) *specValidator {
 	return &specValidator{
 		spec: spec,
 
-		attributeSets: make(map[string]*AttributeSet, len(spec.AttributeSets)),
+		attributeSets:    make(map[string]*AttributeSet, len(spec.AttributeSets)),
+		bucketBoundsSets: make(map[string]*BucketBoundsSet, len(spec.BucketBoundsSets)),
+		errorTypes:       make(map[string]*ErrorType, len(spec.ErrorTypes)),
 	}
 }
 
@@ -59,6 +96,18 @@ func (v *specValidator) validate() error {
 
 	for _, attributeSet := range v.spec.AttributeSets {
 		if err := v.validateAttributeSet(attributeSet); err != nil {
+			return err
+		}
+	}
+
+	for _, bucketBoundsSet := range v.spec.BucketBoundsSets {
+		if err := v.validateBucketBoundsSet(bucketBoundsSet); err != nil {
+			return err
+		}
+	}
+
+	for _, errType := range v.spec.ErrorTypes {
+		if err := v.validateErrorType(errType); err != nil {
 			return err
 		}
 	}
@@ -104,6 +153,69 @@ func (v *specValidator) validateAttributeSet(attributeSet *AttributeSet) error {
 	return nil
 }
 
+func (v *specValidator) validateBucketBoundsSet(bucketBoundsSet *BucketBoundsSet) error {
+	if isEmpty(bucketBoundsSet.Name) {
+		return requiredFieldErr("bucket_bounds_set", "name")
+	}
+
+	if _, ok := v.bucketBoundsSets[bucketBoundsSet.Name]; ok {
+		return fmt.Errorf("duplicated bucket bounds set name '%s'", bucketBoundsSet.Name)
+	}
+
+	lower := bucketBoundsSet.LowerBound
+	upper := bucketBoundsSet.UpperBound
+	if lower != 0 && upper != 0 {
+		// Calculate the bounds
+		if lower < 0 {
+			return fmt.Errorf("invalid lower bound '%f'", lower)
+		}
+
+		if upper < 0 {
+			return fmt.Errorf("invalid upper bound '%f'", upper)
+		}
+
+		if upper < lower {
+			return fmt.Errorf("upper bound '%f' is less than lower bound '%f'", upper, lower)
+		}
+
+		bucketBoundsSet.Bounds = calculateBucketBounds(lower, upper)
+	}
+
+	v.bucketBoundsSets[bucketBoundsSet.Name] = bucketBoundsSet
+
+	return nil
+}
+
+func (v *specValidator) validateError(err *Error) error {
+	if isEmpty(err.Name) {
+		return requiredFieldErr("error", "name")
+	}
+
+	if isEmpty(err.Value) {
+		return requiredFieldErr("error", "value")
+	}
+
+	return nil
+}
+
+func (v *specValidator) validateErrorType(errType *ErrorType) error {
+	if isEmpty(errType.Name) {
+		return requiredFieldErr("error_type", "name")
+	}
+
+	if _, ok := v.errorTypes[errType.Name]; ok {
+		return fmt.Errorf("duplicated error type name '%s'", errType.Name)
+	}
+
+	if err := validateNamedList("error", errType.Errors, v.validateError); err != nil {
+		return err
+	}
+
+	v.errorTypes[errType.Name] = errType
+
+	return nil
+}
+
 func (v *specValidator) validateMetric(metric *Metric) error {
 	if isEmpty(metric.Name) {
 		return requiredFieldErr("metric", "name")
@@ -128,6 +240,24 @@ func (v *specValidator) validateMetric(metric *Metric) error {
 
 	if err := validateNamedList("attribute", metric.Attributes, v.validateAttribute); err != nil {
 		return err
+	}
+
+	if len(metric.BucketBounds) == 0 && !isEmpty(metric.BucketBoundsSet) {
+		set, ok := v.bucketBoundsSets[metric.BucketBoundsSet]
+		if !ok {
+			return fmt.Errorf("unknown bucket bounds set '%s'", metric.BucketBoundsSet)
+		}
+
+		metric.BucketBounds = set.Bounds
+	}
+
+	if !isEmpty(metric.ErrorType) {
+		errType, ok := v.errorTypes[metric.ErrorType]
+		if !ok {
+			return fmt.Errorf("unknown error type '%s'", metric.ErrorType)
+		}
+
+		metric.ErrorTypeRef = errType
 	}
 
 	return nil

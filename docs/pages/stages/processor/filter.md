@@ -45,7 +45,7 @@ argument, not through the config object.
 
 ## Metrics
 
---8<-- "processor/metrics/filter_stage.doc.md"
+--8<-- "processor/metrics/docs/filter_stage.metrics.doc.md"
 
 ## Internals
 

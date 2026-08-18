@@ -32,7 +32,7 @@ func (m *{{ .StructType }}) Record{{ .TitleName }}(
 }
 
 // Record{{ .TitleName }}WithAttributes records the given value 
-// ans attributes into the histogram metric.
+// and attributes into the histogram metric.
 {{ template "methodDescComment" .Metric -}}
 func (m *{{ .StructType }}) Record{{ .TitleName }}WithAttributes(
     ctx context.Context,
@@ -45,4 +45,22 @@ func (m *{{ .StructType }}) Record{{ .TitleName }}WithAttributes(
         attributes,
     )
 }
+
+{{ if .Metric.ErrorTypeRef -}}
+{{ $errTypeMap := print ( .Metric.ErrorTypeRef.Name | toLowerCamelCase ) "ErrorTypes" -}}
+// Record{{ .TitleName }}WithErrorType records the given value 
+// and the error type into the histogram metric.
+{{ template "methodDescComment" .Metric -}}
+func (m *{{ .StructType }}) Record{{ .TitleName }}WithErrorType(
+    ctx context.Context,
+    value {{ .Metric.DataType | getDataType}},
+    errorType {{ print ( .Metric.ErrorTypeRef.Name | toUpperCamelCase ) "ErrorType" }},
+) {
+    m.{{ .MetricVar }}.RecordWithAttributes(
+        ctx,
+        value,
+        m.{{ $errTypeMap }}[errorType],
+    )
+}
+{{- end }}
 {{- end }}

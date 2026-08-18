@@ -69,3 +69,18 @@ func (m *{{ .StructType }}) Decrement{{ .TitleName }}() {
 attribute.{{ $method }}("{{ .Name }}", {{ .Arg }}),
 {{ end -}}
 {{ end -}}
+
+{{ define "errorTypeDefinition" -}}
+{{ $type := print ( .Name | toUpperCamelCase ) "ErrorType" -}}
+type {{ $type }} string
+
+const(
+{{ range .ErrorTypes -}}
+{{ $errType := print $type ( .Name | toUpperCamelCase ) -}}
+{{ if .Description -}}
+    // {{ $errType }}: {{ .Description }}
+{{ end -}}
+    {{ $errType }} {{ $type }} = "{{ .Value }}"
+{{ end -}}
+)
+{{ end -}}

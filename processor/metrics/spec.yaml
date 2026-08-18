@@ -1,4 +1,35 @@
 package: metrics
+
+bucket_bounds_sets:
+  - name: micro_to_10_second
+    lower_bound: 0.000001
+    upper_bound: 10
+
+error_types:
+  - name: json_decoder
+    errors:
+      - name: input_too_large
+        value: goccia.json.input_too_large
+      - name: null_rejected
+        value: goccia.json.null_rejected
+      - name: trailing_value
+        value: goccia.json.trailing_value
+      - name: syntax_error
+        value: goccia.json.syntax_error
+      - name: type_error
+        value: goccia.json.type_error
+      - name: unknown_field
+        value: goccia.json.unknown_field
+
+  - name: json_encoder
+    errors:
+      - name: unsupported_type
+        value: goccia.json.unsupported_type
+      - name: unsupported_value
+        value: goccia.json.unsupported_value
+      - name: marshaler_error
+        value: goccia.json.marshaler_error
+
 groups:
   - name: aggregate_stage
     metrics:
@@ -16,6 +47,33 @@ groups:
     metrics:
       - name: filtered_messages
         type: counter
+
+  - name: json_encoder
+    metrics:
+      - name: goccia.json.encoder.operation.duration
+        type: histogram
+        data_type: float
+        unit: s
+        bucket_bounds_set: micro_to_10_second
+        error_type: json_encoder
+
+      - name: goccia.json.encoder.output.size
+        type: histogram
+        unit: By
+
+  - name: json_decoder
+    metrics:
+      - name: goccia.json.decoder.operation.duration
+        type: histogram
+        data_type: float
+        unit: s
+        bucket_bounds_set: micro_to_10_second
+        error_type: json_decoder
+
+      - name: goccia.json.decoder.input.size
+        type: histogram
+        unit: By
+        error_type: json_decoder
 
   - name: tee_stage
     metrics:

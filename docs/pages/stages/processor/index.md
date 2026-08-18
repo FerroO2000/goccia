@@ -16,6 +16,8 @@ Processor stages read from an input connector and write to an output connector.
 | Generic | [Router](router.md) | `processor.NewRouterStage` | Single runner | Route each message to one output |
 | CSV | [Decoder](csv-decoder.md) | `processor.NewCSVDecoderStage` | [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool } | Bytes to typed CSV rows |
 | CSV | [Encoder](csv-encoder.md) | `processor.NewCSVEncoderStage` | [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool } | Typed CSV rows to bytes |
+| JSON | [Decoder](json-decoder.md) | `processor.NewJSONDecoderStage` | [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool } | JSON bytes to typed Go values |
+| JSON | [Encoder](json-encoder.md) | `processor.NewJSONEncoderStage` | [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool } | Typed Go values to JSON bytes |
 | CAN | [CAN](can.md) | `processor.NewCANStage` | [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool } | Raw CAN frames to decoded signals |
 | Cannelloni | [Decoder](cannelloni-decoder.md) | `processor.NewCannelloniDecoderStage` | [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool } | Cannelloni bytes to CAN frames |
 | Cannelloni | [Encoder](cannelloni-encoder.md) | `processor.NewCannelloniEncoderStage` | [Pool-capable](../../concepts/stages.md#pooled-execution-mode){ .stage-badge .stage-badge--pool } | CAN frames to Cannelloni bytes |

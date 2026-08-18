@@ -49,7 +49,7 @@ This egress stage produces no downstream output message.
 
 ## Metrics
 
---8<-- "egress/metrics/quest_db_stage.doc.md"
+--8<-- "egress/metrics/docs/quest_db_stage.metrics.doc.md"
 
 ## Internals
 
