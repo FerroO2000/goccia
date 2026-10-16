@@ -1,0 +1,32 @@
+.md-typeset table:not([class]) {
+  display: table;
+  width: 100%;
+}
+
+.md-typeset table:not([class]) th,
+.md-typeset table:not([class]) td {
+  width: auto;
+}
+
+.md-typeset .stage-badge {
+  display: inline-flex;
+  align-items: center;
+  margin: 0.1rem 0 0.8rem;
+  padding: 0.08rem 0.45rem;
+  border: 0.05rem solid currentcolor;
+  border-radius: 999rem;
+  font-size: 0.64rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.md-typeset .stage-badge--pool {
+  background: var(--md-accent-fg-color--transparent);
+  color: var(--md-accent-fg-color);
+}
+
+.md-typeset table .stage-badge {
+  margin: 0;
+}
