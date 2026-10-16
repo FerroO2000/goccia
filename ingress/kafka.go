@@ -344,7 +344,6 @@ func (kr *kafkaRunner) handleMessage(ctx context.Context, msg *kafka.Message) *m
 }
 
 func (kr *kafkaRunner) Close(ctx context.Context) {
-	kr.Close(ctx)
 	kr.reader.Close()
 }
 
